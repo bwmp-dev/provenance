@@ -1,0 +1,27 @@
+{
+  "name": "@bwmp-dev/api-client",
+  "version": "0.1.0-alpha.1",
+  "description": "Generated type-safe client for the Provenance public API",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "generate": "openapi-typescript ../../openapi/provenance.v1.yaml -o src/gen/schema.d.ts",
+    "test": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "openapi-fetch": "0.17.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "license": "Apache-2.0"
+}

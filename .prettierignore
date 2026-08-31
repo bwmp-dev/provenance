@@ -1,4 +1,5 @@
 AGENTS.md
+packages/api-client/src/gen/
 packages/runner-protocol/src/gen/
 # Gradle owns generated build reports and copied resources.
 **/build/

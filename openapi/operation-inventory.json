@@ -1,0 +1,254 @@
+[
+  {
+    "method": "post",
+    "operationId": "completeArtifactUpload",
+    "path": "/v1/artifacts/{artifactId}/complete",
+    "tag": "artifacts"
+  },
+  {
+    "method": "get",
+    "operationId": "getArtifact",
+    "path": "/v1/artifacts/{artifactId}",
+    "tag": "artifacts"
+  },
+  {
+    "method": "post",
+    "operationId": "createDeviceAuthorization",
+    "path": "/v1/auth/device-authorizations",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "exchangeGitHubOidcToken",
+    "path": "/v1/auth/github-oidc/exchanges",
+    "tag": "authentication"
+  },
+  {
+    "method": "delete",
+    "operationId": "deleteCurrentSession",
+    "path": "/v1/auth/session",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "getCurrentSession",
+    "path": "/v1/auth/session",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "createSession",
+    "path": "/v1/auth/sessions",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "createGitHubConnection",
+    "path": "/v1/github/connections",
+    "tag": "github"
+  },
+  {
+    "method": "get",
+    "operationId": "listGitHubInstallations",
+    "path": "/v1/github/installations",
+    "tag": "github"
+  },
+  {
+    "method": "post",
+    "operationId": "receiveGitHubWebhook",
+    "path": "/v1/github/webhooks",
+    "tag": "github"
+  },
+  {
+    "method": "delete",
+    "operationId": "deleteIntegration",
+    "path": "/v1/integrations/{integrationId}",
+    "tag": "integrations"
+  },
+  {
+    "method": "get",
+    "operationId": "getIntegration",
+    "path": "/v1/integrations/{integrationId}",
+    "tag": "integrations"
+  },
+  {
+    "method": "patch",
+    "operationId": "updateIntegration",
+    "path": "/v1/integrations/{integrationId}",
+    "tag": "integrations"
+  },
+  {
+    "method": "post",
+    "operationId": "createOrganization",
+    "path": "/v1/organizations",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "listOrganizations",
+    "path": "/v1/organizations",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "post",
+    "operationId": "createProject",
+    "path": "/v1/organizations/{organizationId}/projects",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "listProjects",
+    "path": "/v1/organizations/{organizationId}/projects",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "getOrganizationUsage",
+    "path": "/v1/organizations/{organizationId}/usage",
+    "tag": "usage"
+  },
+  {
+    "method": "post",
+    "operationId": "createRunnerRegistration",
+    "path": "/v1/organizations/{organizationId}/runners",
+    "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "listRunners",
+    "path": "/v1/organizations/{organizationId}/runners",
+    "tag": "runners"
+  },
+  {
+    "method": "delete",
+    "operationId": "deleteOrganization",
+    "path": "/v1/organizations/{organizationId}",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "getOrganization",
+    "path": "/v1/organizations/{organizationId}",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "patch",
+    "operationId": "updateOrganization",
+    "path": "/v1/organizations/{organizationId}",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "post",
+    "operationId": "createArtifactUpload",
+    "path": "/v1/projects/{projectId}/artifacts/uploads",
+    "tag": "artifacts"
+  },
+  {
+    "method": "post",
+    "operationId": "createIntegration",
+    "path": "/v1/projects/{projectId}/integrations",
+    "tag": "integrations"
+  },
+  {
+    "method": "get",
+    "operationId": "listIntegrations",
+    "path": "/v1/projects/{projectId}/integrations",
+    "tag": "integrations"
+  },
+  {
+    "method": "post",
+    "operationId": "createReleaseCandidate",
+    "path": "/v1/projects/{projectId}/release-candidates",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "delete",
+    "operationId": "deleteProject",
+    "path": "/v1/projects/{projectId}",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "getProject",
+    "path": "/v1/projects/{projectId}",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "patch",
+    "operationId": "updateProject",
+    "path": "/v1/projects/{projectId}",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "getPublicReleaseBadge",
+    "path": "/v1/public/{ownerSlug}/{projectSlug}/versions/{version}/badge.svg",
+    "tag": "verification"
+  },
+  {
+    "method": "get",
+    "operationId": "getPublicRelease",
+    "path": "/v1/public/{ownerSlug}/{projectSlug}/versions/{version}",
+    "tag": "verification"
+  },
+  {
+    "method": "post",
+    "operationId": "approveReleaseCandidate",
+    "path": "/v1/release-candidates/{candidateId}/approve",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "post",
+    "operationId": "cancelReleaseCandidate",
+    "path": "/v1/release-candidates/{candidateId}/cancel",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "get",
+    "operationId": "listReleaseCandidateEvents",
+    "path": "/v1/release-candidates/{candidateId}/events",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "post",
+    "operationId": "retryReleaseCandidate",
+    "path": "/v1/release-candidates/{candidateId}/retry",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "get",
+    "operationId": "getReleaseCandidate",
+    "path": "/v1/release-candidates/{candidateId}",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "post",
+    "operationId": "rotateRunnerCredentials",
+    "path": "/v1/runners/{runnerId}/credentials/rotate",
+    "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "getRunner",
+    "path": "/v1/runners/{runnerId}",
+    "tag": "runners"
+  },
+  {
+    "method": "patch",
+    "operationId": "updateRunner",
+    "path": "/v1/runners/{runnerId}",
+    "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "getVerificationAttestation",
+    "path": "/v1/verifications/{verificationId}/attestation",
+    "tag": "verification"
+  },
+  {
+    "method": "get",
+    "operationId": "getVerification",
+    "path": "/v1/verifications/{verificationId}",
+    "tag": "verification"
+  }
+]
