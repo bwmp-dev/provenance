@@ -471,6 +471,8 @@ test("release workflow resumes from an immutable tag with trusted verifier code"
     workflow,
     /ref: \$\{\{ needs\.validate\.outputs\.policy_sha \}\}/,
   );
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /"\$policy_sha" != "\$GITHUB_SHA"/);
   assert.match(
     workflow,
     /Reviewed release commit is no longer the current main tip before tag creation/,

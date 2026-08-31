@@ -33,7 +33,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: refs/heads/main
+          ref: ${{ github.sha }}
       - name: Validate release request
         id: release
         env:
@@ -51,13 +51,12 @@ jobs:
             exit 1
           fi
           git fetch origin main:refs/remotes/origin/main --no-tags
-          main_sha="$(git rev-parse HEAD)"
-          if [[ "$main_sha" != "$(git rev-parse origin/main)" ]]; then
-            echo "Release checkout does not match the reviewed main tip." >&2
+          policy_sha="$(git rev-parse HEAD)"
+          if [[ "$policy_sha" != "$GITHUB_SHA" ]]; then
+            echo "Release checkout does not match the immutable workflow-dispatch commit." >&2
             exit 1
           fi
-          source_sha="$main_sha"
-          policy_sha="$main_sha"
+          source_sha="$policy_sha"
           tag="v$VERSION"
           if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" 2>/dev/null)"; then
             tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
@@ -72,6 +71,9 @@ jobs:
               exit 1
             fi
             source_sha="$tagged_sha"
+          elif [[ "$policy_sha" != "$(git rev-parse origin/main)" ]]; then
+            echo "The immutable workflow-dispatch commit is no longer the current main tip before tag creation." >&2
+            exit 1
           fi
           commit_timestamp="$(git show -s --format=%ct "$source_sha")"
           created_at="$(date --utc --date="@$commit_timestamp" +%Y-%m-%dT%H:%M:%SZ)"
