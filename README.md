@@ -33,8 +33,10 @@ with a frozen install in CI; general-purpose formatters do not rewrite it.
 
 Paper fixtures and the trusted lifecycle probe use the checked-in Gradle wrapper.
 `pnpm check` compiles and tests the probe, builds only the bounded fixture set,
-and verifies fixture hashes. Hostile fixture builds require an explicit Gradle
-task and hostile payload execution requires a separate JVM property.
+and verifies fixture and Paper API artifact hashes. The Paper API dependency
+graph is locked, and its mutable upstream snapshot is additionally pinned by
+content hash. Hostile fixture builds require an explicit Gradle task and hostile
+payload execution requires a separate JVM property.
 
 ## License
 

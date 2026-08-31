@@ -75,12 +75,19 @@ project(":paper-api-stubs") {
 project(":paper-probe") {
     version = "0.1.0"
 
+    def paperApiVersion = "1.21.8-R0.1-SNAPSHOT"
+    def paperApiArtifact = configurations.create("paperApiArtifact") {
+        canBeConsumed = false
+        transitive = false
+    }
+
     dependencyLocking {
         lockAllConfigurations()
     }
 
     dependencies {
-        compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
+        compileOnly("io.papermc.paper:paper-api:${paperApiVersion}")
+        add(paperApiArtifact.name, "io.papermc.paper:paper-api:${paperApiVersion}")
         implementation("org.snakeyaml:snakeyaml-engine:2.10")
         testImplementation(platform("org.junit:junit-bom:6.0.3"))
         testImplementation("org.junit.jupiter:junit-jupiter")
@@ -97,6 +104,22 @@ project(":paper-probe") {
         }) {
             exclude("META-INF/MANIFEST.MF", "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/*.SF")
         }
+    }
+
+    def stagedPaperApi = layout.buildDirectory.dir("dependency-verification/paper-api")
+    tasks.register("stagePaperApiArtifact", Sync) {
+        from(paperApiArtifact)
+        into(stagedPaperApi)
+    }
+    tasks.register("verifyPaperApiArtifact", Exec) {
+        group = "verification"
+        dependsOn("stagePaperApiArtifact")
+        commandLine(
+            "node",
+            rootProject.file("scripts/verify-paper-api.mjs"),
+            stagedPaperApi.get().asFile,
+            "aab18363ca5a1aaadd4e2716ee0de50bc26f352901af962177d86484baff7478",
+        )
     }
 }
 
@@ -147,7 +170,11 @@ tasks.register("resolveAndLockAll") {
 }
 
 tasks.named("check") {
-    dependsOn(":paper-probe:check", "verifySafeFixtureArtifacts")
+    dependsOn(
+        ":paper-probe:check",
+        ":paper-probe:verifyPaperApiArtifact",
+        "verifySafeFixtureArtifacts",
+    )
 }
 
 tasks.named("assemble") {
