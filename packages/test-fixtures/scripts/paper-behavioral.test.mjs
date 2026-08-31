@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -12,6 +13,27 @@ import {
 
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
 const testData = resolve(import.meta.dirname, "../test-data");
+
+test("accepts the package manager argument delimiter", () => {
+  const packageManager = process.platform === "win32" ? "cmd.exe" : "pnpm";
+  const arguments_ =
+    process.platform === "win32"
+      ? ["/d", "/s", "/c", "pnpm.cmd run paper:behavioral -- --help"]
+      : ["run", "paper:behavioral", "--", "--help"];
+  const result = spawnSync(packageManager, arguments_, {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    timeout: 30_000,
+    windowsHide: true,
+  });
+
+  assert.equal(result.error, undefined, result.error?.message);
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(
+    `${result.stdout}\n${result.stderr}`,
+    /Usage: pnpm run paper:behavioral/,
+  );
+});
 
 test("loads the exact pinned Paper artifact and benign matrix", async () => {
   const configuration = await loadHarnessConfiguration(

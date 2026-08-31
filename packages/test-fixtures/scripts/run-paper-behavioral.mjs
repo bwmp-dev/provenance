@@ -595,6 +595,7 @@ function parseArguments(arguments_) {
   };
   for (let index = 0; index < arguments_.length; index++) {
     const argument = arguments_[index];
+    if (argument === "--") continue;
     if (argument === "--help") {
       result.help = true;
       continue;
