@@ -1873,6 +1873,7 @@ type ObjectDownload struct {
 	Digest        *Digest                `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
 	Filename      string                 `protobuf:"bytes,3,opt,name=filename,proto3" json:"filename,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,5,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1933,6 +1934,13 @@ func (x *ObjectDownload) GetExpiresAt() *timestamppb.Timestamp {
 		return x.ExpiresAt
 	}
 	return nil
+}
+
+func (x *ObjectDownload) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
 }
 
 type ObjectUpload struct {
@@ -2849,13 +2857,15 @@ const file_common_proto_rawDesc = "" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\n" +
-	"\x10\x10\"\xb5\x01\n" +
+	"\x10\x10\"\xd4\x01\n" +
 	"\x0eObjectDownload\x12\x10\n" +
 	"\x03uri\x18\x01 \x01(\tR\x03uri\x124\n" +
 	"\x06digest\x18\x02 \x01(\v2\x1c.provenance.runner.v1.DigestR\x06digest\x12\x1a\n" +
 	"\bfilename\x18\x03 \x01(\tR\bfilename\x129\n" +
 	"\n" +
-	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAtJ\x04\b\x05\x10\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x05 \x01(\x03R\tsizeBytesJ\x04\b\x06\x10\n" +
 	"\"\x84\x01\n" +
 	"\fObjectUpload\x12\x10\n" +
 	"\x03uri\x18\x01 \x01(\tR\x03uri\x12!\n" +

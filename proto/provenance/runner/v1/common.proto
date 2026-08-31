@@ -195,8 +195,9 @@ message ObjectDownload {
   Digest digest = 2;
   string filename = 3;
   google.protobuf.Timestamp expires_at = 4;
+  int64 size_bytes = 5;
 
-  reserved 5 to 9;
+  reserved 6 to 9;
 }
 
 message ObjectUpload {
