@@ -818,35 +818,53 @@ async function verifyConsumers(bundleRoots, version) {
 
   {
     const root = rootFor("paper-metadata");
-    const artifact = resolve(root, "fixtures/success.jar");
-    const expectedHash = digest(await readFile(artifact));
+    const inspector = resolve(root, "paper-metadata-inspector.jar");
+    const schema = resolve(root, "schema/schema.json");
     const java =
       process.platform === "win32" && process.env.JAVA_HOME
         ? resolve(process.env.JAVA_HOME, "bin/java.exe")
         : process.env.JAVA_HOME
           ? resolve(process.env.JAVA_HOME, "bin/java")
           : "java";
-    const result = spawnSync(
-      java,
-      [
-        "-jar",
-        resolve(root, "paper-metadata-inspector.jar"),
-        "--expected-sha256",
-        expectedHash,
-        artifact,
-      ],
-      { cwd: root, encoding: "utf8", shell: false },
-    );
-    invariant(
-      result.error === undefined && result.status === 0,
-      `released Paper metadata inspector failed\n${[result.stdout, result.stderr].filter(Boolean).join("\n")}`,
-    );
-    invariant(
-      result.stderr === "",
-      "released Paper metadata inspector emitted diagnostics for a valid fixture",
-    );
+    const inspect = async (artifact) => {
+      const expectedHash = digest(await readFile(artifact));
+      const result = spawnSync(
+        java,
+        ["-jar", inspector, "--expected-sha256", expectedHash, artifact],
+        { cwd: root, encoding: "utf8", shell: false },
+      );
+      invariant(
+        result.error === undefined && result.status === 0,
+        `released Paper metadata inspector failed\n${[result.stdout, result.stderr].filter(Boolean).join("\n")}`,
+      );
+      invariant(
+        result.stderr === "",
+        "released Paper metadata inspector emitted diagnostics for a handled result",
+      );
+      const python = process.platform === "win32" ? "python" : "python3";
+      const validation = spawnSync(
+        python,
+        [
+          resolve(
+            repositoryDirectory,
+            "schemas/paper-metadata/test_contract.py",
+          ),
+          "--validate-result",
+          schema,
+        ],
+        { encoding: "utf8", input: result.stdout, shell: false },
+      );
+      invariant(
+        validation.error === undefined && validation.status === 0,
+        `released Paper metadata inspector output violates the shipped schema\n${[validation.stdout, validation.stderr].filter(Boolean).join("\n")}`,
+      );
+      return { document: JSON.parse(result.stdout), expectedHash };
+    };
+
+    const artifact = resolve(root, "fixtures/success.jar");
+    const { document, expectedHash } = await inspect(artifact);
     exactObject(
-      JSON.parse(result.stdout),
+      document,
       {
         schemaVersion: "provenance.paper-metadata/v1",
         artifactSha256: expectedHash,
@@ -866,6 +884,63 @@ async function verifyConsumers(bundleRoots, version) {
       },
       "released Paper metadata inspector result differs",
     );
+
+    const fixtureDirectory = await mkdtemp(
+      join(tmpdir(), "provenance-paper-metadata-results-"),
+    );
+    try {
+      const jar =
+        process.platform === "win32" && process.env.JAVA_HOME
+          ? resolve(process.env.JAVA_HOME, "bin/jar.exe")
+          : process.env.JAVA_HOME
+            ? resolve(process.env.JAVA_HOME, "bin/jar")
+            : "jar";
+      const missingSource = resolve(fixtureDirectory, "missing-source");
+      const invalidSource = resolve(fixtureDirectory, "invalid-source");
+      await mkdir(missingSource);
+      await mkdir(invalidSource);
+      await writeFile(resolve(missingSource, "README.txt"), "no metadata\n");
+      await writeFile(
+        resolve(invalidSource, "plugin.yml"),
+        Buffer.from([0xc3, 0x28]),
+      );
+      const missingArtifact = resolve(fixtureDirectory, "missing.jar");
+      const invalidArtifact = resolve(fixtureDirectory, "invalid.jar");
+      run(
+        jar,
+        ["--create", "--file", missingArtifact, "-C", missingSource, "."],
+        fixtureDirectory,
+        "Paper missing-metadata fixture build",
+      );
+      run(
+        jar,
+        ["--create", "--file", invalidArtifact, "-C", invalidSource, "."],
+        fixtureDirectory,
+        "Paper invalid-metadata fixture build",
+      );
+      exactObject(
+        (await inspect(missingArtifact)).document,
+        {
+          schemaVersion: "provenance.paper-metadata/v1",
+          artifactSha256: digest(await readFile(missingArtifact)),
+          status: "missing",
+          issues: ["plugin_metadata_missing"],
+        },
+        "released Paper missing-metadata result differs",
+      );
+      exactObject(
+        (await inspect(invalidArtifact)).document,
+        {
+          schemaVersion: "provenance.paper-metadata/v1",
+          artifactSha256: digest(await readFile(invalidArtifact)),
+          status: "invalid",
+          issues: ["plugin_metadata_utf8_invalid"],
+        },
+        "released Paper invalid-metadata result differs",
+      );
+    } finally {
+      await rm(fixtureDirectory, { force: true, recursive: true });
+    }
   }
 
   {

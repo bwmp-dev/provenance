@@ -1,5 +1,7 @@
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
 
 plugins {
     id "base"
@@ -97,7 +99,55 @@ project(":paper-probe") {
         testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     }
 
+    def runtimeDependencyInventory = layout.projectDirectory.file("runtime-dependencies.json")
+    def paperProbeRuntimeArtifacts = configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+        def id = artifact.moduleVersion.id
+        [coordinate: "${id.group}:${artifact.name}:${id.version}".toString(), path: artifact.file.absolutePath]
+    }
+    tasks.register("verifyRuntimeDependencyArtifacts") {
+        group = "verification"
+        inputs.file(runtimeDependencyInventory)
+        inputs.files(paperProbeRuntimeArtifacts.collect { artifact -> artifact.path })
+        doLast {
+            def inventory = new JsonSlurper().parse(runtimeDependencyInventory.asFile)
+            if (!(inventory instanceof List)) {
+                throw new GradleException("runtime dependency inventory must be an array")
+            }
+            def expectedFields = ["artifact", "checksum", "group", "license", "version"] as Set
+            def expected = [:]
+            inventory.each { dependency ->
+                if (!(dependency instanceof Map) || dependency.keySet() as Set != expectedFields) {
+                    throw new GradleException("runtime dependency inventory entry has invalid fields")
+                }
+                def coordinate = "${dependency.group}:${dependency.artifact}:${dependency.version}".toString()
+                if (expected.put(coordinate, dependency) != null) {
+                    throw new GradleException("runtime dependency inventory contains duplicate coordinate: ${coordinate}")
+                }
+                if (!(dependency.checksum ==~ /[0-9a-f]{64}/) || !(dependency.license instanceof String) || dependency.license.isEmpty()) {
+                    throw new GradleException("runtime dependency inventory entry is invalid: ${coordinate}")
+                }
+            }
+
+            def resolved = [:]
+            paperProbeRuntimeArtifacts.each { artifact ->
+                if (resolved.put(artifact.coordinate, new File(artifact.path)) != null) {
+                    throw new GradleException("runtime classpath contains duplicate coordinate: ${artifact.coordinate}")
+                }
+            }
+            if (expected.keySet() != resolved.keySet()) {
+                throw new GradleException("runtime dependency inventory differs from resolved runtimeClasspath")
+            }
+            resolved.each { coordinate, artifact ->
+                def actual = MessageDigest.getInstance("SHA-256").digest(artifact.bytes).encodeHex().toString()
+                if (actual != expected[coordinate].checksum) {
+                    throw new GradleException("runtime dependency checksum differs: ${coordinate}")
+                }
+            }
+        }
+    }
+
     tasks.named("jar") {
+        dependsOn("verifyRuntimeDependencyArtifacts")
         archiveFileName = "paper-probe-${project.version}.jar"
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         manifest {
@@ -126,6 +176,9 @@ project(":paper-probe") {
             stagedPaperApi.get().asFile,
             "aab18363ca5a1aaadd4e2716ee0de50bc26f352901af962177d86484baff7478",
         )
+    }
+    tasks.named("check") {
+        dependsOn("verifyRuntimeDependencyArtifacts")
     }
 }
 

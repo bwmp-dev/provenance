@@ -12,6 +12,10 @@ service RunnerGateway {
   rpc Connect(stream RunnerMessage) returns (stream GatewayMessage);
 }
 
+// With DURABLE_LEASE_ACKNOWLEDGEMENTS, the gateway MUST acknowledge LeaseAccepted,
+// LeaseRejected, LeaseRenewal, JobPreparing, JobStarted, JobCompleted, JobFailed, and JobCancelled
+// with RunnerEventAcknowledgement. Authenticate, Capabilities, LogBatch, and UsageReport do not
+// receive durability acknowledgements.
 message RunnerMessage {
   string message_id = 1;
   google.protobuf.Timestamp sent_at = 2;
@@ -89,6 +93,10 @@ message HeartbeatLease {
   reserved 4 to 9;
 }
 
+// Every heartbeat receives a HeartbeatAcknowledgement after commit. Its reconciliations MUST
+// contain exactly one matching item per active_leases item and no extras; missing or duplicate
+// items are protocol errors. Omitted gateway-owned leases remain subject to normal offer,
+// cancellation, and expiry recovery and are not implicitly released.
 message Heartbeat {
   uint64 sequence = 1;
   Capacity capacity = 2;
@@ -295,7 +303,10 @@ message RunnerEventAcknowledgement {
   reserved 4 to 9;
 }
 
-// Confirms the heartbeat sequence only after its state and authoritative reconciliations commit.
+// Confirms every heartbeat only after its state and authoritative reconciliations commit. An exact
+// duplicate message ID and payload re-acks the same ID and sequence with ALREADY_APPLIED for every
+// lease; a zero-lease acknowledgement confirms the prior commit itself. Reusing an ID with another
+// payload, or a sequence with another ID, is a transport conflict.
 message HeartbeatAcknowledgement {
   string runner_message_id = 1;
   uint64 sequence = 2;

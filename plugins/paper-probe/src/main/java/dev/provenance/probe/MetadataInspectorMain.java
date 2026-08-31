@@ -69,6 +69,9 @@ public final class MetadataInspectorMain {
 
       MetadataInspection inspection = new PluginMetadataDiscovery().inspect(staged);
       output.print(Json.value(result(expectedSha256, inspection)) + "\n");
+      if (output.checkError()) {
+        return fail(error, EXIT_OPERATIONAL, "result_write_failed");
+      }
       return 0;
     } catch (ArtifactTooLargeException exception) {
       return fail(error, EXIT_INPUT, "artifact_too_large");
@@ -157,7 +160,9 @@ public final class MetadataInspectorMain {
       return "artifact_signature_invalid";
     }
     if (issue.equals("plugin artifact is not a readable JAR")
-        || issue.equals("plugin artifact must be a regular file")) {
+        || issue.equals("plugin artifact must be a regular file")
+        || issue.equals("plugin artifact exceeds verification limits")
+        || issue.equals("plugin artifact contains duplicate entries")) {
       return "artifact_invalid";
     }
     if (issue.equals("plugin metadata must be a regular JAR entry")) {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/bwmp-dev/provenance/schemas/paper-metadata/v1/schema.json",
+  "$id": "https://schemas.provenance.dev/paper-metadata/v1/schema.json",
   "title": "Provenance Paper metadata inspection",
   "type": "object",
   "additionalProperties": false,
@@ -11,7 +11,11 @@
     },
     "artifactSha256": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "not": {
+        "type": "string",
+        "pattern": "[\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]"
+      }
     },
     "status": {
       "enum": ["valid", "missing", "invalid"]
@@ -53,7 +57,11 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+      "pattern": "^[^ \\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF](?:[^\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]*[^ \\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF])?$",
+      "not": {
+        "type": "string",
+        "pattern": "[\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]"
+      }
     },
     "dependencyList": {
       "type": "array",
@@ -63,7 +71,11 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 64,
-        "pattern": "^[A-Za-z0-9_. -]+$"
+        "pattern": "^[A-Za-z0-9_.-]+$",
+        "not": {
+          "type": "string",
+          "pattern": "[\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]"
+        }
       }
     },
     "plugin": {
@@ -85,7 +97,19 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 64,
-          "pattern": "^[A-Za-z0-9_. -]+$"
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "not": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "[\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?:[Bb][Uu][Kk][Kk][Ii][Tt]|[Mm][Ii][Nn][Ee][Cc][Rr][Aa][Ff][Tt]|[Mm][Oo][Jj][Aa][Nn][Gg]|[Ss][Pp][Ii][Gg][Oo][Tt]|[Pp][Aa][Pp][Ee][Rr])$"
+              }
+            ]
+          }
         },
         "version": {
           "$ref": "#/$defs/boundedString"
@@ -94,13 +118,21 @@
           "type": "string",
           "minLength": 3,
           "maxLength": 512,
-          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$",
+          "not": {
+            "type": "string",
+            "pattern": "[\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]"
+          }
         },
         "apiVersion": {
           "type": ["string", "null"],
           "minLength": 1,
           "maxLength": 32,
-          "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+          "pattern": "^[^ \\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF](?:[^\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]*[^ \\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF])?$",
+          "not": {
+            "type": "string",
+            "pattern": "[\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]"
+          }
         },
         "requiredDependencies": {
           "$ref": "#/$defs/dependencyList"

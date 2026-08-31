@@ -80,6 +80,7 @@ function runGradleBuild(...tasks) {
     0,
     `Gradle build failed\n${result.stdout}\n${result.stderr}`,
   );
+  return result;
 }
 
 function privilegedBoundaryVerification(directory) {
@@ -231,7 +232,17 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       "../plugins/paper-probe/build/libs/paper-probe-0.1.0.jar",
     );
     const firstInspector = await readFile(inspectorJar);
-    runGradleBuild(":paper-probe:clean", ":paper-probe:jar");
+    const inspectorRebuild = runGradleBuild(
+      ":paper-probe:clean",
+      ":paper-probe:jar",
+      "--no-build-cache",
+      "--rerun-tasks",
+    );
+    assert.doesNotMatch(
+      `${inspectorRebuild.stdout}\n${inspectorRebuild.stderr}`,
+      /FROM-CACHE/,
+      "Paper metadata inspector reproducibility rebuild used cached task output",
+    );
     assert.deepEqual(
       await readFile(inspectorJar),
       firstInspector,

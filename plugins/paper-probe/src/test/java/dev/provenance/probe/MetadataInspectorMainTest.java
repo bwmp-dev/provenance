@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystemException;
@@ -76,6 +77,7 @@ class MetadataInspectorMainTest {
             name: PaperPlugin
             version: 2.0.0
             main: example.PaperPlugin
+            api-version: '1.21'
             dependencies:
               bootstrap:
                 Bootstrap:
@@ -99,7 +101,7 @@ class MetadataInspectorMainTest {
             + hash
             + "\",\"status\":\"valid\",\"issues\":[],\"plugin\":{"
             + "\"name\":\"PaperPlugin\",\"version\":\"2.0.0\","
-            + "\"mainClass\":\"example.PaperPlugin\",\"apiVersion\":null,"
+            + "\"mainClass\":\"example.PaperPlugin\",\"apiVersion\":\"1.21\","
             + "\"requiredDependencies\":[\"Bootstrap\"],"
             + "\"softDependencies\":[\"OptionalAfter\"],"
             + "\"loadBeforeDependencies\":[\"OptionalAfter\"],"
@@ -206,6 +208,44 @@ class MetadataInspectorMainTest {
             + "\"invalid\",\"issues\":[\"plugin_metadata_yaml_invalid\"]}\n",
         invocation.output());
     assertEquals("", invocation.error());
+  }
+
+  @Test
+  void failsWhenTheResultCannotBeWritten() throws Exception {
+    Path artifact =
+        writeJar(
+            "write-failure.jar",
+            "plugin.yml",
+            """
+            name: WriteFailure
+            version: 1.0.0
+            main: example.WriteFailure
+            """
+                .getBytes(StandardCharsets.UTF_8));
+    ByteArrayOutputStream error = new ByteArrayOutputStream();
+    int exitCode;
+    try (PrintStream output =
+            new PrintStream(
+                new OutputStream() {
+                  @Override
+                  public void write(int value) throws IOException {
+                    throw new IOException("simulated closed output");
+                  }
+                },
+                true,
+                StandardCharsets.UTF_8);
+        PrintStream errorStream = new PrintStream(error, true, StandardCharsets.UTF_8)) {
+      exitCode =
+          MetadataInspectorMain.run(
+              new String[] {"--expected-sha256", sha256(artifact), artifact.toString()},
+              output,
+              errorStream);
+    }
+
+    assertNotEquals(0, exitCode);
+    assertEquals(
+        "paper_metadata_inspector:result_write_failed\n",
+        error.toString(StandardCharsets.UTF_8));
   }
 
   private static String resultPrefix(String hash) {

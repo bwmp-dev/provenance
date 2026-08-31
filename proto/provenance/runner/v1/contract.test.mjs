@@ -8,6 +8,10 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const contractDirectory = dirname(fileURLToPath(import.meta.url));
+const gatewaySource = readFileSync(
+  join(contractDirectory, "runner_gateway.proto"),
+  "utf8",
+);
 const snapshot = JSON.parse(
   readFileSync(join(contractDirectory, "contract.snapshot.json"), "utf8"),
 );
@@ -296,6 +300,51 @@ test("runner v1 descriptor matches the compatibility snapshot", () => {
   } finally {
     rmSync(temporaryDirectory, { force: true, recursive: true });
   }
+});
+
+test("durable acknowledgement semantics remain normative", () => {
+  for (const event of [
+    "LeaseAccepted",
+    "LeaseRejected",
+    "LeaseRenewal",
+    "JobPreparing",
+    "JobStarted",
+    "JobCompleted",
+    "JobFailed",
+    "JobCancelled",
+  ]) {
+    assert.match(
+      gatewaySource,
+      new RegExp(
+        `MUST acknowledge[\\s\\S]{0,200}\\b${event}\\b|\\b${event}\\b[\\s\\S]{0,200}RunnerEventAcknowledgement`,
+      ),
+    );
+  }
+  assert.match(
+    gatewaySource,
+    /Authenticate, Capabilities, LogBatch, and(?:\s*\/\/)?\s*UsageReport do not(?:\s*\/\/)?\s*receive durability acknowledgements/,
+  );
+  assert.match(
+    gatewaySource,
+    /Every heartbeat receives a HeartbeatAcknowledgement after commit/,
+  );
+  assert.match(
+    gatewaySource,
+    /exactly one matching item per active_leases item and no extras/,
+  );
+  assert.match(gatewaySource, /not implicitly released/);
+  assert.match(
+    gatewaySource,
+    /exact\s*\/\/ duplicate message ID and payload re-acks the same ID and sequence with ALREADY_APPLIED/,
+  );
+  assert.match(
+    gatewaySource,
+    /zero-lease acknowledgement confirms the prior commit/,
+  );
+  assert.match(
+    gatewaySource,
+    /sequence with another ID, is a transport conflict/,
+  );
 });
 
 test(

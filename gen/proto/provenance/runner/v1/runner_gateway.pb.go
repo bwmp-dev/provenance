@@ -197,6 +197,10 @@ func (LeaseStatus) EnumDescriptor() ([]byte, []int) {
 	return file_runner_gateway_proto_rawDescGZIP(), []int{2}
 }
 
+// With DURABLE_LEASE_ACKNOWLEDGEMENTS, the gateway MUST acknowledge LeaseAccepted,
+// LeaseRejected, LeaseRenewal, JobPreparing, JobStarted, JobCompleted, JobFailed, and JobCancelled
+// with RunnerEventAcknowledgement. Authenticate, Capabilities, LogBatch, and UsageReport do not
+// receive durability acknowledgements.
 type RunnerMessage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	MessageId string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
@@ -911,6 +915,10 @@ func (x *HeartbeatLease) GetPhase() JobPhase {
 	return JobPhase_JOB_PHASE_UNSPECIFIED
 }
 
+// Every heartbeat receives a HeartbeatAcknowledgement after commit. Its reconciliations MUST
+// contain exactly one matching item per active_leases item and no extras; missing or duplicate
+// items are protocol errors. Omitted gateway-owned leases remain subject to normal offer,
+// cancellation, and expiry recovery and are not implicitly released.
 type Heartbeat struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Sequence      uint64                 `protobuf:"varint,1,opt,name=sequence,proto3" json:"sequence,omitempty"`
@@ -2231,7 +2239,10 @@ func (x *RunnerEventAcknowledgement) GetCommittedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// Confirms the heartbeat sequence only after its state and authoritative reconciliations commit.
+// Confirms every heartbeat only after its state and authoritative reconciliations commit. An exact
+// duplicate message ID and payload re-acks the same ID and sequence with ALREADY_APPLIED for every
+// lease; a zero-lease acknowledgement confirms the prior commit itself. Reusing an ID with another
+// payload, or a sequence with another ID, is a transport conflict.
 type HeartbeatAcknowledgement struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	RunnerMessageId string                 `protobuf:"bytes,1,opt,name=runner_message_id,json=runnerMessageId,proto3" json:"runner_message_id,omitempty"`
