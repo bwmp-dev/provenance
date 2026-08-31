@@ -454,6 +454,12 @@ test("release workflow reconciles a verified draft without overwriting assets", 
   );
   assert.doesNotMatch(workflow, /gh release upload[^\n]*--clobber/);
   assert.doesNotMatch(workflow, /gh release create/);
+  assert.match(workflow, /pnpm run release:contracts\n/);
+  assert.match(workflow, /pnpm run release:verify\n/);
+  assert.doesNotMatch(
+    workflow,
+    /pnpm (?:run )?release:(?:contracts|verify) --/,
+  );
 });
 
 test("release workflow resumes from an immutable tag with trusted verifier code", async () => {

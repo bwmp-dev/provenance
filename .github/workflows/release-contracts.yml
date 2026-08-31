@@ -130,14 +130,14 @@ jobs:
       - run: pnpm check
       - name: Build contract archives
         run: >-
-          pnpm release:contracts --
+          pnpm run release:contracts
           --version "${{ needs.validate.outputs.version }}"
           --source-commit "${{ needs.validate.outputs.source_sha }}"
           --created-at "${{ needs.validate.outputs.created_at }}"
           --output dist/contracts
       - name: Verify contract archives and isolated consumers
         run: >-
-          pnpm release:verify --
+          pnpm run release:verify
           --version "${{ needs.validate.outputs.version }}"
           --directory dist/contracts
           --consumers

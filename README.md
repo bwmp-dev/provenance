@@ -56,8 +56,8 @@ source commit, and an RFC 3339 UTC timestamp derived from that commit:
 
 ```sh
 pnpm check
-pnpm release:contracts -- --version 1.2.3 --source-commit "$COMMIT" --created-at 2026-08-30T00:00:00Z
-pnpm release:verify -- --version 1.2.3 --consumers
+pnpm run release:contracts --version 1.2.3 --source-commit "$COMMIT" --created-at 2026-08-30T00:00:00Z
+pnpm run release:verify --version 1.2.3 --consumers
 ```
 
 The manual workflow validates its SemVer input before installing dependencies,
