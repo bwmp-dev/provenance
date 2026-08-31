@@ -245,6 +245,8 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
       data.put("mainClass", descriptor.mainClass());
       data.put("apiVersion", descriptor.apiVersion());
       data.put("requiredDependencies", descriptor.requiredDependencies());
+      data.put("softDependencies", descriptor.softDependencies());
+      data.put("loadBeforeDependencies", descriptor.loadBeforeDependencies());
       data.put("permissions", descriptor.permissions());
       data.put("commands", descriptor.commands());
     }
@@ -294,16 +296,13 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
                 discovery
                     .undeclaredConfiguredDependencies(target, configuration.requiredDependencies())
                     .forEach(
-                        dependency ->
-                            emit(
-                                EventType.METADATA_SUGGESTION,
-                                Map.of(
-                                    "plugin",
-                                    target.name(),
-                                    "dependency",
-                                    dependency,
-                                    "suggestion",
-                                    "declare as a required dependency"))));
+                        dependency -> {
+                          LinkedHashMap<String, Object> data = new LinkedHashMap<>();
+                          data.put("plugin", target.name());
+                          data.put("dependency", dependency);
+                          data.put("suggestion", "declare as a required dependency");
+                          emit(EventType.METADATA_SUGGESTION, data);
+                        }));
   }
 
   private List<PluginSnapshot> snapshots() {
