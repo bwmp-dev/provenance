@@ -1873,7 +1873,7 @@ type ObjectDownload struct {
 	Digest        *Digest                `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
 	Filename      string                 `protobuf:"bytes,3,opt,name=filename,proto3" json:"filename,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	SizeBytes     int64                  `protobuf:"varint,5,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,10,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2865,7 +2865,8 @@ const file_common_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1d\n" +
 	"\n" +
-	"size_bytes\x18\x05 \x01(\x03R\tsizeBytesJ\x04\b\x06\x10\n" +
+	"size_bytes\x18\n" +
+	" \x01(\x03R\tsizeBytesJ\x04\b\x05\x10\n" +
 	"\"\x84\x01\n" +
 	"\fObjectUpload\x12\x10\n" +
 	"\x03uri\x18\x01 \x01(\tR\x03uri\x12!\n" +

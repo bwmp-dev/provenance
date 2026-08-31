@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "47f55b63c80bc19342bd4b3318ee936f254151cf5728c59ea7b0cf31a5fe7287",
+  "descriptorSha256": "1a96292ff791ce82af7dc34a97cf1fa00ef3cb5f3b7290ac656014e87149d701",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -117,7 +117,7 @@
       "2": "digest",
       "3": "filename",
       "4": "expires_at",
-      "5": "size_bytes"
+      "10": "size_bytes"
     },
     "JobSpecification": {
       "1": "lease",
@@ -159,7 +159,7 @@
       [3, 10],
       [17, 30]
     ],
-    "ObjectDownload": [[6, 10]]
+    "ObjectDownload": [[5, 10]]
   },
   "reservedNames": {
     "Authenticate": ["registration_token"],
