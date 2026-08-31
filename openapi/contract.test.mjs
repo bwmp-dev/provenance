@@ -92,9 +92,19 @@ test("every mutation has deterministic idempotency semantics", () => {
       parameter,
       `${method.toUpperCase()} ${path} lacks Idempotency-Key`,
     );
+    const conflictReference = operation.responses["409"]?.$ref;
+    assert.match(
+      conflictReference,
+      /^#\/components\/responses\/[A-Za-z0-9]+$/,
+      operation.operationId,
+    );
+    const conflict =
+      document.components.responses[conflictReference.split("/").at(-1)];
+    assert.match(conflict.description, /idempotency/i, operation.operationId);
     assert.equal(
-      operation.responses["409"]?.$ref,
-      "#/components/responses/IdempotencyConflict",
+      conflict.content["application/problem+json"].schema.$ref,
+      "#/components/schemas/ProblemDetails",
+      operation.operationId,
     );
     if (operation.operationId !== "receiveGitHubWebhook") {
       assert.equal(parameter.required, true, operation.operationId);
@@ -186,10 +196,7 @@ test("configuration snapshot creation preserves canonical source identity", () =
     "createdAt",
   ]);
   assert.equal(snapshot.properties.schemaVersion.const, 1);
-  assert.equal(
-    createSnapshot.responses["201"].headers.Location.schema.format,
-    "uri-reference",
-  );
+  assert.equal(createSnapshot.responses["201"].headers, undefined);
   assert.equal(
     createSnapshot.responses["422"].$ref,
     "#/components/responses/Problem",
@@ -204,12 +211,35 @@ test("configuration snapshot creation preserves canonical source identity", () =
   );
   assert.match(
     createCandidate.properties.configurationSnapshotId.description,
-    /New clients send this with configurationHash/,
+    /must identify a snapshot in the path project whose hash equals configurationHash/,
+  );
+  assert.match(
+    createCandidate.properties.configurationSnapshotId.description,
+    /zero or multiple matches fail with HTTP 409/,
   );
   assert.equal(
     document.components.schemas.ReleaseCandidate.properties
-      .configurationSnapshotId.allOf[0].$ref,
-    "#/components/schemas/StableId",
+      .configurationSnapshotId,
+    undefined,
+  );
+
+  const candidateConflict =
+    document.components.responses.ReleaseCandidateConflict;
+  assert.equal(
+    operation("createReleaseCandidate").responses["409"].$ref,
+    "#/components/responses/ReleaseCandidateConflict",
+  );
+  for (const code of [
+    "configuration_snapshot_not_found",
+    "configuration_snapshot_mismatch",
+    "configuration_snapshot_ambiguous",
+  ]) {
+    assert.match(candidateConflict.description, new RegExp(code));
+  }
+  assert.match(candidateConflict.description, /exactly one snapshot/);
+  assert.match(
+    candidateConflict.description,
+    /All listed conflicts use HTTP 409/,
   );
 });
 

@@ -804,7 +804,7 @@ export interface components {
         };
         CreateReleaseCandidateRequest: {
             artifactId: components["schemas"]["StableId"];
-            /** @description Exact immutable snapshot identity. New clients send this with configurationHash; hash-only requests remain compatible only while the hash identifies one project snapshot. */
+            /** @description Exact immutable snapshot identity. It must identify a snapshot in the path project whose hash equals configurationHash. When omitted, configurationHash must identify exactly one snapshot in that project; zero or multiple matches fail with HTTP 409. */
             configurationSnapshotId?: components["schemas"]["StableId"];
             configurationHash: components["schemas"]["Sha256Digest"];
             version: string;
@@ -817,8 +817,6 @@ export interface components {
             id: components["schemas"]["StableId"];
             projectId: components["schemas"]["StableId"];
             artifactId: components["schemas"]["StableId"];
-            /** @description Exact immutable configuration snapshot used by the candidate. */
-            configurationSnapshotId?: components["schemas"]["StableId"];
             configurationHash: components["schemas"]["Sha256Digest"];
             version: string;
             state: components["schemas"]["ReleaseCandidateState"];
@@ -1148,6 +1146,29 @@ export interface components {
         };
         /** @description The idempotency key was reused with a different request. */
         IdempotencyConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /**
+         * @description Release candidate creation conflicted with an existing resource or
+         *     idempotency record. Reusing an idempotency key with a different request
+         *     returns code `idempotency_key_conflict`.
+         *
+         *     When `configurationSnapshotId` is present, the identified snapshot must
+         *     exist in the path project and its `configurationHash` must equal the
+         *     request value. A missing ID returns `configuration_snapshot_not_found`;
+         *     a project or hash mismatch returns `configuration_snapshot_mismatch`.
+         *
+         *     When `configurationSnapshotId` is absent, exactly one snapshot in the
+         *     path project must match `configurationHash`. Zero matches return
+         *     `configuration_snapshot_not_found`; multiple matches return
+         *     `configuration_snapshot_ambiguous`. All listed conflicts use HTTP 409.
+         */
+        ReleaseCandidateConflict: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1661,8 +1682,6 @@ export interface operations {
             /** @description Configuration snapshot created. */
             201: {
                 headers: {
-                    /** @description Canonical configuration snapshot resource URL. */
-                    Location: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1850,7 +1869,7 @@ export interface operations {
                     "application/json": components["schemas"]["ReleaseCandidate"];
                 };
             };
-            409: components["responses"]["IdempotencyConflict"];
+            409: components["responses"]["ReleaseCandidateConflict"];
             default: components["responses"]["Problem"];
         };
     };
