@@ -1,0 +1,71 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+        maven {
+            name = "PaperMC"
+            url = uri("https://repo.papermc.io/repository/maven-public/")
+            content {
+                includeGroup("io.papermc.paper")
+                includeGroup("com.mojang")
+                includeGroup("net.md-5")
+            }
+        }
+    }
+}
+
+rootProject.name = "provenance-public-toolkit"
+
+include(
+    ":paper-api-stubs",
+    ":fixture-success",
+    ":fixture-on-load-failure",
+    ":fixture-on-enable-failure",
+    ":fixture-missing-dependency",
+    ":fixture-command-success",
+    ":fixture-command-assertion-failure",
+    ":fixture-enable-hang",
+    ":fixture-process-exit",
+    ":fixture-memory-bomb",
+    ":fixture-fork-pid-bomb",
+    ":fixture-disk-fill",
+    ":fixture-network-scan",
+    ":fixture-metadata-endpoint",
+    ":fixture-log-flood",
+    ":paper-probe",
+)
+
+project(":paper-api-stubs").projectDir = file("packages/test-fixtures/paper-api-stubs")
+
+[
+    "success",
+    "on-load-failure",
+    "on-enable-failure",
+    "missing-dependency",
+    "command-success",
+    "command-assertion-failure",
+].each { fixture ->
+    project(":fixture-${fixture}").projectDir = file("packages/test-fixtures/benign/${fixture}")
+}
+
+[
+    "enable-hang",
+    "process-exit",
+    "memory-bomb",
+    "fork-pid-bomb",
+    "disk-fill",
+    "network-scan",
+    "metadata-endpoint",
+    "log-flood",
+].each { fixture ->
+    project(":fixture-${fixture}").projectDir = file("packages/test-fixtures/hostile/${fixture}")
+}
+
+project(":paper-probe").projectDir = file("plugins/paper-probe")

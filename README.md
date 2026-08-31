@@ -28,6 +28,16 @@ The authoritative contract sources live under `schemas` and `proto`. Package
 builds copy those sources into ignored `dist` directories; generated artifacts
 must be reproduced with `pnpm build`, never edited directly.
 
+`pnpm-lock.yaml` is generated only by the pinned pnpm release and is validated
+with a frozen install in CI; general-purpose formatters do not rewrite it.
+
+Paper fixtures and the trusted lifecycle probe use the checked-in Gradle wrapper.
+`pnpm check` compiles and tests the probe, builds only the bounded fixture set,
+and verifies fixture and Paper API artifact hashes. The Paper API dependency
+graph is locked, and its mutable upstream snapshot is additionally pinned by
+content hash. Hostile fixture builds require an explicit Gradle task and hostile
+payload execution requires a separate JVM property.
+
 ## License
 
 Licensed under the Apache License, Version 2.0. See `LICENSE`.

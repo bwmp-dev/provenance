@@ -1,0 +1,4 @@
+name: ProvenanceProcessExit
+version: 1.0.0
+main: dev.provenance.fixtures.hostile.ProcessExitPlugin
+api-version: "1.21"

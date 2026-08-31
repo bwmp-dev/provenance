@@ -1,0 +1,4 @@
+name: ProvenanceForkPidBomb
+version: 1.0.0
+main: dev.provenance.fixtures.hostile.ForkPidBombPlugin
+api-version: "1.21"

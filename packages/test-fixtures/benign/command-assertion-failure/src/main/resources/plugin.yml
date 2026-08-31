@@ -1,0 +1,7 @@
+name: ProvenanceCommandAssertionFailure
+version: 1.0.0
+main: dev.provenance.fixtures.CommandAssertionFailurePlugin
+api-version: "1.21"
+commands:
+  provenance-assertion-failure:
+    description: Emits output intentionally different from the test assertion

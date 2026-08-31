@@ -1,0 +1,21 @@
+name: ProvenanceProbe
+version: 0.1.0
+main: dev.provenance.probe.PaperProbePlugin
+api-version: "1.21"
+load: STARTUP
+description: Structured lifecycle instrumentation for Provenance Paper tests
+loadbefore:
+  - ProvenanceSuccess
+  - ProvenanceOnLoadFailure
+  - ProvenanceOnEnableFailure
+  - ProvenanceMissingDependency
+  - ProvenanceCommandSuccess
+  - ProvenanceCommandAssertionFailure
+  - ProvenanceEnableHang
+  - ProvenanceProcessExit
+  - ProvenanceMemoryBomb
+  - ProvenanceForkPidBomb
+  - ProvenanceDiskFill
+  - ProvenanceNetworkScan
+  - ProvenanceMetadataEndpoint
+  - ProvenanceLogFlood

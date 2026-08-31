@@ -3,6 +3,8 @@ dist/
 coverage/
 .turbo/
 .cache/
+/.gradle/
+/build/
 *.log
 .env
 .env.*
@@ -11,4 +13,3 @@ coverage/
 Thumbs.db
 .idea/
 .vscode/
-

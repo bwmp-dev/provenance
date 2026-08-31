@@ -1,0 +1,4 @@
+name: ProvenanceSuccess
+version: 1.0.0
+main: dev.provenance.fixtures.SuccessPlugin
+api-version: "1.21"

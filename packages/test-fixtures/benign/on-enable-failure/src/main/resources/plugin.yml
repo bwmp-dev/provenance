@@ -1,0 +1,4 @@
+name: ProvenanceOnEnableFailure
+version: 1.0.0
+main: dev.provenance.fixtures.OnEnableFailurePlugin
+api-version: "1.21"
