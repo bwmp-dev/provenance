@@ -249,6 +249,13 @@ paths:
       responses:
         "201":
           description: Project created.
+          headers:
+            Location:
+              description: Canonical project resource URL.
+              required: true
+              schema:
+                type: string
+                format: uri-reference
           content:
             application/json:
               schema:
@@ -1100,7 +1107,7 @@ components:
       description: RFC 3339 timestamp with an explicit UTC offset.
     Slug:
       type: string
-      pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+      pattern: ^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
       minLength: 1
       maxLength: 63
     Cursor:
@@ -1110,9 +1117,9 @@ components:
       description: Opaque pagination or event continuation cursor.
     IdempotencyKey:
       type: string
-      minLength: 1
-      maxLength: 255
-      pattern: ^[\x21-\x7E]+$
+      minLength: 8
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]{8,128}$
     Sha256Digest:
       type: string
       pattern: ^[a-f0-9]{64}$
@@ -1327,7 +1334,15 @@ components:
       type: object
       additionalProperties: false
       required:
-        [id, organizationId, slug, name, visibility, createdAt, updatedAt]
+        [
+          id,
+          organizationId,
+          slug,
+          displayName,
+          visibility,
+          createdAt,
+          updatedAt,
+        ]
       properties:
         id:
           $ref: "#/components/schemas/StableId"
@@ -1335,10 +1350,10 @@ components:
           $ref: "#/components/schemas/StableId"
         slug:
           $ref: "#/components/schemas/Slug"
-        name:
+        displayName:
           type: string
           minLength: 1
-          maxLength: 128
+          maxLength: 200
         visibility:
           type: string
           enum: [private, public]
@@ -1349,14 +1364,14 @@ components:
     CreateProjectRequest:
       type: object
       additionalProperties: false
-      required: [slug, name, visibility]
+      required: [slug, displayName, visibility]
       properties:
         slug:
           $ref: "#/components/schemas/Slug"
-        name:
+        displayName:
           type: string
           minLength: 1
-          maxLength: 128
+          maxLength: 200
         visibility:
           type: string
           enum: [private, public]
@@ -1365,10 +1380,10 @@ components:
       additionalProperties: false
       minProperties: 1
       properties:
-        name:
+        displayName:
           type: string
           minLength: 1
-          maxLength: 128
+          maxLength: 200
         visibility:
           type: string
           enum: [private, public]

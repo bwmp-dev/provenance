@@ -107,6 +107,38 @@ test("every mutation has deterministic idempotency semantics", () => {
     /same key and request returns the original outcome/,
   );
   assert.match(key.description, /different request conflicts/);
+
+  const keySchema = document.components.schemas.IdempotencyKey;
+  assert.equal(keySchema.minLength, 8);
+  assert.equal(keySchema.maxLength, 128);
+  assert.equal(keySchema.pattern, "^[A-Za-z0-9._:-]{8,128}$");
+});
+
+test("project creation matches the platform wire contract", () => {
+  const createProject = operation("createProject");
+  const createRequest = document.components.schemas.CreateProjectRequest;
+  const project = document.components.schemas.Project;
+
+  assert.deepEqual(createRequest.required, [
+    "slug",
+    "displayName",
+    "visibility",
+  ]);
+  assert.equal(createRequest.properties.name, undefined);
+  assert.equal(createRequest.properties.displayName.maxLength, 200);
+  assert.ok(project.required.includes("displayName"));
+  assert.ok(project.required.includes("updatedAt"));
+  assert.equal(project.properties.name, undefined);
+  assert.equal(project.properties.displayName.maxLength, 200);
+  assert.equal(
+    document.components.schemas.Slug.pattern,
+    "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+  );
+
+  const location = createProject.responses["201"].headers.Location;
+  assert.equal(location.required, true);
+  assert.equal(location.schema.type, "string");
+  assert.equal(location.schema.format, "uri-reference");
 });
 
 test("authentication, pagination, identifiers, timestamps, and states stay stable", () => {

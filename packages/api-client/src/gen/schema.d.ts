@@ -686,7 +686,7 @@ export interface components {
             id: components["schemas"]["StableId"];
             organizationId: components["schemas"]["StableId"];
             slug: components["schemas"]["Slug"];
-            name: string;
+            displayName: string;
             /** @enum {string} */
             visibility: "private" | "public";
             createdAt: components["schemas"]["Timestamp"];
@@ -694,12 +694,12 @@ export interface components {
         };
         CreateProjectRequest: {
             slug: components["schemas"]["Slug"];
-            name: string;
+            displayName: string;
             /** @enum {string} */
             visibility: "private" | "public";
         };
         UpdateProjectRequest: {
-            name?: string;
+            displayName?: string;
             /** @enum {string} */
             visibility?: "private" | "public";
         };
@@ -1515,6 +1515,8 @@ export interface operations {
             /** @description Project created. */
             201: {
                 headers: {
+                    /** @description Canonical project resource URL. */
+                    Location: string;
                     [name: string]: unknown;
                 };
                 content: {
