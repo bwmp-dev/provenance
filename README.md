@@ -24,9 +24,11 @@ Install the pinned toolchain with `pnpm install --frozen-lockfile`, then run
 golden configuration fixtures, validates and independently verifies the
 attestation vectors, and formats, lints, and snapshots the runner protocol.
 
-The authoritative contract sources live under `schemas` and `proto`. Package
-builds copy those sources into ignored `dist` directories; generated artifacts
-must be reproduced with `pnpm build`, never edited directly.
+The authoritative contract sources live under `schemas`, `proto`, and `openapi`.
+The public HTTP path/operation inventory is checked separately from the OpenAPI
+document so endpoint groups cannot silently disappear. `pnpm generate`
+reproduces the Protobuf stubs and the typed fetch client; generated artifacts
+must never be edited directly.
 
 `pnpm-lock.yaml` is generated only by the pinned pnpm release and is validated
 with a frozen install in CI; general-purpose formatters do not rewrite it.

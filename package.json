@@ -13,10 +13,12 @@
     "check:java": "node scripts/run-gradle.mjs :check",
     "format": "prettier --write \"**/*.{js,json,md,mjs,ts,yaml,yml}\" && buf format --write proto/provenance/runner/v1",
     "format:check": "prettier --check \"**/*.{js,json,md,mjs,ts,yaml,yml}\" && buf format --diff --exit-code proto/provenance/runner/v1",
-    "generate": "buf generate --template buf.gen.yaml",
-    "generate:check": "pnpm run generate && git diff --exit-code -- gen/proto packages/runner-protocol/src/gen",
-    "lint:contracts": "buf lint proto/provenance/runner/v1",
-    "test": "pnpm run build && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:proto",
+    "generate": "buf generate --template buf.gen.yaml && pnpm --filter @bwmp-dev/api-client generate",
+    "generate:check": "pnpm run generate && git diff --exit-code -- gen/proto packages/runner-protocol/src/gen packages/api-client/src/gen",
+    "lint:contracts": "buf lint proto/provenance/runner/v1 && pnpm run lint:openapi",
+    "lint:openapi": "redocly lint --config openapi/redocly.yaml",
+    "test": "pnpm run build && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:openapi && pnpm run test:proto",
+    "test:openapi": "node --test openapi/contract.test.mjs",
     "test:proto": "node --test proto/provenance/runner/v1/contract.test.mjs",
     "security:check": "pnpm audit --audit-level high && go -C gen/proto run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
     "test:python": "python schemas/config/test_contract.py && python schemas/attestation/test_contract.py",
@@ -25,6 +27,8 @@
   "devDependencies": {
     "@bufbuild/buf": "1.72.0",
     "@bufbuild/protoc-gen-es": "2.14.0",
-    "prettier": "3.9.6"
+    "@redocly/cli": "2.49.0",
+    "prettier": "3.9.6",
+    "yaml": "2.9.0"
   }
 }

@@ -1,0 +1,1852 @@
+openapi: 3.1.1
+info:
+  title: Provenance Public API
+  version: 1.0.0-alpha.1
+  description: >-
+    Authoritative public HTTP contract for Provenance. This document defines
+    resource shapes and protocol semantics; it does not prescribe private
+    platform implementation details.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+    description: Same-origin API endpoint.
+security:
+  - BearerAuth: []
+  - SessionCookie: []
+tags:
+  - name: authentication
+    description: User, automation, and GitHub OIDC authentication.
+  - name: organizations-projects
+    description: Tenant and project resources.
+  - name: github
+    description: GitHub App installations, repository connections, and webhooks.
+  - name: artifacts
+    description: Immutable plugin artifact upload and inspection.
+  - name: release-candidates
+    description: Release candidate lifecycle and events.
+  - name: verification
+    description: Verification records, attestations, public pages, and badges.
+  - name: integrations
+    description: Project release integrations.
+  - name: runners
+    description: Organization-scoped self-hosted runner management.
+  - name: usage
+    description: Organization usage observations.
+paths:
+  /v1/auth/sessions:
+    post:
+      operationId: createSession
+      summary: Create a browser session from a one-time exchange token
+      tags: [authentication]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateSession"
+      responses:
+        "201":
+          description: Session created.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/auth/session:
+    get:
+      operationId: getCurrentSession
+      summary: Read the current browser session
+      tags: [authentication]
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Current session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteCurrentSession
+      summary: Revoke the current browser session
+      tags: [authentication]
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/auth/device-authorizations:
+    post:
+      operationId: createDeviceAuthorization
+      summary: Begin a one-time device authorization
+      tags: [authentication]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateDeviceAuthorization"
+      responses:
+        "201":
+          description: Device authorization created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceAuthorization"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/auth/github-oidc/exchanges:
+    post:
+      operationId: exchangeGitHubOidcToken
+      summary: Exchange a GitHub Actions OIDC assertion for a scoped token
+      tags: [authentication]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/ExchangeGitHubOidcToken"
+      responses:
+        "200":
+          description: Scoped access token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessToken"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/organizations:
+    get:
+      operationId: listOrganizations
+      summary: List organizations visible to the caller
+      tags: [organizations-projects]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Organization page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationPage"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createOrganization
+      summary: Create an organization
+      tags: [organizations-projects]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateOrganization"
+      responses:
+        "201":
+          description: Organization created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/organizations/{organizationId}:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    get:
+      operationId: getOrganization
+      summary: Read an organization
+      tags: [organizations-projects]
+      responses:
+        "200":
+          description: Organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updateOrganization
+      summary: Update an organization
+      tags: [organizations-projects]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/UpdateOrganization"
+      responses:
+        "200":
+          description: Updated organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteOrganization
+      summary: Delete an organization
+      tags: [organizations-projects]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/organizations/{organizationId}/projects:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    get:
+      operationId: listProjects
+      summary: List projects in an organization
+      tags: [organizations-projects]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Project page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectPage"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createProject
+      summary: Create a project in an organization
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateProject"
+      responses:
+        "201":
+          description: Project created.
+          headers:
+            Location:
+              description: Canonical project resource URL.
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/projects/{projectId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: getProject
+      summary: Read a project
+      tags: [organizations-projects]
+      responses:
+        "200":
+          description: Project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updateProject
+      summary: Update a project
+      tags: [organizations-projects]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/UpdateProject"
+      responses:
+        "200":
+          description: Updated project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteProject
+      summary: Delete a project
+      tags: [organizations-projects]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/github/installations:
+    get:
+      operationId: listGitHubInstallations
+      summary: List GitHub App installations visible to the caller
+      tags: [github]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: GitHub installation page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubInstallationPage"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/github/connections:
+    post:
+      operationId: createGitHubConnection
+      summary: Connect a GitHub repository to a project
+      tags: [github]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateGitHubConnection"
+      responses:
+        "201":
+          description: GitHub repository connection created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubConnection"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/github/webhooks:
+    post:
+      operationId: receiveGitHubWebhook
+      summary: Receive a signed GitHub App webhook delivery
+      tags: [github]
+      security:
+        - GitHubWebhookSignature: []
+      parameters:
+        - $ref: "#/components/parameters/OptionalIdempotencyKey"
+        - $ref: "#/components/parameters/GitHubDeliveryId"
+        - $ref: "#/components/parameters/GitHubEvent"
+      requestBody:
+        $ref: "#/components/requestBodies/GitHubWebhook"
+      responses:
+        "202":
+          description: Webhook accepted for processing.
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/projects/{projectId}/artifacts/uploads:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    post:
+      operationId: createArtifactUpload
+      summary: Initiate an artifact upload
+      tags: [artifacts]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateArtifactUpload"
+      responses:
+        "201":
+          description: Artifact upload initiated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactUpload"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/artifacts/{artifactId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/ArtifactId"
+    post:
+      operationId: completeArtifactUpload
+      summary: Complete and independently verify an artifact upload
+      tags: [artifacts]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CompleteArtifactUpload"
+      responses:
+        "202":
+          description: Artifact verification accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artifact"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/artifacts/{artifactId}:
+    parameters:
+      - $ref: "#/components/parameters/ArtifactId"
+    get:
+      operationId: getArtifact
+      summary: Read artifact metadata and verification state
+      tags: [artifacts]
+      responses:
+        "200":
+          description: Artifact.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artifact"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/projects/{projectId}/release-candidates:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    post:
+      operationId: createReleaseCandidate
+      summary: Create a release candidate from immutable inputs
+      tags: [release-candidates]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateReleaseCandidate"
+      responses:
+        "201":
+          description: Release candidate created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseCandidate"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    get:
+      operationId: getReleaseCandidate
+      summary: Read a release candidate
+      tags: [release-candidates]
+      responses:
+        "200":
+          description: Release candidate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseCandidate"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/approve:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    post:
+      operationId: approveReleaseCandidate
+      summary: Approve a release candidate
+      tags: [release-candidates]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CandidateDecision"
+      responses:
+        "200":
+          description: Updated release candidate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseCandidate"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    post:
+      operationId: cancelReleaseCandidate
+      summary: Cancel a release candidate
+      tags: [release-candidates]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CandidateDecision"
+      responses:
+        "200":
+          description: Updated release candidate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseCandidate"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/retry:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    post:
+      operationId: retryReleaseCandidate
+      summary: Retry an eligible release candidate
+      tags: [release-candidates]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Retry accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseCandidate"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/events:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    get:
+      operationId: listReleaseCandidateEvents
+      summary: Read release events using an opaque reconnect cursor
+      tags: [release-candidates]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/LastEventId"
+      responses:
+        "200":
+          description: Release event page or server-sent event stream.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseEventPage"
+            text/event-stream:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/verifications/{verificationId}:
+    parameters:
+      - $ref: "#/components/parameters/VerificationId"
+    get:
+      operationId: getVerification
+      summary: Read a verification record
+      tags: [verification]
+      responses:
+        "200":
+          description: Verification record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Verification"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/verifications/{verificationId}/attestation:
+    parameters:
+      - $ref: "#/components/parameters/VerificationId"
+    get:
+      operationId: getVerificationAttestation
+      summary: Read the signed v1 attestation for a verification
+      tags: [verification]
+      responses:
+        "200":
+          description: Signed Provenance attestation.
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/attestation/v1/schema.json"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/public/{ownerSlug}/{projectSlug}/versions/{version}:
+    parameters:
+      - $ref: "#/components/parameters/OwnerSlug"
+      - $ref: "#/components/parameters/ProjectSlug"
+      - $ref: "#/components/parameters/Version"
+    get:
+      operationId: getPublicRelease
+      summary: Read a public release verification page model
+      tags: [verification]
+      security: []
+      responses:
+        "200":
+          description: Public release verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicRelease"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/public/{ownerSlug}/{projectSlug}/versions/{version}/badge.svg:
+    parameters:
+      - $ref: "#/components/parameters/OwnerSlug"
+      - $ref: "#/components/parameters/ProjectSlug"
+      - $ref: "#/components/parameters/Version"
+    get:
+      operationId: getPublicReleaseBadge
+      summary: Read the public SVG verification badge
+      tags: [verification]
+      security: []
+      responses:
+        "200":
+          description: SVG verification badge.
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/projects/{projectId}/integrations:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: listIntegrations
+      summary: List project integrations
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Integration page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationPage"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createIntegration
+      summary: Create a project integration shell
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateIntegration"
+      responses:
+        "201":
+          description: Integration created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Integration"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/integrations/{integrationId}:
+    parameters:
+      - $ref: "#/components/parameters/IntegrationId"
+    get:
+      operationId: getIntegration
+      summary: Read a project integration
+      tags: [integrations]
+      responses:
+        "200":
+          description: Integration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Integration"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updateIntegration
+      summary: Update a project integration
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/UpdateIntegration"
+      responses:
+        "200":
+          description: Updated integration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Integration"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteIntegration
+      summary: Delete a project integration
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/organizations/{organizationId}/runners:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    get:
+      operationId: listRunners
+      summary: List self-hosted runners in an organization
+      tags: [runners]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Runner page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunnerPage"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createRunnerRegistration
+      summary: Create a one-time self-hosted runner registration
+      tags: [runners]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateRunnerRegistration"
+      responses:
+        "201":
+          description: Runner registration created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunnerRegistration"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/runners/{runnerId}:
+    parameters:
+      - $ref: "#/components/parameters/RunnerId"
+    get:
+      operationId: getRunner
+      summary: Read a self-hosted runner
+      tags: [runners]
+      responses:
+        "200":
+          description: Runner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Runner"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updateRunner
+      summary: Update runner administrative state
+      tags: [runners]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/UpdateRunner"
+      responses:
+        "200":
+          description: Updated runner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Runner"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/runners/{runnerId}/credentials/rotate:
+    parameters:
+      - $ref: "#/components/parameters/RunnerId"
+    post:
+      operationId: rotateRunnerCredentials
+      summary: Rotate short-lived runner connection credentials
+      tags: [runners]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Rotated runner credential.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunnerCredential"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/organizations/{organizationId}/usage:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    get:
+      operationId: getOrganizationUsage
+      summary: Read organization usage for a bounded time range
+      tags: [usage]
+      parameters:
+        - $ref: "#/components/parameters/UsageFrom"
+        - $ref: "#/components/parameters/UsageTo"
+      responses:
+        "200":
+          description: Organization usage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usage"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: Capability- and tenant-scoped access token.
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: provenance_session
+      description: Secure browser session cookie.
+    GitHubWebhookSignature:
+      type: apiKey
+      in: header
+      name: X-Hub-Signature-256
+      description: GitHub HMAC-SHA256 webhook signature.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Caller-generated key scoped to the authenticated identity, HTTP method,
+        and route. Repeating the same key and request returns the original
+        outcome; reusing it with a different request conflicts.
+      schema:
+        $ref: "#/components/schemas/IdempotencyKey"
+    OptionalIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: >-
+        Optional caller key. GitHub webhook delivery identity remains anchored
+        by the required X-GitHub-Delivery header.
+      schema:
+        $ref: "#/components/schemas/IdempotencyKey"
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque continuation cursor returned by the preceding page.
+      schema:
+        $ref: "#/components/schemas/Cursor"
+    PageSize:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of resources to return.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    LastEventId:
+      name: Last-Event-ID
+      in: header
+      required: false
+      description: Opaque release-event reconnect cursor.
+      schema:
+        $ref: "#/components/schemas/Cursor"
+    OrganizationId:
+      name: organizationId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/StableId"
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/StableId"
+    ArtifactId:
+      name: artifactId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/StableId"
+    CandidateId:
+      name: candidateId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/StableId"
+    VerificationId:
+      name: verificationId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/StableId"
+    IntegrationId:
+      name: integrationId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/StableId"
+    RunnerId:
+      name: runnerId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/StableId"
+    OwnerSlug:
+      name: ownerSlug
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Slug"
+    ProjectSlug:
+      name: projectSlug
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Slug"
+    Version:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    GitHubDeliveryId:
+      name: X-GitHub-Delivery
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    GitHubEvent:
+      name: X-GitHub-Event
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+    UsageFrom:
+      name: from
+      in: query
+      required: true
+      schema:
+        $ref: "#/components/schemas/Timestamp"
+    UsageTo:
+      name: to
+      in: query
+      required: true
+      schema:
+        $ref: "#/components/schemas/Timestamp"
+  headers:
+    SessionCookie:
+      description: HttpOnly, Secure browser session cookie.
+      schema:
+        type: string
+  responses:
+    NoContent:
+      description: Mutation completed successfully.
+    Problem:
+      description: Request failed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    IdempotencyConflict:
+      description: The idempotency key was reused with a different request.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+  requestBodies:
+    CreateSession:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateSessionRequest"
+    CreateDeviceAuthorization:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateDeviceAuthorizationRequest"
+    ExchangeGitHubOidcToken:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ExchangeGitHubOidcTokenRequest"
+    CreateOrganization:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateOrganizationRequest"
+    UpdateOrganization:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UpdateOrganizationRequest"
+    CreateProject:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateProjectRequest"
+    UpdateProject:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UpdateProjectRequest"
+    CreateGitHubConnection:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateGitHubConnectionRequest"
+    GitHubWebhook:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    CreateArtifactUpload:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateArtifactUploadRequest"
+    CompleteArtifactUpload:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CompleteArtifactUploadRequest"
+    CreateReleaseCandidate:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateReleaseCandidateRequest"
+    CandidateDecision:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CandidateDecisionRequest"
+    CreateIntegration:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateIntegrationRequest"
+    UpdateIntegration:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UpdateIntegrationRequest"
+    CreateRunnerRegistration:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateRunnerRegistrationRequest"
+    UpdateRunner:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UpdateRunnerRequest"
+  schemas:
+    StableId:
+      type: string
+      format: uuid
+      description: Stable resource identifier.
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC 3339 timestamp with an explicit UTC offset.
+    Slug:
+      type: string
+      pattern: ^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
+      minLength: 1
+      maxLength: 63
+    Cursor:
+      type: string
+      minLength: 1
+      maxLength: 2048
+      description: Opaque pagination or event continuation cursor.
+    IdempotencyKey:
+      type: string
+      minLength: 8
+      maxLength: 128
+      pattern: ^[A-Za-z0-9._:-]{8,128}$
+    Sha256Digest:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    PageInfo:
+      type: object
+      additionalProperties: false
+      required: [hasMore]
+      properties:
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 2048
+    ProblemDetails:
+      type: object
+      description: RFC 9457 problem details with stable Provenance extensions.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+          minLength: 1
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+          pattern: ^[a-z][a-z0-9_]*$
+        traceId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProblemFieldError"
+      additionalProperties: true
+    ProblemFieldError:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        path:
+          type: string
+        message:
+          type: string
+          minLength: 1
+        code:
+          type: string
+          pattern: ^[a-z][a-z0-9_]*$
+    SessionState:
+      type: string
+      enum: [active, expired, revoked]
+    ArtifactState:
+      type: string
+      enum: [pending, uploaded, verifying, ready, rejected, deleted]
+    ReleaseCandidateState:
+      type: string
+      enum:
+        - pending
+        - testing
+        - awaiting_approval
+        - approved
+        - canceled
+        - failed
+        - publishing
+        - published
+    VerificationState:
+      type: string
+      enum: [pending, verified, failed]
+    IntegrationState:
+      type: string
+      enum: [active, disabled, error]
+    RunnerState:
+      type: string
+      enum: [offline, idle, busy, draining]
+    Session:
+      type: object
+      additionalProperties: false
+      required: [id, userId, state, createdAt, expiresAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        userId:
+          $ref: "#/components/schemas/StableId"
+        state:
+          $ref: "#/components/schemas/SessionState"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+    CreateSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [exchangeToken]
+      properties:
+        exchangeToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+    CreateDeviceAuthorizationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        clientName:
+          type: string
+          minLength: 1
+          maxLength: 128
+    DeviceAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        [deviceCode, userCode, verificationUri, expiresAt, intervalSeconds]
+      properties:
+        deviceCode:
+          type: string
+          minLength: 1
+          description: One-time device exchange secret.
+        userCode:
+          type: string
+          minLength: 1
+        verificationUri:
+          type: string
+          format: uri
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+        intervalSeconds:
+          type: integer
+          minimum: 1
+    ExchangeGitHubOidcTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [assertion]
+      properties:
+        assertion:
+          type: string
+          minLength: 1
+          writeOnly: true
+    AccessToken:
+      type: object
+      additionalProperties: false
+      required: [accessToken, tokenType, expiresAt]
+      properties:
+        accessToken:
+          type: string
+          minLength: 1
+          description: Short-lived scoped bearer token.
+        tokenType:
+          type: string
+          const: Bearer
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+    Organization:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        slug:
+          $ref: "#/components/schemas/Slug"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "#/components/schemas/Timestamp"
+    CreateOrganizationRequest:
+      type: object
+      additionalProperties: false
+      required: [slug, name]
+      properties:
+        slug:
+          $ref: "#/components/schemas/Slug"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+    UpdateOrganizationRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+    OrganizationPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Organization"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    Project:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          organizationId,
+          slug,
+          displayName,
+          visibility,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        organizationId:
+          $ref: "#/components/schemas/StableId"
+        slug:
+          $ref: "#/components/schemas/Slug"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        visibility:
+          type: string
+          enum: [private, public]
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "#/components/schemas/Timestamp"
+    CreateProjectRequest:
+      type: object
+      additionalProperties: false
+      required: [slug, displayName, visibility]
+      properties:
+        slug:
+          $ref: "#/components/schemas/Slug"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        visibility:
+          type: string
+          enum: [private, public]
+    UpdateProjectRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        visibility:
+          type: string
+          enum: [private, public]
+    ProjectPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    GitHubInstallation:
+      type: object
+      additionalProperties: false
+      required: [id, githubInstallationId, accountLogin, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        githubInstallationId:
+          type: integer
+          minimum: 1
+        accountLogin:
+          type: string
+          minLength: 1
+          maxLength: 255
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+    GitHubInstallationPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GitHubInstallation"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    GitHubConnection:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - projectId
+        - installationId
+        - repositoryId
+        - repositoryFullName
+        - createdAt
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        projectId:
+          $ref: "#/components/schemas/StableId"
+        installationId:
+          $ref: "#/components/schemas/StableId"
+        repositoryId:
+          type: integer
+          minimum: 1
+        repositoryFullName:
+          type: string
+          pattern: ^[^/]+/[^/]+$
+          maxLength: 512
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+    CreateGitHubConnectionRequest:
+      type: object
+      additionalProperties: false
+      required: [projectId, installationId, repositoryId, repositoryFullName]
+      properties:
+        projectId:
+          $ref: "#/components/schemas/StableId"
+        installationId:
+          $ref: "#/components/schemas/StableId"
+        repositoryId:
+          type: integer
+          minimum: 1
+        repositoryFullName:
+          type: string
+          pattern: ^[^/]+/[^/]+$
+          maxLength: 512
+    ArtifactUpload:
+      type: object
+      additionalProperties: false
+      required: [artifactId, uploadUrl, expiresAt]
+      properties:
+        artifactId:
+          $ref: "#/components/schemas/StableId"
+        uploadUrl:
+          type: string
+          format: uri
+          description: Short-lived presigned upload URL.
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+          description: Headers that must accompany the presigned upload.
+    CreateArtifactUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [fileName, sizeBytes, sha256]
+      properties:
+        fileName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sizeBytes:
+          type: integer
+          minimum: 1
+        sha256:
+          $ref: "#/components/schemas/Sha256Digest"
+    CompleteArtifactUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [sizeBytes, sha256]
+      properties:
+        sizeBytes:
+          type: integer
+          minimum: 1
+        sha256:
+          $ref: "#/components/schemas/Sha256Digest"
+    Artifact:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          projectId,
+          fileName,
+          sizeBytes,
+          sha256,
+          state,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        projectId:
+          $ref: "#/components/schemas/StableId"
+        fileName:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 1
+        sha256:
+          $ref: "#/components/schemas/Sha256Digest"
+        state:
+          $ref: "#/components/schemas/ArtifactState"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "#/components/schemas/Timestamp"
+    CreateReleaseCandidateRequest:
+      type: object
+      additionalProperties: false
+      required: [artifactId, configurationHash, version]
+      properties:
+        artifactId:
+          $ref: "#/components/schemas/StableId"
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+        version:
+          type: string
+          minLength: 1
+          maxLength: 128
+        changelog:
+          type: string
+          maxLength: 65536
+    CandidateDecisionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 4096
+    ReleaseCandidate:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - projectId
+        - artifactId
+        - configurationHash
+        - version
+        - state
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        projectId:
+          $ref: "#/components/schemas/StableId"
+        artifactId:
+          $ref: "#/components/schemas/StableId"
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+        version:
+          type: string
+        state:
+          $ref: "#/components/schemas/ReleaseCandidateState"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "#/components/schemas/Timestamp"
+    ReleaseEvent:
+      type: object
+      additionalProperties: false
+      required: [id, candidateId, sequence, kind, occurredAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        candidateId:
+          $ref: "#/components/schemas/StableId"
+        sequence:
+          type: integer
+          minimum: 0
+        kind:
+          type: string
+          enum:
+            - created
+            - testing_started
+            - test_completed
+            - approval_requested
+            - approved
+            - canceled
+            - retry_requested
+            - publication_started
+            - publication_completed
+            - failed
+        occurredAt:
+          $ref: "#/components/schemas/Timestamp"
+    ReleaseEventPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReleaseEvent"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    Verification:
+      type: object
+      additionalProperties: false
+      required: [id, candidateId, artifactSha256, state, trust, verifiedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        candidateId:
+          $ref: "#/components/schemas/StableId"
+        artifactSha256:
+          $ref: "#/components/schemas/Sha256Digest"
+        state:
+          $ref: "#/components/schemas/VerificationState"
+        trust:
+          type: string
+          enum: [hosted, self_hosted]
+        verifiedAt:
+          $ref: "#/components/schemas/Timestamp"
+    PublicRelease:
+      type: object
+      additionalProperties: false
+      required:
+        - ownerSlug
+        - projectSlug
+        - version
+        - verification
+        - claim
+      properties:
+        ownerSlug:
+          $ref: "#/components/schemas/Slug"
+        projectSlug:
+          $ref: "#/components/schemas/Slug"
+        version:
+          type: string
+        verification:
+          $ref: "#/components/schemas/Verification"
+        claim:
+          type: string
+          const: The exact artifact was observed passing the listed tests and environments.
+    Integration:
+      type: object
+      additionalProperties: false
+      required: [id, projectId, kind, displayName, state, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        projectId:
+          $ref: "#/components/schemas/StableId"
+        kind:
+          type: string
+          enum: [github_release, modrinth, hangar]
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        state:
+          $ref: "#/components/schemas/IntegrationState"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "#/components/schemas/Timestamp"
+    CreateIntegrationRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, displayName]
+      properties:
+        kind:
+          type: string
+          enum: [github_release, modrinth, hangar]
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+    UpdateIntegrationRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        state:
+          type: string
+          enum: [active, disabled]
+    IntegrationPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Integration"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    Runner:
+      type: object
+      additionalProperties: false
+      required: [id, organizationId, name, state, trust, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        organizationId:
+          $ref: "#/components/schemas/StableId"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        state:
+          $ref: "#/components/schemas/RunnerState"
+        trust:
+          type: string
+          const: self_hosted
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "#/components/schemas/Timestamp"
+    RunnerPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Runner"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    CreateRunnerRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+    RunnerRegistration:
+      type: object
+      additionalProperties: false
+      required: [runnerId, registrationToken, expiresAt]
+      properties:
+        runnerId:
+          $ref: "#/components/schemas/StableId"
+        registrationToken:
+          type: string
+          minLength: 1
+          description: One-time runner registration token.
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+    UpdateRunnerRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        draining:
+          type: boolean
+    RunnerCredential:
+      type: object
+      additionalProperties: false
+      required: [credential, expiresAt]
+      properties:
+        credential:
+          type: string
+          minLength: 1
+          description: Short-lived organization-scoped runner credential.
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+    Usage:
+      type: object
+      additionalProperties: false
+      required:
+        - organizationId
+        - from
+        - to
+        - runnerWallSeconds
+        - allocatedCpuSeconds
+        - allocatedMemoryByteSeconds
+        - artifactBytes
+        - logBytes
+        - egressBytes
+        - matrixExecutions
+        - publicationAttempts
+      properties:
+        organizationId:
+          $ref: "#/components/schemas/StableId"
+        from:
+          $ref: "#/components/schemas/Timestamp"
+        to:
+          $ref: "#/components/schemas/Timestamp"
+        runnerWallSeconds:
+          type: integer
+          minimum: 0
+        allocatedCpuSeconds:
+          type: number
+          minimum: 0
+        allocatedMemoryByteSeconds:
+          type: integer
+          minimum: 0
+        artifactBytes:
+          type: integer
+          minimum: 0
+        logBytes:
+          type: integer
+          minimum: 0
+        egressBytes:
+          type: integer
+          minimum: 0
+        matrixExecutions:
+          type: integer
+          minimum: 0
+        publicationAttempts:
+          type: integer
+          minimum: 0

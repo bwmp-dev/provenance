@@ -1,0 +1,15 @@
+apis:
+  provenance@v1:
+    root: ./provenance.v1.yaml
+
+extends:
+  - minimal
+
+rules:
+  no-ambiguous-paths: error
+  no-invalid-media-type-examples: error
+  operation-operationId: error
+  operation-operationId-unique: error
+  path-not-include-query: error
+  security-defined: error
+  spec-strict-refs: error
