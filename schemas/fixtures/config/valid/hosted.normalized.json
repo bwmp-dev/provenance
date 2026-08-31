@@ -27,9 +27,7 @@
     "allowlist": [
       {
         "hostname": "api.modrinth.com",
-        "ports": [
-          443
-        ]
+        "ports": [443]
       }
     ],
     "mode": "allowlist"
@@ -69,9 +67,7 @@
   },
   "release": {
     "mode": "manual",
-    "targets": [
-      "modrinth-production"
-    ]
+    "targets": ["modrinth-production"]
   },
   "resources": {
     "cpuCores": 2,

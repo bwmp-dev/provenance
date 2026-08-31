@@ -8,12 +8,26 @@ Public contracts and clients for submitting, inspecting, testing, releasing, and
 - `apps/github-action`: GitHub Action submission client.
 - `packages/api-client`: generated public API client.
 - `packages/config-schema`: configuration schema package and validators.
+- `packages/runner-protocol`: generated TypeScript runner protocol package.
 - `packages/test-fixtures`: Paper test and hostile-sandbox fixtures.
 - `packages/typescript-sdk`: supported TypeScript SDK.
 - `packages/verification`: attestation verification tooling.
 - `plugins/paper-probe`: trusted Paper lifecycle and command probe.
 - `schemas`: authoritative JSON Schemas.
 - `proto`: authoritative public runner protocol.
+- `gen/proto`: generated Go runner protocol module.
 
-The public-code license must be selected before this repository is published.
+## Contract development
 
+Install the pinned toolchain with `pnpm install --frozen-lockfile`, then run
+`pnpm check`. The check builds the public packages, validates and normalizes the
+golden configuration fixtures, validates and independently verifies the
+attestation vectors, and formats, lints, and snapshots the runner protocol.
+
+The authoritative contract sources live under `schemas` and `proto`. Package
+builds copy those sources into ignored `dist` directories; generated artifacts
+must be reproduced with `pnpm build`, never edited directly.
+
+## License
+
+Licensed under the Apache License, Version 2.0. See `LICENSE`.

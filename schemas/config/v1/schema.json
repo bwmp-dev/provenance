@@ -128,7 +128,13 @@
     "paperEnvironment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "minecraftVersion", "paperBuild", "javaVersion", "policy"],
+      "required": [
+        "id",
+        "minecraftVersion",
+        "paperBuild",
+        "javaVersion",
+        "policy"
+      ],
       "properties": {
         "id": {
           "$ref": "#/$defs/identifier"
@@ -184,7 +190,12 @@
         "gatePolicy": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["requiredFailure", "informationalFailure", "infrastructureFailure", "maxInfrastructureRetries"],
+          "required": [
+            "requiredFailure",
+            "informationalFailure",
+            "infrastructureFailure",
+            "maxInfrastructureRetries"
+          ],
           "properties": {
             "requiredFailure": {
               "const": "block"
@@ -209,7 +220,14 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "provider", "projectId", "versionId", "sha256", "required"],
+          "required": [
+            "id",
+            "provider",
+            "projectId",
+            "versionId",
+            "sha256",
+            "required"
+          ],
           "properties": {
             "id": {
               "$ref": "#/$defs/identifier"
@@ -240,7 +258,14 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "provider", "artifactId", "version", "sha256", "required"],
+          "required": [
+            "id",
+            "provider",
+            "artifactId",
+            "version",
+            "sha256",
+            "required"
+          ],
           "properties": {
             "id": {
               "$ref": "#/$defs/identifier"
@@ -290,6 +315,7 @@
       "allOf": [
         {
           "if": {
+            "type": "object",
             "properties": {
               "match": {
                 "const": "absent"
@@ -298,7 +324,12 @@
             "required": ["match"]
           },
           "then": {
+            "type": "object",
             "not": {
+              "type": "object",
+              "properties": {
+                "minimumOccurrences": {}
+              },
               "required": ["minimumOccurrences"]
             }
           }
@@ -313,7 +344,13 @@
         "startup": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["timeoutSeconds", "stabilizationSeconds", "requirePluginEnabled", "shutdownTimeoutSeconds", "requireCleanShutdown"],
+          "required": [
+            "timeoutSeconds",
+            "stabilizationSeconds",
+            "requirePluginEnabled",
+            "shutdownTimeoutSeconds",
+            "requireCleanShutdown"
+          ],
           "properties": {
             "timeoutSeconds": {
               "$ref": "#/$defs/durationSeconds"
@@ -386,6 +423,7 @@
       "allOf": [
         {
           "if": {
+            "type": "object",
             "properties": {
               "mode": {
                 "const": "test-only"
@@ -394,15 +432,19 @@
             "required": ["mode"]
           },
           "then": {
+            "type": "object",
             "properties": {
               "targets": {
+                "type": "array",
                 "maxItems": 0
               }
             }
           },
           "else": {
+            "type": "object",
             "properties": {
               "targets": {
+                "type": "array",
                 "minItems": 1
               }
             }
@@ -446,6 +488,7 @@
       "allOf": [
         {
           "if": {
+            "type": "object",
             "properties": {
               "mode": {
                 "const": "allowlist"
@@ -454,15 +497,19 @@
             "required": ["mode"]
           },
           "then": {
+            "type": "object",
             "properties": {
               "allowlist": {
+                "type": "array",
                 "minItems": 1
               }
             }
           },
           "else": {
+            "type": "object",
             "properties": {
               "allowlist": {
+                "type": "array",
                 "maxItems": 0
               }
             }
@@ -473,7 +520,14 @@
     "resources": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cpuCores", "memoryMiB", "diskMiB", "processes", "wallTimeoutSeconds", "logBytes"],
+      "required": [
+        "cpuCores",
+        "memoryMiB",
+        "diskMiB",
+        "processes",
+        "wallTimeoutSeconds",
+        "logBytes"
+      ],
       "properties": {
         "cpuCores": {
           "type": "number",

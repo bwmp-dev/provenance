@@ -1,0 +1,24 @@
+{
+  "name": "@bwmp-dev/runner-protocol",
+  "version": "0.1.0-alpha.1",
+  "description": "Generated Provenance runner protocol messages and service descriptors",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": "./dist/index.js",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "test": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.14.0"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "license": "Apache-2.0"
+}

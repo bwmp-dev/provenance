@@ -1,0 +1,22 @@
+{
+  "name": "@bwmp-dev/verification",
+  "version": "0.1.0-alpha.1",
+  "description": "Independent verification for Provenance attestation envelopes",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": "./dist/index.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  },
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "license": "Apache-2.0"
+}

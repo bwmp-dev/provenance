@@ -1,0 +1,22 @@
+{
+  "name": "@bwmp-dev/config-schema",
+  "version": "0.1.0-alpha.1",
+  "description": "Validation and deterministic normalization for provenance.yml",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": "./dist/index.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "yaml": "2.9.0"
+  },
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "license": "Apache-2.0"
+}

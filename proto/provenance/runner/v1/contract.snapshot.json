@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "f7b367ca322977c2253a02863fdbbe14309e0f0a8ceae36b9ee1fd4abe4a1047",
+  "descriptorSha256": "7d6a5c5e7448cd1f697bbe72179e7a514f1daaa372c2895b7060fcddc84fb8c1",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -144,8 +144,14 @@
     }
   },
   "reservedRanges": {
-    "RunnerMessage": [[3, 10], [23, 30]],
-    "GatewayMessage": [[3, 10], [17, 30]]
+    "RunnerMessage": [
+      [3, 10],
+      [23, 30]
+    ],
+    "GatewayMessage": [
+      [3, 10],
+      [17, 30]
+    ]
   },
   "reservedNames": {
     "Authenticate": ["registration_token"],

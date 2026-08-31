@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      pnpm-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /packages/test-fixtures
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /plugins/paper-probe
+    schedule:
+      interval: weekly

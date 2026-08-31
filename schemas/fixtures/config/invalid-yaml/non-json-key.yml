@@ -1,2 +1,1 @@
-? [nested, key]
-: value
+[nested, key]: value

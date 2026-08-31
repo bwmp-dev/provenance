@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -13,8 +13,18 @@ const snapshot = JSON.parse(
 );
 
 function runBuf(arguments_) {
-  const command = process.env.BUF ?? "buf";
-  const result = spawnSync(command, arguments_, {
+  const configuredCommand = process.env.BUF;
+  const command = configuredCommand ?? process.execPath;
+  const commandArguments = configuredCommand
+    ? arguments_
+    : [
+        resolve(
+          contractDirectory,
+          "../../../../node_modules/@bufbuild/buf/bin/buf",
+        ),
+        ...arguments_,
+      ];
+  const result = spawnSync(command, commandArguments, {
     cwd: contractDirectory,
     encoding: "utf8",
     shell: false,
@@ -93,7 +103,9 @@ function decodeFields(buffer) {
 }
 
 function bytes(fields, number) {
-  return fields.filter((field) => field.number === number).map((field) => field.bytes);
+  return fields
+    .filter((field) => field.number === number)
+    .map((field) => field.bytes);
 }
 
 function text(fields, number) {
@@ -180,19 +192,15 @@ function numberedFields(message) {
 }
 
 test("runner v1 descriptor matches the compatibility snapshot", () => {
-  const temporaryDirectory = mkdtempSync(join(tmpdir(), "provenance-runner-v1-"));
+  const temporaryDirectory = mkdtempSync(
+    join(tmpdir(), "provenance-runner-v1-"),
+  );
   const descriptorPath = join(temporaryDirectory, "runner-v1.binpb");
 
   try {
     runBuf(["format", "--diff", "--exit-code", "."]);
     runBuf(["lint", "."]);
-    runBuf([
-      "build",
-      ".",
-      "--exclude-source-info",
-      "-o",
-      descriptorPath,
-    ]);
+    runBuf(["build", ".", "--exclude-source-info", "-o", descriptorPath]);
 
     const descriptor = readFileSync(descriptorPath);
     assert.equal(
@@ -223,7 +231,10 @@ test("runner v1 descriptor matches the compatibility snapshot", () => {
       [...messages.keys()].sort(),
       [...snapshot.messageNames].sort(),
     );
-    assert.deepEqual([...contract.enums].sort(), [...snapshot.enumNames].sort());
+    assert.deepEqual(
+      [...contract.enums].sort(),
+      [...snapshot.enumNames].sort(),
+    );
 
     const runnerMessage = messages.get("RunnerMessage");
     const gatewayMessage = messages.get("GatewayMessage");
@@ -247,13 +258,19 @@ test("runner v1 descriptor matches the compatibility snapshot", () => {
     for (const [messageName, expectedFields] of Object.entries(
       snapshot.criticalFields,
     )) {
-      assert.deepEqual(numberedFields(messages.get(messageName)), expectedFields);
+      assert.deepEqual(
+        numberedFields(messages.get(messageName)),
+        expectedFields,
+      );
     }
 
     for (const [messageName, expectedRanges] of Object.entries(
       snapshot.reservedRanges,
     )) {
-      assert.deepEqual(messages.get(messageName).reservedRanges, expectedRanges);
+      assert.deepEqual(
+        messages.get(messageName).reservedRanges,
+        expectedRanges,
+      );
     }
 
     for (const [messageName, expectedNames] of Object.entries(
@@ -266,6 +283,10 @@ test("runner v1 descriptor matches the compatibility snapshot", () => {
   }
 });
 
-test("optional Buf breaking target remains compatible", { skip: !process.env.BUF_BREAKING_AGAINST }, () => {
-  runBuf(["breaking", ".", "--against", process.env.BUF_BREAKING_AGAINST]);
-});
+test(
+  "optional Buf breaking target remains compatible",
+  { skip: !process.env.BUF_BREAKING_AGAINST },
+  () => {
+    runBuf(["breaking", ".", "--against", process.env.BUF_BREAKING_AGAINST]);
+  },
+);

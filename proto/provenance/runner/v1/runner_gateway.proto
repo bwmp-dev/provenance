@@ -6,7 +6,7 @@ import "common.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/provenance-dev/provenance/gen/proto/provenance/runner/v1;runnerv1";
+option go_package = "github.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1";
 
 service RunnerGateway {
   rpc Connect(stream RunnerMessage) returns (stream GatewayMessage);

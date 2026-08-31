@@ -1,4 +1,10 @@
-import { createHash, createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  sign,
+  verify,
+} from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +14,11 @@ const fixtures = resolve(directory, "../fixtures/attestation");
 const domain = Buffer.from("Provenance Attestation v1\n", "utf8");
 
 function canonicalize(value) {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string"
+  ) {
     return JSON.stringify(value);
   }
   if (typeof value === "number") {
@@ -21,7 +31,10 @@ function canonicalize(value) {
     return `[${value.map(canonicalize).join(",")}]`;
   }
   if (typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`;
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`)
+      .join(",")}}`;
   }
   throw new TypeError(`unsupported JSON value: ${typeof value}`);
 }
@@ -34,7 +47,9 @@ const vectors = ["hosted.json", "self-hosted.json"];
 for (const name of vectors) {
   const vectorPath = join(fixtures, "vectors", name);
   const vector = JSON.parse(await readFile(vectorPath, "utf8"));
-  const document = JSON.parse(await readFile(resolve(dirname(vectorPath), vector.fixture), "utf8"));
+  const document = JSON.parse(
+    await readFile(resolve(dirname(vectorPath), vector.fixture), "utf8"),
+  );
   const canonical = Buffer.from(canonicalize(document.statement), "utf8");
   const payload = Buffer.concat([
     domain,
@@ -74,4 +89,6 @@ for (const name of vectors) {
   }
 }
 
-console.log(`independently reproduced and verified ${vectors.length} Ed25519 vectors with Node.js`);
+console.log(
+  `independently reproduced and verified ${vectors.length} Ed25519 vectors with Node.js`,
+);

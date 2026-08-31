@@ -6,7 +6,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/provenance-dev/provenance/gen/proto/provenance/runner/v1;runnerv1";
+option go_package = "github.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1";
 
 message LeaseIdentity {
   string lease_id = 1;
