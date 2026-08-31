@@ -57,6 +57,9 @@ function packageUrl(ecosystem, name, version) {
     const [scope, packageName] = name.slice(1).split("/");
     return `pkg:npm/%40${scope}/${packageName}@${version}`;
   }
+  if (ecosystem === "maven") {
+    return `pkg:maven/${name.replace(":", "/")}@${version}`;
+  }
   return `pkg:${ecosystem}/${name}@${version}`;
 }
 
@@ -203,6 +206,76 @@ async function expectedRuntimeDependencies() {
     }
   }
   dependenciesByBundle.set("runner-protocol", runnerDependencies);
+
+  const javaDependencies = await readJson(
+    resolve(
+      repositoryDirectory,
+      "plugins/paper-probe/runtime-dependencies.json",
+    ),
+    "paper metadata runtime dependencies",
+  );
+  const paperProbeLock = await readFile(
+    resolve(repositoryDirectory, "plugins/paper-probe/gradle.lockfile"),
+    "utf8",
+  );
+  const paperProbeBuild = await readFile(
+    resolve(repositoryDirectory, "build.gradle"),
+    "utf8",
+  );
+  const expectedJavaCoordinates = new Set(
+    [...paperProbeBuild.matchAll(/\bimplementation\("([^"\r\n]+)"\)/g)].map(
+      (match) => match[1],
+    ),
+  );
+  const paperMetadataDependencies = new Set();
+  invariant(
+    Array.isArray(javaDependencies),
+    "paper metadata runtime dependency inventory must be an array",
+  );
+  for (const dependency of javaDependencies) {
+    const name = `${dependency.group}:${dependency.artifact}`;
+    const key = `maven:${name}@${dependency.version}`;
+    invariant(
+      Object.keys(dependency).sort().join(",") ===
+        "artifact,checksum,group,license,version" &&
+        /^[0-9a-f]{64}$/.test(dependency.checksum) &&
+        dependency.license &&
+        paperProbeLock
+          .split("\n")
+          .some((line) => line.startsWith(`${name}:${dependency.version}=`)),
+      `invalid paper metadata runtime dependency: ${key}`,
+    );
+    components.set(key, {
+      checksum: {
+        algorithm: "SHA256",
+        checksumValue: dependency.checksum,
+      },
+      ecosystem: "maven",
+      key,
+      license: dependency.license,
+      name,
+      version: dependency.version,
+    });
+    invariant(
+      !paperMetadataDependencies.has(key),
+      `duplicate paper metadata runtime dependency: ${key}`,
+    );
+    paperMetadataDependencies.add(key);
+  }
+  const declaredJavaCoordinates = new Set(
+    javaDependencies.map(
+      (dependency) =>
+        `${dependency.group}:${dependency.artifact}:${dependency.version}`,
+    ),
+  );
+  invariant(
+    expectedJavaCoordinates.size === declaredJavaCoordinates.size &&
+      [...expectedJavaCoordinates].every((coordinate) =>
+        declaredJavaCoordinates.has(coordinate),
+      ),
+    "paper metadata runtime dependency inventory differs from Gradle",
+  );
+  dependenciesByBundle.set("paper-metadata", paperMetadataDependencies);
   return { components, dependenciesByBundle };
 }
 
@@ -744,6 +817,133 @@ async function verifyConsumers(bundleRoots, version) {
   };
 
   {
+    const root = rootFor("paper-metadata");
+    const inspector = resolve(root, "paper-metadata-inspector.jar");
+    const schema = resolve(root, "schema/schema.json");
+    const java =
+      process.platform === "win32" && process.env.JAVA_HOME
+        ? resolve(process.env.JAVA_HOME, "bin/java.exe")
+        : process.env.JAVA_HOME
+          ? resolve(process.env.JAVA_HOME, "bin/java")
+          : "java";
+    const inspect = async (artifact) => {
+      const expectedHash = digest(await readFile(artifact));
+      const result = spawnSync(
+        java,
+        ["-jar", inspector, "--expected-sha256", expectedHash, artifact],
+        { cwd: root, encoding: "utf8", shell: false },
+      );
+      invariant(
+        result.error === undefined && result.status === 0,
+        `released Paper metadata inspector failed\n${[result.stdout, result.stderr].filter(Boolean).join("\n")}`,
+      );
+      invariant(
+        result.stderr === "",
+        "released Paper metadata inspector emitted diagnostics for a handled result",
+      );
+      const python = process.platform === "win32" ? "python" : "python3";
+      const validation = spawnSync(
+        python,
+        [
+          resolve(
+            repositoryDirectory,
+            "schemas/paper-metadata/test_contract.py",
+          ),
+          "--validate-result",
+          schema,
+        ],
+        { encoding: "utf8", input: result.stdout, shell: false },
+      );
+      invariant(
+        validation.error === undefined && validation.status === 0,
+        `released Paper metadata inspector output violates the shipped schema\n${[validation.stdout, validation.stderr].filter(Boolean).join("\n")}`,
+      );
+      return { document: JSON.parse(result.stdout), expectedHash };
+    };
+
+    const artifact = resolve(root, "fixtures/success.jar");
+    const { document, expectedHash } = await inspect(artifact);
+    exactObject(
+      document,
+      {
+        schemaVersion: "provenance.paper-metadata/v1",
+        artifactSha256: expectedHash,
+        status: "valid",
+        issues: [],
+        plugin: {
+          name: "ProvenanceSuccess",
+          version: "1.0.0",
+          mainClass: "dev.provenance.fixtures.SuccessPlugin",
+          apiVersion: "1.21",
+          requiredDependencies: [],
+          softDependencies: [],
+          loadBeforeDependencies: [],
+          permissions: [],
+          commands: [],
+        },
+      },
+      "released Paper metadata inspector result differs",
+    );
+
+    const fixtureDirectory = await mkdtemp(
+      join(tmpdir(), "provenance-paper-metadata-results-"),
+    );
+    try {
+      const jar =
+        process.platform === "win32" && process.env.JAVA_HOME
+          ? resolve(process.env.JAVA_HOME, "bin/jar.exe")
+          : process.env.JAVA_HOME
+            ? resolve(process.env.JAVA_HOME, "bin/jar")
+            : "jar";
+      const missingSource = resolve(fixtureDirectory, "missing-source");
+      const invalidSource = resolve(fixtureDirectory, "invalid-source");
+      await mkdir(missingSource);
+      await mkdir(invalidSource);
+      await writeFile(resolve(missingSource, "README.txt"), "no metadata\n");
+      await writeFile(
+        resolve(invalidSource, "plugin.yml"),
+        Buffer.from([0xc3, 0x28]),
+      );
+      const missingArtifact = resolve(fixtureDirectory, "missing.jar");
+      const invalidArtifact = resolve(fixtureDirectory, "invalid.jar");
+      run(
+        jar,
+        ["--create", "--file", missingArtifact, "-C", missingSource, "."],
+        fixtureDirectory,
+        "Paper missing-metadata fixture build",
+      );
+      run(
+        jar,
+        ["--create", "--file", invalidArtifact, "-C", invalidSource, "."],
+        fixtureDirectory,
+        "Paper invalid-metadata fixture build",
+      );
+      exactObject(
+        (await inspect(missingArtifact)).document,
+        {
+          schemaVersion: "provenance.paper-metadata/v1",
+          artifactSha256: digest(await readFile(missingArtifact)),
+          status: "missing",
+          issues: ["plugin_metadata_missing"],
+        },
+        "released Paper missing-metadata result differs",
+      );
+      exactObject(
+        (await inspect(invalidArtifact)).document,
+        {
+          schemaVersion: "provenance.paper-metadata/v1",
+          artifactSha256: digest(await readFile(invalidArtifact)),
+          status: "invalid",
+          issues: ["plugin_metadata_utf8_invalid"],
+        },
+        "released Paper invalid-metadata result differs",
+      );
+    } finally {
+      await rm(fixtureDirectory, { force: true, recursive: true });
+    }
+  }
+
+  {
     const root = rootFor("config-schema");
     installNodeConsumer(
       resolve(root, "package"),
@@ -990,6 +1190,10 @@ export async function verifyContractRelease({
       cli: "not-released",
       configSchema: "v1",
       openapi: "v1",
+      paperMetadata: {
+        inspector: version,
+        schema: "v1",
+      },
       runnerProtocol: "v1",
       sdk: { typescriptClient: version },
     },

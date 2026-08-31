@@ -13,6 +13,7 @@ BUNDLES = (
     "attestation-schema",
     "config-schema",
     "openapi",
+    "paper-metadata",
     "runner-protocol",
     "typescript-client",
 )
@@ -71,6 +72,8 @@ def package_url(ecosystem, name, version):
     if ecosystem == "npm" and name.startswith("@"):
         scope, package_name = name[1:].split("/", 1)
         return f"pkg:npm/%40{scope}/{package_name}@{version}"
+    if ecosystem == "maven":
+        return f"pkg:maven/{name.replace(':', '/')}@{version}"
     return f"pkg:{ecosystem}/{name}@{version}"
 
 
@@ -304,7 +307,7 @@ def verify_sbom(sbom, manifest, bundle_files, version, source_sha):
         ecosystem = declared["ecosystem"]
         name = declared["name"]
         dependency_version = declared["version"]
-        require(ecosystem in ("npm", "golang"), f"unknown dependency ecosystem: {ecosystem}")
+        require(ecosystem in ("npm", "golang", "maven"), f"unknown dependency ecosystem: {ecosystem}")
         require(all(isinstance(value, str) and value for value in (name, dependency_version, declared["license"])), "dependency identity is incomplete")
         bundles = declared["bundles"]
         require(
@@ -405,6 +408,7 @@ def verify_bundle(directory, version, source_sha):
             "cli": "not-released",
             "configSchema": "v1",
             "openapi": "v1",
+            "paperMetadata": {"inspector": version, "schema": "v1"},
             "runnerProtocol": "v1",
             "sdk": {"typescriptClient": version},
         },

@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +34,9 @@ public final class PluginMetadataDiscovery {
   static final int MAX_CONFIGURED_DEPENDENCIES = 64;
   static final int MAX_PERMISSIONS = 256;
   static final int MAX_COMMANDS = 256;
+  static final int MAX_JAR_ENTRIES = 16_384;
+  static final long MAX_JAR_ENTRY_BYTES = 512L * 1024L * 1024L;
+  static final long MAX_JAR_UNCOMPRESSED_BYTES = 1024L * 1024L * 1024L;
 
   private static final int MAX_ROOT_FIELDS = 128;
   private static final int MAX_YAML_DEPTH = 16;
@@ -44,9 +48,19 @@ public final class PluginMetadataDiscovery {
   private static final Set<String> PAPER_DEPENDENCY_SCOPES = Set.of("bootstrap", "server");
   private static final Set<String> PAPER_DEPENDENCY_FIELDS =
       Set.of("load", "required", "join-classpath");
-  private static final Pattern PLUGIN_NAME = Pattern.compile("[A-Za-z0-9_. -]{1,64}");
+  private static final Set<String> RESERVED_PLUGIN_NAMES =
+      Set.of("bukkit", "minecraft", "mojang", "spigot", "paper");
+  private static final List<String> PAPER_FORBIDDEN_MAIN_PREFIXES =
+      List.of(
+          "net.minecraft.",
+          "org.bukkit.",
+          "io.papermc.paper.",
+          "com.destroystokoyo.paper.");
+  private static final Pattern PLUGIN_NAME = Pattern.compile("[A-Za-z0-9_.-]{1,64}");
   private static final Pattern MAIN_CLASS =
       Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+");
+  private static final Pattern PAPER_API_VERSION =
+      Pattern.compile("([0-9]+)\\.([0-9]+)(?:\\.([0-9]+))?");
   private static final Comparator<String> CANONICAL_ORDER =
       Comparator.comparing((String value) -> value.toLowerCase(Locale.ROOT))
           .thenComparing(Comparator.naturalOrder());
@@ -54,6 +68,30 @@ public final class PluginMetadataDiscovery {
       Comparator.comparing(
               (Path path) -> path.getFileName().toString().toLowerCase(Locale.ROOT))
           .thenComparing(path -> path.getFileName().toString());
+  private final int maximumJarEntries;
+  private final long maximumJarEntryBytes;
+  private final long maximumJarUncompressedBytes;
+
+  public PluginMetadataDiscovery() {
+    this(
+        MAX_JAR_ENTRIES,
+        MAX_JAR_ENTRY_BYTES,
+        MAX_JAR_UNCOMPRESSED_BYTES);
+  }
+
+  PluginMetadataDiscovery(
+      int maximumJarEntries,
+      long maximumJarEntryBytes,
+      long maximumJarUncompressedBytes) {
+    if (maximumJarEntries <= 0
+        || maximumJarEntryBytes <= 0
+        || maximumJarUncompressedBytes <= 0) {
+      throw new IllegalArgumentException("JAR verification limits must be positive");
+    }
+    this.maximumJarEntries = maximumJarEntries;
+    this.maximumJarEntryBytes = maximumJarEntryBytes;
+    this.maximumJarUncompressedBytes = maximumJarUncompressedBytes;
+  }
 
   public List<MetadataInspection> inspectDirectory(Path pluginsDirectory) throws IOException {
     if (!Files.isDirectory(pluginsDirectory, LinkOption.NOFOLLOW_LINKS)) {
@@ -94,11 +132,12 @@ public final class PluginMetadataDiscovery {
     byte[] source;
     boolean paperMetadata;
     try (JarFile jar = new JarFile(jarPath.toFile(), true)) {
-      JarEntry metadata = jar.getJarEntry("plugin.yml");
-      paperMetadata = false;
+      verifyJarEntries(jar);
+      JarEntry metadata = jar.getJarEntry("paper-plugin.yml");
+      paperMetadata = true;
       if (metadata == null) {
-        metadata = jar.getJarEntry("paper-plugin.yml");
-        paperMetadata = true;
+        metadata = jar.getJarEntry("plugin.yml");
+        paperMetadata = false;
       }
       if (metadata == null) {
         return new MetadataInspection(
@@ -118,11 +157,49 @@ public final class PluginMetadataDiscovery {
       }
     } catch (SecurityException exception) {
       return invalid(jarPath, "plugin artifact failed JAR security verification");
+    } catch (JarVerificationLimitException exception) {
+      return invalid(jarPath, "plugin artifact exceeds verification limits");
+    } catch (DuplicateJarEntryException exception) {
+      return invalid(jarPath, "plugin artifact contains duplicate entries");
     } catch (IOException exception) {
       return invalid(jarPath, "plugin artifact is not a readable JAR");
     }
     return parse(source, jarPath, paperMetadata);
   }
+
+  private void verifyJarEntries(JarFile jar) throws IOException {
+    byte[] buffer = new byte[64 * 1024];
+    int entryCount = 0;
+    long totalBytes = 0;
+    Set<String> entryNames = new HashSet<>();
+    Enumeration<JarEntry> entries = jar.entries();
+    while (entries.hasMoreElements()) {
+      JarEntry entry = entries.nextElement();
+      entryCount++;
+      if (entryCount > maximumJarEntries) {
+        throw new JarVerificationLimitException();
+      }
+      if (!entryNames.add(entry.getName())) {
+        throw new DuplicateJarEntryException();
+      }
+      long entryBytes = 0;
+      try (InputStream input = jar.getInputStream(entry)) {
+        int read;
+        while ((read = input.read(buffer)) != -1) {
+          if (read > maximumJarEntryBytes - entryBytes
+              || read > maximumJarUncompressedBytes - totalBytes) {
+            throw new JarVerificationLimitException();
+          }
+          entryBytes += read;
+          totalBytes += read;
+        }
+      }
+    }
+  }
+
+  private static final class JarVerificationLimitException extends IOException {}
+
+  private static final class DuplicateJarEntryException extends IOException {}
 
   public List<String> undeclaredConfiguredDependencies(
       PluginDescriptor descriptor, Iterable<String> configuredDependencies) {
@@ -205,23 +282,29 @@ public final class PluginMetadataDiscovery {
     String name = requiredString(root, "name", issues);
     String version = requiredString(root, "version", issues);
     String mainClass = requiredString(root, "main", issues);
-    String apiVersion = optionalString(root, "api-version", issues);
+    String apiVersion =
+        paperMetadata
+            ? requiredString(root, "api-version", issues)
+            : optionalString(root, "api-version", issues);
 
-    if (name != null && normalizedPluginName(name) == null) {
+    if (name != null
+        && (normalizedPluginName(name) == null
+            || RESERVED_PLUGIN_NAMES.contains(name.toLowerCase(Locale.ROOT)))) {
       issues.add("name contains unsupported characters");
     }
-    if (version != null
-        && (version.length() > 128 || version.codePoints().anyMatch(Character::isISOControl))) {
+    if (version != null && !isBoundedOutputString(version, 128)) {
       issues.add("version is invalid or exceeds 128 characters");
     }
     if (mainClass != null
         && (mainClass.length() > MAX_MAIN_CLASS_CHARACTERS
-            || !MAIN_CLASS.matcher(mainClass).matches())) {
+            || !MAIN_CLASS.matcher(mainClass).matches()
+            || (paperMetadata
+                && PAPER_FORBIDDEN_MAIN_PREFIXES.stream().anyMatch(mainClass::startsWith)))) {
       issues.add("main is not a fully-qualified Java class name");
     }
     if (apiVersion != null
-        && (apiVersion.length() > MAX_API_VERSION_CHARACTERS
-            || apiVersion.codePoints().anyMatch(Character::isISOControl))) {
+        && (!isBoundedOutputString(apiVersion, MAX_API_VERSION_CHARACTERS)
+            || (paperMetadata && !isSupportedPaperApiVersion(apiVersion)))) {
       issues.add("api-version is invalid or exceeds 32 characters");
     }
 
@@ -238,6 +321,7 @@ public final class PluginMetadataDiscovery {
     if (paperMetadata) {
       readPaperDependencies(root.get("dependencies"), dependencies, issues);
     }
+    validateDependencyBounds(dependencies, issues);
 
     List<String> permissions =
         mappingKeys(
@@ -291,7 +375,7 @@ public final class PluginMetadataDiscovery {
       issues.add(field + " must be a non-empty string");
       return null;
     }
-    return string.trim();
+    return string;
   }
 
   private static List<String> stringList(
@@ -495,18 +579,65 @@ public final class PluginMetadataDiscovery {
     if (value == null) {
       return null;
     }
-    String normalized = value.trim();
-    return PLUGIN_NAME.matcher(normalized).matches() ? normalized : null;
+    return PLUGIN_NAME.matcher(value).matches() ? value : null;
   }
 
   private static String normalizedOutputName(String value, int maximumCharacters) {
-    String normalized = value.trim();
-    if (normalized.isEmpty()
-        || normalized.length() > maximumCharacters
-        || normalized.codePoints().anyMatch(Character::isISOControl)) {
+    if (value.isEmpty() || !isBoundedOutputString(value, maximumCharacters)) {
       return null;
     }
-    return normalized;
+    return value;
+  }
+
+  private static boolean isBoundedOutputString(String value, int maximumCharacters) {
+    if (value.startsWith(" ")
+        || value.endsWith(" ")
+        || value.codePoints().anyMatch(Character::isISOControl)) {
+      return false;
+    }
+    for (int index = 0; index < value.length(); index++) {
+      char character = value.charAt(index);
+      if (Character.isHighSurrogate(character)) {
+        if (index + 1 >= value.length() || !Character.isLowSurrogate(value.charAt(index + 1))) {
+          return false;
+        }
+        index++;
+      } else if (Character.isLowSurrogate(character)) {
+        return false;
+      }
+    }
+    return value.codePointCount(0, value.length()) <= maximumCharacters;
+  }
+
+  private static boolean isSupportedPaperApiVersion(String value) {
+    java.util.regex.Matcher matcher = PAPER_API_VERSION.matcher(value);
+    if (!matcher.matches()) {
+      return false;
+    }
+    try {
+      int major = Integer.parseInt(matcher.group(1));
+      int minor = Integer.parseInt(matcher.group(2));
+      if (matcher.group(3) != null) {
+        Integer.parseInt(matcher.group(3));
+      }
+      return major > 1 || (major == 1 && minor >= 19);
+    } catch (NumberFormatException exception) {
+      return false;
+    }
+  }
+
+  private static void validateDependencyBounds(
+      DependencyLists dependencies, List<String> issues) {
+    validateDependencyBound(dependencies.required, "required", issues);
+    validateDependencyBound(dependencies.soft, "soft", issues);
+    validateDependencyBound(dependencies.loadBefore, "load-before", issues);
+  }
+
+  private static void validateDependencyBound(
+      Map<String, String> dependencies, String kind, List<String> issues) {
+    if (dependencies.size() > MAX_DEPENDENCIES) {
+      issues.add("dependencies produce more than 64 " + kind + " entries");
+    }
   }
 
   private static void addNames(Map<String, String> target, Iterable<String> names) {

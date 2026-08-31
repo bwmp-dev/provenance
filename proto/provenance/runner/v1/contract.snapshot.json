@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "1a96292ff791ce82af7dc34a97cf1fa00ef3cb5f3b7290ac656014e87149d701",
+  "descriptorSha256": "860dcf088c616a2c79d5e32db692c67c67d2ce583de2f4c9884ec4f02d7398ff",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -30,7 +30,9 @@
     "13": "drain",
     "14": "policy_update",
     "15": "credential_rotation",
-    "16": "shutdown"
+    "16": "shutdown",
+    "30": "event_acknowledgement",
+    "31": "heartbeat_acknowledgement"
   },
   "messageNames": [
     "AssertionResult",
@@ -48,6 +50,7 @@
     "FailureDetail",
     "GatewayMessage",
     "Heartbeat",
+    "HeartbeatAcknowledgement",
     "HeartbeatLease",
     "JobCancelled",
     "JobCompleted",
@@ -60,6 +63,7 @@
     "LeaseIdentity",
     "LeaseOffer",
     "LeaseRejected",
+    "LeaseReconciliation",
     "LeaseRenewal",
     "LifecycleEvent",
     "LogBatch",
@@ -76,6 +80,7 @@
     "ResourceUsage",
     "RotateCredential",
     "RunnerMessage",
+    "RunnerEventAcknowledgement",
     "RunnerPolicy",
     "ShutdownRunner",
     "StructuredResult",
@@ -90,15 +95,40 @@
     "FailureCategory",
     "FailureStage",
     "JobPhase",
+    "LeaseStatus",
     "LeaseRejectionReason",
     "LifecycleEventKind",
     "LogStream",
     "NetworkMode",
     "OperatingSystem",
     "ResultOutcome",
+    "RunnerMessageDisposition",
     "SandboxKind",
-    "ServerProvider"
+    "ServerProvider",
+    "ProtocolFeature"
   ],
+  "criticalEnums": {
+    "ProtocolFeature": {
+      "0": "PROTOCOL_FEATURE_UNSPECIFIED",
+      "1": "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS"
+    },
+    "RunnerMessageDisposition": {
+      "0": "RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED",
+      "1": "RUNNER_MESSAGE_DISPOSITION_APPLIED",
+      "2": "RUNNER_MESSAGE_DISPOSITION_ALREADY_APPLIED",
+      "3": "RUNNER_MESSAGE_DISPOSITION_STALE"
+    },
+    "LeaseStatus": {
+      "0": "LEASE_STATUS_UNSPECIFIED",
+      "1": "LEASE_STATUS_OFFERED",
+      "2": "LEASE_STATUS_ACCEPTED",
+      "3": "LEASE_STATUS_ACTIVE",
+      "4": "LEASE_STATUS_COMPLETED",
+      "5": "LEASE_STATUS_CANCELLED",
+      "6": "LEASE_STATUS_EXPIRED",
+      "7": "LEASE_STATUS_RELEASED"
+    }
+  },
   "criticalFields": {
     "LeaseIdentity": {
       "1": "lease_id",
@@ -119,6 +149,23 @@
       "4": "expires_at",
       "10": "size_bytes"
     },
+    "Capabilities": {
+      "1": "runner_version",
+      "2": "protocol_versions",
+      "3": "operating_system",
+      "4": "architecture",
+      "5": "sandboxes",
+      "6": "providers",
+      "7": "capacity",
+      "8": "policy",
+      "9": "labels",
+      "16": "features"
+    },
+    "DependencyInput": {
+      "1": "dependency_id",
+      "2": "object",
+      "10": "plugin_name"
+    },
     "JobSpecification": {
       "1": "lease",
       "2": "attempt",
@@ -129,7 +176,28 @@
       "7": "artifact",
       "8": "dependencies",
       "9": "normalized_configuration_json",
-      "10": "complete_log_upload"
+      "10": "complete_log_upload",
+      "20": "target_plugin_name"
+    },
+    "LeaseReconciliation": {
+      "1": "lease",
+      "2": "attempt",
+      "3": "disposition",
+      "4": "status",
+      "5": "phase",
+      "6": "terminal_message_id",
+      "7": "cancellation_id"
+    },
+    "RunnerEventAcknowledgement": {
+      "1": "runner_message_id",
+      "2": "reconciliation",
+      "3": "committed_at"
+    },
+    "HeartbeatAcknowledgement": {
+      "1": "runner_message_id",
+      "2": "sequence",
+      "3": "reconciliations",
+      "4": "committed_at"
     },
     "StructuredResult": {
       "1": "outcome",

@@ -1,0 +1,16 @@
+[
+  {
+    "artifact": "re2j",
+    "checksum": "7b52c72156dd7f98b3237a5b35c1d34fba381b21048c89208913ad80a45dfbd7",
+    "group": "com.google.re2j",
+    "license": "BSD-3-Clause",
+    "version": "1.8"
+  },
+  {
+    "artifact": "snakeyaml-engine",
+    "checksum": "c99d9fd66c7c251d881a9cd95089b7c8044c29a1b02983d7036981bd4354ec37",
+    "group": "org.snakeyaml",
+    "license": "Apache-2.0",
+    "version": "2.10"
+  }
+]

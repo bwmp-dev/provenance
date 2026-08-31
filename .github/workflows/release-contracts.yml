@@ -352,6 +352,8 @@ jobs:
             '- Configuration schema: v1' \
             '- Attestation schema: v1' \
             '- Public OpenAPI: v1' \
+            '- Paper metadata schema: v1' \
+            "- Paper metadata inspector: $VERSION" \
             '- Runner protocol: v1' \
             '- CLI: not released' \
             '- GitHub Action: not released' \
@@ -399,7 +401,7 @@ jobs:
           }
 
           expected_paths=(dist/contracts/*)
-          if [[ "${#expected_paths[@]}" -ne 8 ]]; then
+          if [[ "${#expected_paths[@]}" -ne 9 ]]; then
             echo "Unexpected local release asset count." >&2
             exit 1
           fi

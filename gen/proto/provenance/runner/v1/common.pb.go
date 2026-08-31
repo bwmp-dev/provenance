@@ -813,6 +813,52 @@ func (FailureStage) EnumDescriptor() ([]byte, []int) {
 	return file_common_proto_rawDescGZIP(), []int{14}
 }
 
+type ProtocolFeature int32
+
+const (
+	ProtocolFeature_PROTOCOL_FEATURE_UNSPECIFIED                    ProtocolFeature = 0
+	ProtocolFeature_PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS ProtocolFeature = 1
+)
+
+// Enum value maps for ProtocolFeature.
+var (
+	ProtocolFeature_name = map[int32]string{
+		0: "PROTOCOL_FEATURE_UNSPECIFIED",
+		1: "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
+	}
+	ProtocolFeature_value = map[string]int32{
+		"PROTOCOL_FEATURE_UNSPECIFIED":                    0,
+		"PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS": 1,
+	}
+)
+
+func (x ProtocolFeature) Enum() *ProtocolFeature {
+	p := new(ProtocolFeature)
+	*p = x
+	return p
+}
+
+func (x ProtocolFeature) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ProtocolFeature) Descriptor() protoreflect.EnumDescriptor {
+	return file_common_proto_enumTypes[15].Descriptor()
+}
+
+func (ProtocolFeature) Type() protoreflect.EnumType {
+	return &file_common_proto_enumTypes[15]
+}
+
+func (x ProtocolFeature) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ProtocolFeature.Descriptor instead.
+func (ProtocolFeature) EnumDescriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{15}
+}
+
 type LeaseIdentity struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LeaseId       string                 `protobuf:"bytes,1,opt,name=lease_id,json=leaseId,proto3" json:"lease_id,omitempty"`
@@ -1770,8 +1816,11 @@ type Capabilities struct {
 	Capacity         *Capacity              `protobuf:"bytes,7,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	Policy           *RunnerPolicy          `protobuf:"bytes,8,opt,name=policy,proto3" json:"policy,omitempty"`
 	Labels           map[string]string      `protobuf:"bytes,9,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Consumers reject unspecified, unknown, or duplicate values. A gateway must not offer leases
+	// unless durable acknowledgements are advertised.
+	Features      []ProtocolFeature `protobuf:"varint,16,rep,packed,name=features,proto3,enum=provenance.runner.v1.ProtocolFeature" json:"features,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Capabilities) Reset() {
@@ -1863,6 +1912,13 @@ func (x *Capabilities) GetPolicy() *RunnerPolicy {
 func (x *Capabilities) GetLabels() map[string]string {
 	if x != nil {
 		return x.Labels
+	}
+	return nil
+}
+
+func (x *Capabilities) GetFeatures() []ProtocolFeature {
+	if x != nil {
+		return x.Features
 	}
 	return nil
 }
@@ -2007,6 +2063,7 @@ type DependencyInput struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DependencyId  string                 `protobuf:"bytes,1,opt,name=dependency_id,json=dependencyId,proto3" json:"dependency_id,omitempty"`
 	Object        *ObjectDownload        `protobuf:"bytes,2,opt,name=object,proto3" json:"object,omitempty"`
+	PluginName    string                 `protobuf:"bytes,10,opt,name=plugin_name,json=pluginName,proto3" json:"plugin_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2055,6 +2112,13 @@ func (x *DependencyInput) GetObject() *ObjectDownload {
 	return nil
 }
 
+func (x *DependencyInput) GetPluginName() string {
+	if x != nil {
+		return x.PluginName
+	}
+	return ""
+}
+
 type JobSpecification struct {
 	state                       protoimpl.MessageState `protogen:"open.v1"`
 	Lease                       *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
@@ -2067,6 +2131,7 @@ type JobSpecification struct {
 	Dependencies                []*DependencyInput     `protobuf:"bytes,8,rep,name=dependencies,proto3" json:"dependencies,omitempty"`
 	NormalizedConfigurationJson []byte                 `protobuf:"bytes,9,opt,name=normalized_configuration_json,json=normalizedConfigurationJson,proto3" json:"normalized_configuration_json,omitempty"`
 	CompleteLogUpload           *ObjectUpload          `protobuf:"bytes,10,opt,name=complete_log_upload,json=completeLogUpload,proto3" json:"complete_log_upload,omitempty"`
+	TargetPluginName            string                 `protobuf:"bytes,20,opt,name=target_plugin_name,json=targetPluginName,proto3" json:"target_plugin_name,omitempty"`
 	unknownFields               protoimpl.UnknownFields
 	sizeCache                   protoimpl.SizeCache
 }
@@ -2169,6 +2234,13 @@ func (x *JobSpecification) GetCompleteLogUpload() *ObjectUpload {
 		return x.CompleteLogUpload
 	}
 	return nil
+}
+
+func (x *JobSpecification) GetTargetPluginName() string {
+	if x != nil {
+		return x.TargetPluginName
+	}
+	return ""
 }
 
 type ResourceUsage struct {
@@ -2843,7 +2915,7 @@ const file_common_proto_rawDesc = "" +
 	"\x0fmaximum_network\x18\x02 \x01(\v2#.provenance.runner.v1.NetworkPolicyR\x0emaximumNetwork\x12_\n" +
 	"\x19maximum_resources_per_job\x18\x03 \x01(\v2$.provenance.runner.v1.ResourceLimitsR\x16maximumResourcesPerJob\x126\n" +
 	"\x17maximum_concurrent_jobs\x18\x04 \x01(\rR\x15maximumConcurrentJobsJ\x04\b\x05\x10\n" +
-	"\"\x82\x05\n" +
+	"\"\xc5\x05\n" +
 	"\fCapabilities\x12%\n" +
 	"\x0erunner_version\x18\x01 \x01(\tR\rrunnerVersion\x12+\n" +
 	"\x11protocol_versions\x18\x02 \x03(\tR\x10protocolVersions\x12P\n" +
@@ -2853,7 +2925,8 @@ const file_common_proto_rawDesc = "" +
 	"\tproviders\x18\x06 \x03(\x0e2$.provenance.runner.v1.ServerProviderR\tproviders\x12:\n" +
 	"\bcapacity\x18\a \x01(\v2\x1e.provenance.runner.v1.CapacityR\bcapacity\x12:\n" +
 	"\x06policy\x18\b \x01(\v2\".provenance.runner.v1.RunnerPolicyR\x06policy\x12F\n" +
-	"\x06labels\x18\t \x03(\v2..provenance.runner.v1.Capabilities.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\t \x03(\v2..provenance.runner.v1.Capabilities.LabelsEntryR\x06labels\x12A\n" +
+	"\bfeatures\x18\x10 \x03(\x0e2%.provenance.runner.v1.ProtocolFeatureR\bfeatures\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\n" +
@@ -2873,11 +2946,14 @@ const file_common_proto_rawDesc = "" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x129\n" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAtJ\x04\b\x04\x10\n" +
-	"\"z\n" +
+	"\"\x9b\x01\n" +
 	"\x0fDependencyInput\x12#\n" +
 	"\rdependency_id\x18\x01 \x01(\tR\fdependencyId\x12<\n" +
-	"\x06object\x18\x02 \x01(\v2$.provenance.runner.v1.ObjectDownloadR\x06objectJ\x04\b\x03\x10\n" +
-	"\"\xe9\x05\n" +
+	"\x06object\x18\x02 \x01(\v2$.provenance.runner.v1.ObjectDownloadR\x06object\x12\x1f\n" +
+	"\vplugin_name\x18\n" +
+	" \x01(\tR\n" +
+	"pluginNameJ\x04\b\x03\x10\n" +
+	"\"\x97\x06\n" +
 	"\x10JobSpecification\x129\n" +
 	"\x05lease\x18\x01 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
 	"\aattempt\x18\x02 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\x12V\n" +
@@ -2889,7 +2965,8 @@ const file_common_proto_rawDesc = "" +
 	"\fdependencies\x18\b \x03(\v2%.provenance.runner.v1.DependencyInputR\fdependencies\x12B\n" +
 	"\x1dnormalized_configuration_json\x18\t \x01(\fR\x1bnormalizedConfigurationJson\x12R\n" +
 	"\x13complete_log_upload\x18\n" +
-	" \x01(\v2\".provenance.runner.v1.ObjectUploadR\x11completeLogUploadJ\x04\b\v\x10\x14\"\xb3\x02\n" +
+	" \x01(\v2\".provenance.runner.v1.ObjectUploadR\x11completeLogUpload\x12,\n" +
+	"\x12target_plugin_name\x18\x14 \x01(\tR\x10targetPluginNameJ\x04\b\v\x10\x14\"\xb3\x02\n" +
 	"\rResourceUsage\x124\n" +
 	"\bcpu_time\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\acpuTime\x12*\n" +
 	"\x11peak_memory_bytes\x18\x02 \x01(\x04R\x0fpeakMemoryBytes\x12&\n" +
@@ -3032,7 +3109,10 @@ const file_common_proto_rawDesc = "" +
 	"\x15FAILURE_STAGE_STARTUP\x10\x03\x12\x1b\n" +
 	"\x17FAILURE_STAGE_EXECUTION\x10\x04\x12\x19\n" +
 	"\x15FAILURE_STAGE_CLEANUP\x10\x05\x12\x1f\n" +
-	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
+	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*h\n" +
+	"\x0fProtocolFeature\x12 \n" +
+	"\x1cPROTOCOL_FEATURE_UNSPECIFIED\x10\x00\x123\n" +
+	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once
@@ -3046,7 +3126,7 @@ func file_common_proto_rawDescGZIP() []byte {
 	return file_common_proto_rawDescData
 }
 
-var file_common_proto_enumTypes = make([]protoimpl.EnumInfo, 15)
+var file_common_proto_enumTypes = make([]protoimpl.EnumInfo, 16)
 var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_common_proto_goTypes = []any{
 	(DigestAlgorithm)(0),          // 0: provenance.runner.v1.DigestAlgorithm
@@ -3064,109 +3144,111 @@ var file_common_proto_goTypes = []any{
 	(ResultOutcome)(0),            // 12: provenance.runner.v1.ResultOutcome
 	(FailureCategory)(0),          // 13: provenance.runner.v1.FailureCategory
 	(FailureStage)(0),             // 14: provenance.runner.v1.FailureStage
-	(*LeaseIdentity)(nil),         // 15: provenance.runner.v1.LeaseIdentity
-	(*AttemptIdentity)(nil),       // 16: provenance.runner.v1.AttemptIdentity
-	(*OrganizationScope)(nil),     // 17: provenance.runner.v1.OrganizationScope
-	(*Digest)(nil),                // 18: provenance.runner.v1.Digest
-	(*DependencyDigest)(nil),      // 19: provenance.runner.v1.DependencyDigest
-	(*JobHashes)(nil),             // 20: provenance.runner.v1.JobHashes
-	(*ResolvedEnvironment)(nil),   // 21: provenance.runner.v1.ResolvedEnvironment
-	(*ResourceLimits)(nil),        // 22: provenance.runner.v1.ResourceLimits
-	(*NetworkEndpoint)(nil),       // 23: provenance.runner.v1.NetworkEndpoint
-	(*NetworkPolicy)(nil),         // 24: provenance.runner.v1.NetworkPolicy
-	(*EffectivePolicy)(nil),       // 25: provenance.runner.v1.EffectivePolicy
-	(*Capacity)(nil),              // 26: provenance.runner.v1.Capacity
-	(*RunnerPolicy)(nil),          // 27: provenance.runner.v1.RunnerPolicy
-	(*Capabilities)(nil),          // 28: provenance.runner.v1.Capabilities
-	(*ObjectDownload)(nil),        // 29: provenance.runner.v1.ObjectDownload
-	(*ObjectUpload)(nil),          // 30: provenance.runner.v1.ObjectUpload
-	(*DependencyInput)(nil),       // 31: provenance.runner.v1.DependencyInput
-	(*JobSpecification)(nil),      // 32: provenance.runner.v1.JobSpecification
-	(*ResourceUsage)(nil),         // 33: provenance.runner.v1.ResourceUsage
-	(*LogEntry)(nil),              // 34: provenance.runner.v1.LogEntry
-	(*AssertionResult)(nil),       // 35: provenance.runner.v1.AssertionResult
-	(*LifecycleEvent)(nil),        // 36: provenance.runner.v1.LifecycleEvent
-	(*LogObject)(nil),             // 37: provenance.runner.v1.LogObject
-	(*StructuredResult)(nil),      // 38: provenance.runner.v1.StructuredResult
-	(*FailureDetail)(nil),         // 39: provenance.runner.v1.FailureDetail
-	nil,                           // 40: provenance.runner.v1.Capabilities.LabelsEntry
-	nil,                           // 41: provenance.runner.v1.LifecycleEvent.AttributesEntry
-	(*timestamppb.Timestamp)(nil), // 42: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),         // 43: google.protobuf.Empty
-	(*durationpb.Duration)(nil),   // 44: google.protobuf.Duration
+	(ProtocolFeature)(0),          // 15: provenance.runner.v1.ProtocolFeature
+	(*LeaseIdentity)(nil),         // 16: provenance.runner.v1.LeaseIdentity
+	(*AttemptIdentity)(nil),       // 17: provenance.runner.v1.AttemptIdentity
+	(*OrganizationScope)(nil),     // 18: provenance.runner.v1.OrganizationScope
+	(*Digest)(nil),                // 19: provenance.runner.v1.Digest
+	(*DependencyDigest)(nil),      // 20: provenance.runner.v1.DependencyDigest
+	(*JobHashes)(nil),             // 21: provenance.runner.v1.JobHashes
+	(*ResolvedEnvironment)(nil),   // 22: provenance.runner.v1.ResolvedEnvironment
+	(*ResourceLimits)(nil),        // 23: provenance.runner.v1.ResourceLimits
+	(*NetworkEndpoint)(nil),       // 24: provenance.runner.v1.NetworkEndpoint
+	(*NetworkPolicy)(nil),         // 25: provenance.runner.v1.NetworkPolicy
+	(*EffectivePolicy)(nil),       // 26: provenance.runner.v1.EffectivePolicy
+	(*Capacity)(nil),              // 27: provenance.runner.v1.Capacity
+	(*RunnerPolicy)(nil),          // 28: provenance.runner.v1.RunnerPolicy
+	(*Capabilities)(nil),          // 29: provenance.runner.v1.Capabilities
+	(*ObjectDownload)(nil),        // 30: provenance.runner.v1.ObjectDownload
+	(*ObjectUpload)(nil),          // 31: provenance.runner.v1.ObjectUpload
+	(*DependencyInput)(nil),       // 32: provenance.runner.v1.DependencyInput
+	(*JobSpecification)(nil),      // 33: provenance.runner.v1.JobSpecification
+	(*ResourceUsage)(nil),         // 34: provenance.runner.v1.ResourceUsage
+	(*LogEntry)(nil),              // 35: provenance.runner.v1.LogEntry
+	(*AssertionResult)(nil),       // 36: provenance.runner.v1.AssertionResult
+	(*LifecycleEvent)(nil),        // 37: provenance.runner.v1.LifecycleEvent
+	(*LogObject)(nil),             // 38: provenance.runner.v1.LogObject
+	(*StructuredResult)(nil),      // 39: provenance.runner.v1.StructuredResult
+	(*FailureDetail)(nil),         // 40: provenance.runner.v1.FailureDetail
+	nil,                           // 41: provenance.runner.v1.Capabilities.LabelsEntry
+	nil,                           // 42: provenance.runner.v1.LifecycleEvent.AttributesEntry
+	(*timestamppb.Timestamp)(nil), // 43: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),         // 44: google.protobuf.Empty
+	(*durationpb.Duration)(nil),   // 45: google.protobuf.Duration
 }
 var file_common_proto_depIdxs = []int32{
-	42, // 0: provenance.runner.v1.LeaseIdentity.expires_at:type_name -> google.protobuf.Timestamp
-	43, // 1: provenance.runner.v1.OrganizationScope.platform:type_name -> google.protobuf.Empty
+	43, // 0: provenance.runner.v1.LeaseIdentity.expires_at:type_name -> google.protobuf.Timestamp
+	44, // 1: provenance.runner.v1.OrganizationScope.platform:type_name -> google.protobuf.Empty
 	0,  // 2: provenance.runner.v1.Digest.algorithm:type_name -> provenance.runner.v1.DigestAlgorithm
-	18, // 3: provenance.runner.v1.DependencyDigest.digest:type_name -> provenance.runner.v1.Digest
-	18, // 4: provenance.runner.v1.JobHashes.artifact:type_name -> provenance.runner.v1.Digest
-	18, // 5: provenance.runner.v1.JobHashes.configuration:type_name -> provenance.runner.v1.Digest
-	19, // 6: provenance.runner.v1.JobHashes.dependencies:type_name -> provenance.runner.v1.DependencyDigest
-	18, // 7: provenance.runner.v1.JobHashes.environment:type_name -> provenance.runner.v1.Digest
-	18, // 8: provenance.runner.v1.JobHashes.policy:type_name -> provenance.runner.v1.Digest
+	19, // 3: provenance.runner.v1.DependencyDigest.digest:type_name -> provenance.runner.v1.Digest
+	19, // 4: provenance.runner.v1.JobHashes.artifact:type_name -> provenance.runner.v1.Digest
+	19, // 5: provenance.runner.v1.JobHashes.configuration:type_name -> provenance.runner.v1.Digest
+	20, // 6: provenance.runner.v1.JobHashes.dependencies:type_name -> provenance.runner.v1.DependencyDigest
+	19, // 7: provenance.runner.v1.JobHashes.environment:type_name -> provenance.runner.v1.Digest
+	19, // 8: provenance.runner.v1.JobHashes.policy:type_name -> provenance.runner.v1.Digest
 	1,  // 9: provenance.runner.v1.ResolvedEnvironment.provider:type_name -> provenance.runner.v1.ServerProvider
 	2,  // 10: provenance.runner.v1.ResolvedEnvironment.operating_system:type_name -> provenance.runner.v1.OperatingSystem
 	3,  // 11: provenance.runner.v1.ResolvedEnvironment.architecture:type_name -> provenance.runner.v1.Architecture
-	18, // 12: provenance.runner.v1.ResolvedEnvironment.runner_image:type_name -> provenance.runner.v1.Digest
-	18, // 13: provenance.runner.v1.ResolvedEnvironment.server_binary:type_name -> provenance.runner.v1.Digest
+	19, // 12: provenance.runner.v1.ResolvedEnvironment.runner_image:type_name -> provenance.runner.v1.Digest
+	19, // 13: provenance.runner.v1.ResolvedEnvironment.server_binary:type_name -> provenance.runner.v1.Digest
 	5,  // 14: provenance.runner.v1.NetworkPolicy.mode:type_name -> provenance.runner.v1.NetworkMode
-	23, // 15: provenance.runner.v1.NetworkPolicy.allowlist:type_name -> provenance.runner.v1.NetworkEndpoint
+	24, // 15: provenance.runner.v1.NetworkPolicy.allowlist:type_name -> provenance.runner.v1.NetworkEndpoint
 	4,  // 16: provenance.runner.v1.EffectivePolicy.sandbox:type_name -> provenance.runner.v1.SandboxKind
-	24, // 17: provenance.runner.v1.EffectivePolicy.network:type_name -> provenance.runner.v1.NetworkPolicy
-	22, // 18: provenance.runner.v1.EffectivePolicy.resources:type_name -> provenance.runner.v1.ResourceLimits
-	44, // 19: provenance.runner.v1.EffectivePolicy.preparation_timeout:type_name -> google.protobuf.Duration
-	44, // 20: provenance.runner.v1.EffectivePolicy.execution_timeout:type_name -> google.protobuf.Duration
-	44, // 21: provenance.runner.v1.EffectivePolicy.graceful_shutdown_timeout:type_name -> google.protobuf.Duration
+	25, // 17: provenance.runner.v1.EffectivePolicy.network:type_name -> provenance.runner.v1.NetworkPolicy
+	23, // 18: provenance.runner.v1.EffectivePolicy.resources:type_name -> provenance.runner.v1.ResourceLimits
+	45, // 19: provenance.runner.v1.EffectivePolicy.preparation_timeout:type_name -> google.protobuf.Duration
+	45, // 20: provenance.runner.v1.EffectivePolicy.execution_timeout:type_name -> google.protobuf.Duration
+	45, // 21: provenance.runner.v1.EffectivePolicy.graceful_shutdown_timeout:type_name -> google.protobuf.Duration
 	6,  // 22: provenance.runner.v1.EffectivePolicy.requirement:type_name -> provenance.runner.v1.EnvironmentRequirement
 	4,  // 23: provenance.runner.v1.RunnerPolicy.sandboxes:type_name -> provenance.runner.v1.SandboxKind
-	24, // 24: provenance.runner.v1.RunnerPolicy.maximum_network:type_name -> provenance.runner.v1.NetworkPolicy
-	22, // 25: provenance.runner.v1.RunnerPolicy.maximum_resources_per_job:type_name -> provenance.runner.v1.ResourceLimits
+	25, // 24: provenance.runner.v1.RunnerPolicy.maximum_network:type_name -> provenance.runner.v1.NetworkPolicy
+	23, // 25: provenance.runner.v1.RunnerPolicy.maximum_resources_per_job:type_name -> provenance.runner.v1.ResourceLimits
 	2,  // 26: provenance.runner.v1.Capabilities.operating_system:type_name -> provenance.runner.v1.OperatingSystem
 	3,  // 27: provenance.runner.v1.Capabilities.architecture:type_name -> provenance.runner.v1.Architecture
 	4,  // 28: provenance.runner.v1.Capabilities.sandboxes:type_name -> provenance.runner.v1.SandboxKind
 	1,  // 29: provenance.runner.v1.Capabilities.providers:type_name -> provenance.runner.v1.ServerProvider
-	26, // 30: provenance.runner.v1.Capabilities.capacity:type_name -> provenance.runner.v1.Capacity
-	27, // 31: provenance.runner.v1.Capabilities.policy:type_name -> provenance.runner.v1.RunnerPolicy
-	40, // 32: provenance.runner.v1.Capabilities.labels:type_name -> provenance.runner.v1.Capabilities.LabelsEntry
-	18, // 33: provenance.runner.v1.ObjectDownload.digest:type_name -> provenance.runner.v1.Digest
-	42, // 34: provenance.runner.v1.ObjectDownload.expires_at:type_name -> google.protobuf.Timestamp
-	42, // 35: provenance.runner.v1.ObjectUpload.expires_at:type_name -> google.protobuf.Timestamp
-	29, // 36: provenance.runner.v1.DependencyInput.object:type_name -> provenance.runner.v1.ObjectDownload
-	15, // 37: provenance.runner.v1.JobSpecification.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	16, // 38: provenance.runner.v1.JobSpecification.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	17, // 39: provenance.runner.v1.JobSpecification.organization_scope:type_name -> provenance.runner.v1.OrganizationScope
-	20, // 40: provenance.runner.v1.JobSpecification.hashes:type_name -> provenance.runner.v1.JobHashes
-	21, // 41: provenance.runner.v1.JobSpecification.environment:type_name -> provenance.runner.v1.ResolvedEnvironment
-	25, // 42: provenance.runner.v1.JobSpecification.effective_policy:type_name -> provenance.runner.v1.EffectivePolicy
-	29, // 43: provenance.runner.v1.JobSpecification.artifact:type_name -> provenance.runner.v1.ObjectDownload
-	31, // 44: provenance.runner.v1.JobSpecification.dependencies:type_name -> provenance.runner.v1.DependencyInput
-	30, // 45: provenance.runner.v1.JobSpecification.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
-	44, // 46: provenance.runner.v1.ResourceUsage.cpu_time:type_name -> google.protobuf.Duration
-	42, // 47: provenance.runner.v1.LogEntry.observed_at:type_name -> google.protobuf.Timestamp
-	8,  // 48: provenance.runner.v1.LogEntry.stream:type_name -> provenance.runner.v1.LogStream
-	9,  // 49: provenance.runner.v1.AssertionResult.kind:type_name -> provenance.runner.v1.AssertionKind
-	10, // 50: provenance.runner.v1.AssertionResult.outcome:type_name -> provenance.runner.v1.AssertionOutcome
-	42, // 51: provenance.runner.v1.AssertionResult.started_at:type_name -> google.protobuf.Timestamp
-	42, // 52: provenance.runner.v1.AssertionResult.completed_at:type_name -> google.protobuf.Timestamp
-	11, // 53: provenance.runner.v1.LifecycleEvent.kind:type_name -> provenance.runner.v1.LifecycleEventKind
-	42, // 54: provenance.runner.v1.LifecycleEvent.observed_at:type_name -> google.protobuf.Timestamp
-	41, // 55: provenance.runner.v1.LifecycleEvent.attributes:type_name -> provenance.runner.v1.LifecycleEvent.AttributesEntry
-	18, // 56: provenance.runner.v1.LogObject.digest:type_name -> provenance.runner.v1.Digest
-	12, // 57: provenance.runner.v1.StructuredResult.outcome:type_name -> provenance.runner.v1.ResultOutcome
-	35, // 58: provenance.runner.v1.StructuredResult.assertions:type_name -> provenance.runner.v1.AssertionResult
-	36, // 59: provenance.runner.v1.StructuredResult.lifecycle_events:type_name -> provenance.runner.v1.LifecycleEvent
-	33, // 60: provenance.runner.v1.StructuredResult.usage:type_name -> provenance.runner.v1.ResourceUsage
-	42, // 61: provenance.runner.v1.StructuredResult.started_at:type_name -> google.protobuf.Timestamp
-	42, // 62: provenance.runner.v1.StructuredResult.completed_at:type_name -> google.protobuf.Timestamp
-	37, // 63: provenance.runner.v1.StructuredResult.complete_log:type_name -> provenance.runner.v1.LogObject
-	13, // 64: provenance.runner.v1.FailureDetail.category:type_name -> provenance.runner.v1.FailureCategory
-	14, // 65: provenance.runner.v1.FailureDetail.stage:type_name -> provenance.runner.v1.FailureStage
-	66, // [66:66] is the sub-list for method output_type
-	66, // [66:66] is the sub-list for method input_type
-	66, // [66:66] is the sub-list for extension type_name
-	66, // [66:66] is the sub-list for extension extendee
-	0,  // [0:66] is the sub-list for field type_name
+	27, // 30: provenance.runner.v1.Capabilities.capacity:type_name -> provenance.runner.v1.Capacity
+	28, // 31: provenance.runner.v1.Capabilities.policy:type_name -> provenance.runner.v1.RunnerPolicy
+	41, // 32: provenance.runner.v1.Capabilities.labels:type_name -> provenance.runner.v1.Capabilities.LabelsEntry
+	15, // 33: provenance.runner.v1.Capabilities.features:type_name -> provenance.runner.v1.ProtocolFeature
+	19, // 34: provenance.runner.v1.ObjectDownload.digest:type_name -> provenance.runner.v1.Digest
+	43, // 35: provenance.runner.v1.ObjectDownload.expires_at:type_name -> google.protobuf.Timestamp
+	43, // 36: provenance.runner.v1.ObjectUpload.expires_at:type_name -> google.protobuf.Timestamp
+	30, // 37: provenance.runner.v1.DependencyInput.object:type_name -> provenance.runner.v1.ObjectDownload
+	16, // 38: provenance.runner.v1.JobSpecification.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	17, // 39: provenance.runner.v1.JobSpecification.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	18, // 40: provenance.runner.v1.JobSpecification.organization_scope:type_name -> provenance.runner.v1.OrganizationScope
+	21, // 41: provenance.runner.v1.JobSpecification.hashes:type_name -> provenance.runner.v1.JobHashes
+	22, // 42: provenance.runner.v1.JobSpecification.environment:type_name -> provenance.runner.v1.ResolvedEnvironment
+	26, // 43: provenance.runner.v1.JobSpecification.effective_policy:type_name -> provenance.runner.v1.EffectivePolicy
+	30, // 44: provenance.runner.v1.JobSpecification.artifact:type_name -> provenance.runner.v1.ObjectDownload
+	32, // 45: provenance.runner.v1.JobSpecification.dependencies:type_name -> provenance.runner.v1.DependencyInput
+	31, // 46: provenance.runner.v1.JobSpecification.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
+	45, // 47: provenance.runner.v1.ResourceUsage.cpu_time:type_name -> google.protobuf.Duration
+	43, // 48: provenance.runner.v1.LogEntry.observed_at:type_name -> google.protobuf.Timestamp
+	8,  // 49: provenance.runner.v1.LogEntry.stream:type_name -> provenance.runner.v1.LogStream
+	9,  // 50: provenance.runner.v1.AssertionResult.kind:type_name -> provenance.runner.v1.AssertionKind
+	10, // 51: provenance.runner.v1.AssertionResult.outcome:type_name -> provenance.runner.v1.AssertionOutcome
+	43, // 52: provenance.runner.v1.AssertionResult.started_at:type_name -> google.protobuf.Timestamp
+	43, // 53: provenance.runner.v1.AssertionResult.completed_at:type_name -> google.protobuf.Timestamp
+	11, // 54: provenance.runner.v1.LifecycleEvent.kind:type_name -> provenance.runner.v1.LifecycleEventKind
+	43, // 55: provenance.runner.v1.LifecycleEvent.observed_at:type_name -> google.protobuf.Timestamp
+	42, // 56: provenance.runner.v1.LifecycleEvent.attributes:type_name -> provenance.runner.v1.LifecycleEvent.AttributesEntry
+	19, // 57: provenance.runner.v1.LogObject.digest:type_name -> provenance.runner.v1.Digest
+	12, // 58: provenance.runner.v1.StructuredResult.outcome:type_name -> provenance.runner.v1.ResultOutcome
+	36, // 59: provenance.runner.v1.StructuredResult.assertions:type_name -> provenance.runner.v1.AssertionResult
+	37, // 60: provenance.runner.v1.StructuredResult.lifecycle_events:type_name -> provenance.runner.v1.LifecycleEvent
+	34, // 61: provenance.runner.v1.StructuredResult.usage:type_name -> provenance.runner.v1.ResourceUsage
+	43, // 62: provenance.runner.v1.StructuredResult.started_at:type_name -> google.protobuf.Timestamp
+	43, // 63: provenance.runner.v1.StructuredResult.completed_at:type_name -> google.protobuf.Timestamp
+	38, // 64: provenance.runner.v1.StructuredResult.complete_log:type_name -> provenance.runner.v1.LogObject
+	13, // 65: provenance.runner.v1.FailureDetail.category:type_name -> provenance.runner.v1.FailureCategory
+	14, // 66: provenance.runner.v1.FailureDetail.stage:type_name -> provenance.runner.v1.FailureStage
+	67, // [67:67] is the sub-list for method output_type
+	67, // [67:67] is the sub-list for method input_type
+	67, // [67:67] is the sub-list for extension type_name
+	67, // [67:67] is the sub-list for extension extendee
+	0,  // [0:67] is the sub-list for field type_name
 }
 
 func init() { file_common_proto_init() }
@@ -3184,7 +3266,7 @@ func file_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)),
-			NumEnums:      15,
+			NumEnums:      16,
 			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   0,
