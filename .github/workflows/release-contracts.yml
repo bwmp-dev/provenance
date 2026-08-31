@@ -1,0 +1,112 @@
+name: Contract release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contract-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+          cache-dependency-path: gen/proto/go.sum
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21.0.12+8.0.LTS"
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-contracts.txt
+      - run: python -m pip install --requirement requirements-contracts.txt
+      - run: pnpm install --frozen-lockfile
+      - name: Validate release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          git fetch origin main:refs/remotes/origin/main --no-tags
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "Release tags must point to a commit reachable from main." >&2
+            exit 1
+          }
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "A release already exists for $GITHUB_REF_NAME." >&2
+            exit 1
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+      - run: pnpm check
+      - name: Build contract archives
+        run: >-
+          pnpm release:contracts --
+          --version "${{ steps.release.outputs.version }}"
+          --source-commit "$GITHUB_SHA"
+          --output dist/contracts
+      - name: Verify contract archives and consumers
+        run: >-
+          pnpm release:verify --
+          --version "${{ steps.release.outputs.version }}"
+          --directory dist/contracts
+          --consumers
+      - uses: actions/upload-artifact@v4
+        with:
+          name: provenance-contracts-${{ steps.release.outputs.version }}
+          path: dist/contracts/*
+          if-no-files-found: error
+      - name: Attest contract artifacts
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/contracts/*
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+        shell: bash
+        run: |
+          arguments=(
+            "$GITHUB_REF_NAME"
+            dist/contracts/*
+            --repo "$GITHUB_REPOSITORY"
+            --verify-tag
+            --generate-notes
+            --title "Provenance contracts $GITHUB_REF_NAME"
+          )
+          if [[ "$PRERELEASE" == "true" ]]; then
+            arguments+=(--prerelease)
+          fi
+          gh release create "${arguments[@]}"
