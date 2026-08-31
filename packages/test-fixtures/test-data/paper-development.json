@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "project": "paper",
+  "minecraftVersion": "1.21.8",
+  "build": 60,
+  "channel": "STABLE",
+  "minimumJavaMajor": 21,
+  "download": {
+    "name": "paper-1.21.8-60.jar",
+    "url": "https://fill-data.papermc.io/v1/objects/8de7c52c3b02403503d16fac58003f1efef7dd7a0256786843927fa92ee57f1e/paper-1.21.8-60.jar",
+    "sha256": "8de7c52c3b02403503d16fac58003f1efef7dd7a0256786843927fa92ee57f1e",
+    "sizeBytes": 52811717
+  }
+}
