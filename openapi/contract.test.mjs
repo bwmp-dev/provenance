@@ -92,9 +92,19 @@ test("every mutation has deterministic idempotency semantics", () => {
       parameter,
       `${method.toUpperCase()} ${path} lacks Idempotency-Key`,
     );
+    const conflictReference = operation.responses["409"]?.$ref;
+    assert.match(
+      conflictReference,
+      /^#\/components\/responses\/[A-Za-z0-9]+$/,
+      operation.operationId,
+    );
+    const conflict =
+      document.components.responses[conflictReference.split("/").at(-1)];
+    assert.match(conflict.description, /idempotency/i, operation.operationId);
     assert.equal(
-      operation.responses["409"]?.$ref,
-      "#/components/responses/IdempotencyConflict",
+      conflict.content["application/problem+json"].schema.$ref,
+      "#/components/schemas/ProblemDetails",
+      operation.operationId,
     );
     if (operation.operationId !== "receiveGitHubWebhook") {
       assert.equal(parameter.required, true, operation.operationId);
@@ -139,6 +149,98 @@ test("project creation matches the platform wire contract", () => {
   assert.equal(location.required, true);
   assert.equal(location.schema.type, "string");
   assert.equal(location.schema.format, "uri-reference");
+});
+
+test("configuration snapshot creation preserves canonical source identity", () => {
+  const createSnapshot = operation("createProjectConfigSnapshot");
+  const request =
+    document.components.schemas.CreateProjectConfigSnapshotRequest;
+  const snapshot = document.components.schemas.ProjectConfigSnapshot;
+
+  assert.deepEqual(createSnapshot.security, [{ BearerAuth: [] }]);
+  assert.deepEqual(request.required, [
+    "sourceCommit",
+    "rawYaml",
+    "normalizedJson",
+    "schemaVersion",
+    "configurationHash",
+  ]);
+  assert.equal(request.additionalProperties, false);
+  assert.equal(
+    request.properties.sourceCommit.pattern,
+    "^(?:[a-f0-9]{40}|[a-f0-9]{64})$",
+  );
+  assert.equal(request.properties.sourceRef.maxLength, 512);
+  assert.equal(request.properties.rawYaml.maxLength, 1_048_576);
+  assert.equal(request.properties.normalizedJson.maxLength, 1_048_576);
+  assert.equal(
+    request.properties.normalizedJson.contentMediaType,
+    "application/json",
+  );
+  assert.match(
+    request.properties.normalizedJson.description,
+    /canonical UTF-8 JSON text whose SHA-256 is configurationHash/,
+  );
+  assert.equal(request.properties.schemaVersion.const, 1);
+  assert.equal(
+    request.properties.configurationHash.$ref,
+    "#/components/schemas/Sha256Digest",
+  );
+  assert.equal(snapshot.additionalProperties, false);
+  assert.deepEqual(snapshot.required, [
+    "id",
+    "projectId",
+    "sourceCommit",
+    "schemaVersion",
+    "configurationHash",
+    "createdAt",
+  ]);
+  assert.equal(snapshot.properties.schemaVersion.const, 1);
+  assert.equal(createSnapshot.responses["201"].headers, undefined);
+  assert.equal(
+    createSnapshot.responses["422"].$ref,
+    "#/components/responses/Problem",
+  );
+
+  const createCandidate =
+    document.components.schemas.CreateReleaseCandidateRequest;
+  assert.ok(!createCandidate.required.includes("configurationSnapshotId"));
+  assert.equal(
+    createCandidate.properties.configurationSnapshotId.allOf[0].$ref,
+    "#/components/schemas/StableId",
+  );
+  assert.match(
+    createCandidate.properties.configurationSnapshotId.description,
+    /must identify a snapshot in the path project whose hash equals configurationHash/,
+  );
+  assert.match(
+    createCandidate.properties.configurationSnapshotId.description,
+    /zero or multiple matches fail with HTTP 409/,
+  );
+  assert.equal(
+    document.components.schemas.ReleaseCandidate.properties
+      .configurationSnapshotId,
+    undefined,
+  );
+
+  const candidateConflict =
+    document.components.responses.ReleaseCandidateConflict;
+  assert.equal(
+    operation("createReleaseCandidate").responses["409"].$ref,
+    "#/components/responses/ReleaseCandidateConflict",
+  );
+  for (const code of [
+    "configuration_snapshot_not_found",
+    "configuration_snapshot_mismatch",
+    "configuration_snapshot_ambiguous",
+  ]) {
+    assert.match(candidateConflict.description, new RegExp(code));
+  }
+  assert.match(candidateConflict.description, /exactly one snapshot/);
+  assert.match(
+    candidateConflict.description,
+    /All listed conflicts use HTTP 409/,
+  );
 });
 
 test("authentication, pagination, identifiers, timestamps, and states stay stable", () => {

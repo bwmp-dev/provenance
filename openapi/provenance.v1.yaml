@@ -312,6 +312,32 @@ paths:
           $ref: "#/components/responses/IdempotencyConflict"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/projects/{projectId}/config-snapshots:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    post:
+      operationId: createProjectConfigSnapshot
+      summary: Validate and persist an immutable project configuration snapshot
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateProjectConfigSnapshot"
+      responses:
+        "201":
+          description: Configuration snapshot created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectConfigSnapshot"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /v1/github/installations:
     get:
       operationId: listGitHubInstallations
@@ -448,7 +474,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReleaseCandidate"
         "409":
-          $ref: "#/components/responses/IdempotencyConflict"
+          $ref: "#/components/responses/ReleaseCandidateConflict"
         default:
           $ref: "#/components/responses/Problem"
   /v1/release-candidates/{candidateId}:
@@ -992,6 +1018,25 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
+    ReleaseCandidateConflict:
+      description: |
+        Release candidate creation conflicted with an existing resource or
+        idempotency record. Reusing an idempotency key with a different request
+        returns code `idempotency_key_conflict`.
+
+        When `configurationSnapshotId` is present, the identified snapshot must
+        exist in the path project and its `configurationHash` must equal the
+        request value. A missing ID returns `configuration_snapshot_not_found`;
+        a project or hash mismatch returns `configuration_snapshot_mismatch`.
+
+        When `configurationSnapshotId` is absent, exactly one snapshot in the
+        path project must match `configurationHash`. Zero matches return
+        `configuration_snapshot_not_found`; multiple matches return
+        `configuration_snapshot_ambiguous`. All listed conflicts use HTTP 409.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
   requestBodies:
     CreateSession:
       required: true
@@ -1035,6 +1080,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/UpdateProjectRequest"
+    CreateProjectConfigSnapshot:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateProjectConfigSnapshotRequest"
     CreateGitHubConnection:
       required: true
       content:
@@ -1398,6 +1449,68 @@ components:
             $ref: "#/components/schemas/Project"
         page:
           $ref: "#/components/schemas/PageInfo"
+    CreateProjectConfigSnapshotRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - sourceCommit
+        - rawYaml
+        - normalizedJson
+        - schemaVersion
+        - configurationHash
+      properties:
+        sourceCommit:
+          type: string
+          pattern: ^(?:[a-f0-9]{40}|[a-f0-9]{64})$
+        sourceRef:
+          type: string
+          minLength: 1
+          maxLength: 512
+          pattern: ^[^\r\n\x00]+$
+        rawYaml:
+          type: string
+          minLength: 1
+          maxLength: 1048576
+        normalizedJson:
+          type: string
+          minLength: 2
+          maxLength: 1048576
+          contentMediaType: application/json
+          description: Compact canonical UTF-8 JSON text whose SHA-256 is configurationHash.
+        schemaVersion:
+          type: integer
+          const: 1
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+    ProjectConfigSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - projectId
+        - sourceCommit
+        - schemaVersion
+        - configurationHash
+        - createdAt
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        projectId:
+          $ref: "#/components/schemas/StableId"
+        sourceCommit:
+          type: string
+          pattern: ^(?:[a-f0-9]{40}|[a-f0-9]{64})$
+        sourceRef:
+          type: string
+          minLength: 1
+          maxLength: 512
+        schemaVersion:
+          type: integer
+          const: 1
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
     GitHubInstallation:
       type: object
       additionalProperties: false
@@ -1548,6 +1661,10 @@ components:
       properties:
         artifactId:
           $ref: "#/components/schemas/StableId"
+        configurationSnapshotId:
+          allOf:
+            - $ref: "#/components/schemas/StableId"
+          description: Exact immutable snapshot identity. It must identify a snapshot in the path project whose hash equals configurationHash. When omitted, configurationHash must identify exactly one snapshot in that project; zero or multiple matches fail with HTTP 409.
         configurationHash:
           $ref: "#/components/schemas/Sha256Digest"
         version:
