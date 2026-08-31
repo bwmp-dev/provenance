@@ -9,7 +9,7 @@
   "exports": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "node ../../scripts/clean-dist.mjs && tsc --project tsconfig.json && node scripts/build.mjs",
     "generate": "openapi-typescript ../../openapi/provenance.v1.yaml -o src/gen/schema.d.ts",
     "test": "tsc --project tsconfig.json --noEmit"
   },

@@ -17,9 +17,12 @@
     "generate:check": "pnpm run generate && git diff --exit-code -- gen/proto packages/runner-protocol/src/gen packages/api-client/src/gen",
     "lint:contracts": "buf lint proto/provenance/runner/v1 && pnpm run lint:openapi",
     "lint:openapi": "redocly lint --config openapi/redocly.yaml",
-    "test": "pnpm run build && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:openapi && pnpm run test:proto",
+    "release:contracts": "node scripts/contract-release.mjs",
+    "release:verify": "node scripts/verify-contract-release.mjs",
+    "test": "pnpm run build && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:openapi && pnpm run test:proto && pnpm run test:release",
     "test:openapi": "node --test openapi/contract.test.mjs",
     "test:proto": "node --test proto/provenance/runner/v1/contract.test.mjs",
+    "test:release": "node --test scripts/contract-release.test.mjs",
     "security:check": "pnpm audit --audit-level high && go -C gen/proto run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
     "test:python": "python schemas/config/test_contract.py && python schemas/attestation/test_contract.py",
     "test:vectors": "node schemas/attestation/verify_vectors.mjs"
@@ -29,6 +32,7 @@
     "@bufbuild/protoc-gen-es": "2.14.0",
     "@redocly/cli": "2.49.0",
     "prettier": "3.9.6",
+    "tar": "7.5.22",
     "yaml": "2.9.0"
   }
 }

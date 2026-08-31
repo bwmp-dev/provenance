@@ -1,0 +1,526 @@
+name: Contract release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer release version without the v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contract-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      created_at: ${{ steps.release.outputs.created_at }}
+      policy_sha: ${{ steps.release.outputs.policy_sha }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      source_sha: ${{ steps.release.outputs.source_sha }}
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Validate release request
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Contract releases must be dispatched from refs/heads/main." >&2
+            exit 1
+          fi
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if [[ ! "$VERSION" =~ $semver ]]; then
+            echo "Release version is not valid SemVer: $VERSION" >&2
+            exit 1
+          fi
+          git fetch origin main:refs/remotes/origin/main --no-tags
+          policy_sha="$(git rev-parse HEAD)"
+          if [[ "$policy_sha" != "$GITHUB_SHA" ]]; then
+            echo "Release checkout does not match the immutable workflow-dispatch commit." >&2
+            exit 1
+          fi
+          source_sha="$policy_sha"
+          tag="v$VERSION"
+          if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" 2>/dev/null)"; then
+            tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
+            tag_object="$(jq --raw-output '.object.sha' <<<"$tag_ref")"
+            if [[ "$tag_type" != "tag" ]]; then
+              echo "Existing release tag is not annotated: $tag" >&2
+              exit 1
+            fi
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
+            if ! git merge-base --is-ancestor "$tagged_sha" "$policy_sha"; then
+              echo "Existing tag does not identify a commit contained in the reviewed main history: $tag" >&2
+              exit 1
+            fi
+            source_sha="$tagged_sha"
+          elif [[ "$policy_sha" != "$(git rev-parse origin/main)" ]]; then
+            echo "The immutable workflow-dispatch commit is no longer the current main tip before tag creation." >&2
+            exit 1
+          fi
+          commit_timestamp="$(git show -s --format=%ct "$source_sha")"
+          created_at="$(date --utc --date="@$commit_timestamp" +%Y-%m-%dT%H:%M:%SZ)"
+          echo "created_at=$created_at" >> "$GITHUB_OUTPUT"
+          echo "policy_sha=$policy_sha" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.validate.outputs.source_sha }}
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.20.0
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: .go-version
+          cache-dependency-path: gen/proto/go.sum
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21.0.12+8.0.LTS"
+          cache: gradle
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-contracts.txt
+      - run: python -m pip install --requirement requirements-contracts.txt
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Build contract archives
+        run: >-
+          pnpm release:contracts --
+          --version "${{ needs.validate.outputs.version }}"
+          --source-commit "${{ needs.validate.outputs.source_sha }}"
+          --created-at "${{ needs.validate.outputs.created_at }}"
+          --output dist/contracts
+      - name: Verify contract archives and isolated consumers
+        run: >-
+          pnpm release:verify --
+          --version "${{ needs.validate.outputs.version }}"
+          --directory dist/contracts
+          --consumers
+      - id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: provenance-contracts-${{ needs.validate.outputs.version }}-${{ needs.validate.outputs.source_sha }}
+          path: dist/contracts/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.validate.outputs.policy_sha }}
+      - name: Revalidate reviewed main commit and release destination
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+          TAG: ${{ needs.validate.outputs.tag }}
+        shell: bash
+        run: |
+          if [[ "$(git rev-parse HEAD)" != "$POLICY_SHA" ]]; then
+            echo "Privileged release checkout does not match the reviewed policy commit." >&2
+            exit 1
+          fi
+          git fetch origin main:refs/remotes/origin/main --no-tags
+          if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null)"; then
+            tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
+            tag_object="$(jq --raw-output '.object.sha' <<<"$tag_ref")"
+            if [[ "$tag_type" != "tag" ]]; then
+              echo "Existing release tag is not annotated: $TAG" >&2
+              exit 1
+            fi
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
+            if [[ "$tagged_sha" != "$SOURCE_SHA" ]]; then
+              echo "Existing tag does not identify the reviewed main commit: $TAG" >&2
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Existing tag is outside the reviewed main history: $TAG" >&2
+              exit 1
+            fi
+          elif [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+            echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
+            exit 1
+          fi
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          merge-multiple: true
+          path: dist/contracts
+      - name: Independently verify downloaded release bundle
+        run: >-
+          python3 scripts/verify-release-bundle.py
+          --version "${{ needs.validate.outputs.version }}"
+          --directory dist/contracts
+          --source-sha "${{ needs.validate.outputs.source_sha }}"
+      - name: Confirm publish identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+          TAG: ${{ needs.validate.outputs.tag }}
+        shell: bash
+        run: |
+          if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null)"; then
+            tag_object="$(jq --raw-output 'select(.object.type == "tag") | .object.sha' <<<"$tag_ref")"
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
+            if [[ -z "$tag_object" || "$tagged_sha" != "$SOURCE_SHA" ]] ||
+              ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Existing release tag does not match the reviewed release identity." >&2
+              exit 1
+            fi
+          else
+            git fetch origin main:refs/remotes/origin/main --no-tags
+            if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+              echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
+              exit 1
+            fi
+          fi
+      - name: Attest contract artifacts
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/contracts/*
+      - name: Reconfirm bundle and publish identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+          TAG: ${{ needs.validate.outputs.tag }}
+        shell: bash
+        run: |
+          python3 scripts/verify-release-bundle.py \
+            --version "${{ needs.validate.outputs.version }}" \
+            --directory dist/contracts \
+            --source-sha "$SOURCE_SHA"
+          if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null)"; then
+            tag_object="$(jq --raw-output 'select(.object.type == "tag") | .object.sha' <<<"$tag_ref")"
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
+            if [[ -z "$tag_object" || "$tagged_sha" != "$SOURCE_SHA" ]] ||
+              ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Existing release tag does not match the reviewed release identity." >&2
+              exit 1
+            fi
+          else
+            git fetch origin main:refs/remotes/origin/main --no-tags
+            if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+              echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
+              exit 1
+            fi
+          fi
+      - name: Attest contract SBOM
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/contracts/*.tar.gz
+          sbom-path: dist/contracts/provenance-contracts-${{ needs.validate.outputs.version }}.spdx.json
+      - name: Create or reuse annotated release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+          TAG: ${{ needs.validate.outputs.tag }}
+        shell: bash
+        run: |
+          python3 scripts/verify-release-bundle.py \
+            --version "${{ needs.validate.outputs.version }}" \
+            --directory dist/contracts \
+            --source-sha "$SOURCE_SHA"
+          if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null)"; then
+            tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
+            tag_object="$(jq --raw-output '.object.sha' <<<"$tag_ref")"
+            if [[ "$tag_type" != "tag" ]]; then
+              echo "Existing release tag is not annotated: $TAG" >&2
+              exit 1
+            fi
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
+            if [[ "$tagged_sha" != "$SOURCE_SHA" ]]; then
+              echo "Existing tag does not identify the reviewed main commit: $TAG" >&2
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Existing tag is outside the reviewed main history: $TAG" >&2
+              exit 1
+            fi
+            echo "Reusing annotated tag $TAG at $SOURCE_SHA."
+            exit 0
+          fi
+          git fetch origin main:refs/remotes/origin/main --no-tags
+          if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+            echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
+            exit 1
+          fi
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags" \
+            --method POST \
+            --raw-field tag="$TAG" \
+            --raw-field message="Provenance contracts $TAG" \
+            --raw-field object="$SOURCE_SHA" \
+            --raw-field type=commit \
+            --jq .sha)"
+          python3 scripts/verify-release-bundle.py \
+            --version "${{ needs.validate.outputs.version }}" \
+            --directory dist/contracts \
+            --source-sha "$SOURCE_SHA"
+          git fetch origin main:refs/remotes/origin/main --no-tags
+          if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+            echo "Reviewed release commit is no longer the current main tip." >&2
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+            --method POST \
+            --raw-field ref="refs/tags/$TAG" \
+            --raw-field sha="$tag_object"; then
+            tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG")"
+            existing_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
+            existing_object="$(jq --raw-output '.object.sha' <<<"$tag_ref")"
+            if [[ "$existing_type" != "tag" ]]; then
+              echo "Concurrent tag creation produced a non-annotated tag." >&2
+              exit 1
+            fi
+            existing_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$existing_object" --jq .object.sha)"
+            if [[ "$existing_sha" != "$SOURCE_SHA" ]]; then
+              echo "Concurrent tag creation did not produce the reviewed annotated tag." >&2
+              exit 1
+            fi
+            echo "Reusing concurrently created annotated tag $TAG at $SOURCE_SHA."
+          fi
+      - name: Reconcile and publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+          TAG: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
+        shell: bash
+        run: |
+          compatibility="$(printf '%s\n' \
+            '## Compatibility declaration' \
+            '- Configuration schema: v1' \
+            '- Attestation schema: v1' \
+            '- Public OpenAPI: v1' \
+            '- Runner protocol: v1' \
+            '- CLI: not released' \
+            '- GitHub Action: not released' \
+            "- TypeScript SDK client: $VERSION")"
+          title="Provenance contracts $TAG"
+
+          verify_release_identity() {
+            python3 scripts/verify-release-bundle.py \
+              --version "$VERSION" \
+              --directory dist/contracts \
+              --source-sha "$SOURCE_SHA"
+            local tag_ref tag_object tagged_sha tag_type
+            tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG")"
+            tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
+            tag_object="$(jq --raw-output '.object.sha' <<<"$tag_ref")"
+            if [[ "$tag_type" != "tag" ]]; then
+              echo "Release tag is not annotated: $TAG" >&2
+              return 1
+            fi
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
+            if [[ "$tagged_sha" != "$SOURCE_SHA" ]]; then
+              echo "Release tag does not identify the reviewed main commit: $TAG" >&2
+              return 1
+            fi
+            if ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Release tag is outside the reviewed main history: $TAG" >&2
+              return 1
+            fi
+          }
+
+          validate_release_metadata() {
+            jq --exit-status \
+              --arg tag "$TAG" \
+              --arg title "$title" \
+              --arg compatibility "$compatibility" \
+              --argjson prerelease "$PRERELEASE" \
+              '.tag_name == $tag
+                and .name == $title
+                and .prerelease == $prerelease
+                and (.body | type == "string" and startswith($compatibility))' \
+              <<<"$release_json" >/dev/null || {
+                echo "Existing release metadata conflicts with this reviewed release." >&2
+                return 1
+              }
+          }
+
+          expected_paths=(dist/contracts/*)
+          if [[ "${#expected_paths[@]}" -ne 8 ]]; then
+            echo "Unexpected local release asset count." >&2
+            exit 1
+          fi
+          declare -A expected_path_by_name=()
+          for path in "${expected_paths[@]}"; do
+            if [[ ! -f "$path" || -L "$path" ]]; then
+              echo "Local release asset is not a regular file: $path" >&2
+              exit 1
+            fi
+            name="${path##*/}"
+            if [[ -n "${expected_path_by_name[$name]:-}" ]]; then
+              echo "Duplicate local release asset name: $name" >&2
+              exit 1
+            fi
+            expected_path_by_name["$name"]="$path"
+          done
+
+          verify_release_assets() {
+            local require_complete="$1"
+            local asset_count asset_id asset_name asset_size asset_state
+            local expected_path expected_size expected_digest downloaded_digest downloaded_path
+            release_assets_json="$(gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" \
+              --slurp)"
+            asset_count="$(jq '[.[][]] | length' <<<"$release_assets_json")"
+            declare -A seen_assets=()
+            while IFS=$'\t' read -r asset_id asset_name asset_size asset_state; do
+              if [[ -z "${expected_path_by_name[$asset_name]:-}" ]]; then
+                echo "Release contains an unexpected asset: $asset_name" >&2
+                return 1
+              fi
+              if [[ -n "${seen_assets[$asset_name]:-}" ]]; then
+                echo "Release contains a duplicate asset: $asset_name" >&2
+                return 1
+              fi
+              seen_assets["$asset_name"]=1
+              if [[ "$asset_state" != "uploaded" ]]; then
+                echo "Release asset is not fully uploaded: $asset_name" >&2
+                return 1
+              fi
+              expected_path="${expected_path_by_name[$asset_name]}"
+              expected_size="$(stat --format=%s -- "$expected_path")"
+              if [[ "$asset_size" != "$expected_size" ]]; then
+                echo "Release asset size conflicts with the verified bundle: $asset_name" >&2
+                return 1
+              fi
+              downloaded_path="$(mktemp "$RUNNER_TEMP/release-asset.XXXXXX")"
+              gh api \
+                --header 'Accept: application/octet-stream' \
+                "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" >"$downloaded_path"
+              expected_digest="$(sha256sum -- "$expected_path")"
+              expected_digest="${expected_digest%% *}"
+              downloaded_digest="$(sha256sum -- "$downloaded_path")"
+              downloaded_digest="${downloaded_digest%% *}"
+              if [[ "$downloaded_digest" != "$expected_digest" ]]; then
+                echo "Release asset digest conflicts with the verified bundle: $asset_name" >&2
+                return 1
+              fi
+            done < <(
+              jq --raw-output '.[][] | [.id, .name, .size, .state] | @tsv' \
+                <<<"$release_assets_json"
+            )
+            if [[ "$require_complete" == "true" && "$asset_count" -ne "${#expected_paths[@]}" ]]; then
+              echo "Release asset inventory is incomplete." >&2
+              return 1
+            fi
+          }
+
+          verify_release_identity
+          if release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/dev/null)"; then
+            validate_release_metadata
+          else
+            verify_release_identity
+            if ! release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+              --method POST \
+              --raw-field tag_name="$TAG" \
+              --raw-field target_commitish="$SOURCE_SHA" \
+              --raw-field name="$title" \
+              --raw-field body="$compatibility" \
+              --field draft=true \
+              --field generate_release_notes=true \
+              --field prerelease="$PRERELEASE" 2>"$RUNNER_TEMP/create-release.err")"; then
+              if ! release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/dev/null)"; then
+                cat "$RUNNER_TEMP/create-release.err" >&2
+                exit 1
+              fi
+            fi
+            validate_release_metadata
+          fi
+
+          release_id="$(jq --raw-output '.id' <<<"$release_json")"
+          is_draft="$(jq --raw-output '.draft' <<<"$release_json")"
+          if [[ ! "$release_id" =~ ^[0-9]+$ || ( "$is_draft" != "true" && "$is_draft" != "false" ) ]]; then
+            echo "Release response is missing a valid identity." >&2
+            exit 1
+          fi
+
+          if [[ "$is_draft" == "false" ]]; then
+            verify_release_assets true
+            echo "Published release $TAG already matches the verified bundle."
+            exit 0
+          fi
+
+          verify_release_assets false
+          for path in "${expected_paths[@]}"; do
+            name="${path##*/}"
+            if ! jq --exit-status --arg name "$name" \
+              'any(.[][]; .name == $name)' <<<"$release_assets_json" >/dev/null; then
+              verify_release_identity
+              gh release upload "$TAG" "$path" --repo "$GITHUB_REPOSITORY"
+            fi
+          done
+          verify_release_assets true
+
+          verify_release_identity
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" \
+            --method PATCH \
+            --field draft=false)"
+          validate_release_metadata
+          if [[ "$(jq --raw-output '.draft' <<<"$release_json")" != "false" ]]; then
+            echo "GitHub release did not publish successfully." >&2
+            exit 1
+          fi
+          verify_release_assets true
