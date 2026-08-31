@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, parse, posix, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { create as createTar } from "tar";
+import { parse as parseYaml } from "yaml";
 
 export const repositoryDirectory = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -23,6 +24,7 @@ export const releaseRepository = "https://github.com/bwmp-dev/provenance";
 export const contractBundles = [
   {
     id: "config-schema",
+    nodeImporter: "packages/config-schema",
     entries: [
       { source: "LICENSE", destination: "LICENSE" },
       {
@@ -40,6 +42,7 @@ export const contractBundles = [
   },
   {
     id: "attestation-schema",
+    nodeImporter: "packages/verification",
     entries: [
       { source: "LICENSE", destination: "LICENSE" },
       {
@@ -57,6 +60,8 @@ export const contractBundles = [
   },
   {
     id: "runner-protocol",
+    goModule: "gen/proto",
+    nodeImporter: "packages/runner-protocol",
     entries: [
       { source: "LICENSE", destination: "LICENSE" },
       {
@@ -81,6 +86,11 @@ export const contractBundles = [
         destination: "provenance.v1.yaml",
       },
       {
+        source: "openapi/provenance.v1.yaml",
+        destination: "openapi.json",
+        openapiJson: true,
+      },
+      {
         source: "openapi/operation-inventory.json",
         destination: "operation-inventory.json",
       },
@@ -89,6 +99,7 @@ export const contractBundles = [
   },
   {
     id: "typescript-client",
+    nodeImporter: "packages/api-client",
     entries: [
       { source: "LICENSE", destination: "LICENSE" },
       {
@@ -147,6 +158,20 @@ export function sbomName(version) {
   return `provenance-contracts-${version}.spdx.json`;
 }
 
+export function compatibilityDeclaration(version) {
+  return {
+    action: "not-released",
+    attestationSchema: "v1",
+    cli: "not-released",
+    configSchema: "v1",
+    openapi: "v1",
+    runnerProtocol: "v1",
+    sdk: {
+      typescriptClient: version,
+    },
+  };
+}
+
 function digest(contents, algorithm = "sha256") {
   return createHash(algorithm).update(contents).digest("hex");
 }
@@ -184,6 +209,7 @@ async function packageContents(sourcePath, version) {
 async function stageEntry({
   destination,
   files,
+  openapiJson,
   packageVersion,
   source,
   stagingDirectory,
@@ -204,14 +230,15 @@ async function stageEntry({
     throw new Error(`release sources must not be symbolic links: ${source}`);
   }
   if (sourceStat.isDirectory()) {
-    if (packageVersion) {
-      throw new Error(`package version transforms require a file: ${source}`);
+    if (packageVersion || openapiJson) {
+      throw new Error(`release transforms require a file: ${source}`);
     }
     const children = (await readdir(sourcePath)).sort();
     for (const child of children) {
       await stageEntry({
         destination: posix.join(destination, child),
         files,
+        openapiJson: false,
         packageVersion: false,
         source: posix.join(source, child),
         stagingDirectory,
@@ -224,9 +251,14 @@ async function stageEntry({
     throw new Error(`release sources must be regular files: ${source}`);
   }
 
+  if (packageVersion && openapiJson) {
+    throw new Error(`release source has conflicting transforms: ${source}`);
+  }
   const contents = packageVersion
     ? await packageContents(sourcePath, version)
-    : await readFile(sourcePath);
+    : openapiJson
+      ? Buffer.from(json(parseYaml(await readFile(sourcePath, "utf8"))), "utf8")
+      : await readFile(sourcePath);
   const destinationPath = filesystemPath(stagingDirectory, destination);
   await mkdir(dirname(destinationPath), { recursive: true });
   await writeFile(destinationPath, contents, { mode: 0o644 });
@@ -236,7 +268,11 @@ async function stageEntry({
     sha256: digest(contents),
     size: contents.byteLength,
     source: sourceRelative,
-    ...(packageVersion ? { transform: "release-version" } : {}),
+    ...(packageVersion
+      ? { transform: "release-version" }
+      : openapiJson
+        ? { transform: "openapi-json" }
+        : {}),
   });
 }
 
@@ -295,6 +331,197 @@ export async function toolchainManifest() {
   };
 }
 
+function dependencySpdxId(ecosystem, name, version) {
+  const key = `${ecosystem}:${name}@${version}`;
+  const readable = key.replaceAll(/[^A-Za-z0-9.-]/g, "-");
+  return `SPDXRef-Dependency-${readable}-${digest(Buffer.from(key)).slice(0, 12)}`;
+}
+
+function packageUrl(ecosystem, name, version) {
+  if (ecosystem === "npm" && name.startsWith("@")) {
+    const [scope, packageName] = name.slice(1).split("/");
+    return `pkg:npm/%40${scope}/${packageName}@${version}`;
+  }
+  return `pkg:${ecosystem}/${name}@${version}`;
+}
+
+function checksumFromIntegrity(integrity) {
+  const match = /^(sha512|sha256|sha1)-(.+)$/.exec(integrity ?? "");
+  if (!match) {
+    throw new Error(`unsupported dependency integrity: ${integrity}`);
+  }
+  return {
+    algorithm: match[1].toUpperCase(),
+    checksumValue: Buffer.from(match[2], "base64").toString("hex"),
+  };
+}
+
+async function installedNodeLicense(name, version) {
+  const virtualStore = resolve(repositoryDirectory, "node_modules/.pnpm");
+  const prefix = `${name.replace("/", "+")}@${version}`;
+  const candidates = (await readdir(virtualStore))
+    .filter((entry) => entry === prefix || entry.startsWith(`${prefix}_`))
+    .sort(compareText);
+  for (const candidate of candidates) {
+    try {
+      const packageDocument = JSON.parse(
+        await readFile(
+          resolve(
+            virtualStore,
+            candidate,
+            "node_modules",
+            ...name.split("/"),
+            "package.json",
+          ),
+          "utf8",
+        ),
+      );
+      if (
+        packageDocument.name === name &&
+        packageDocument.version === version
+      ) {
+        return packageDocument.license || "NOASSERTION";
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+  throw new Error(
+    `installed package is missing license evidence: ${name}@${version}`,
+  );
+}
+
+async function nodeDependencyRecord(name, reference, lockfile) {
+  const snapshotKey = `${name}@${reference}`;
+  const snapshot = lockfile.snapshots?.[snapshotKey];
+  if (!snapshot) {
+    throw new Error(
+      `pnpm lockfile is missing runtime snapshot: ${snapshotKey}`,
+    );
+  }
+  const version = reference.replace(/\(.+$/, "");
+  const packageKey = `${name}@${version}`;
+  const metadata = lockfile.packages?.[packageKey];
+  if (!metadata?.resolution?.integrity) {
+    throw new Error(
+      `pnpm lockfile is missing integrity evidence: ${packageKey}`,
+    );
+  }
+  return {
+    checksum: checksumFromIntegrity(metadata.resolution.integrity),
+    ecosystem: "npm",
+    key: `npm:${packageKey}`,
+    license: await installedNodeLicense(name, version),
+    name,
+    reference,
+    snapshot,
+    version,
+  };
+}
+
+async function runtimeDependencyInventory() {
+  const lockfile = parseYaml(
+    await readFile(resolve(repositoryDirectory, "pnpm-lock.yaml"), "utf8"),
+  );
+  const components = new Map();
+  const dependenciesByBundle = new Map();
+
+  for (const bundle of contractBundles.filter(
+    ({ nodeImporter }) => nodeImporter,
+  )) {
+    const importer = lockfile.importers?.[bundle.nodeImporter];
+    if (!importer) {
+      throw new Error(
+        `pnpm lockfile is missing importer: ${bundle.nodeImporter}`,
+      );
+    }
+    const queue = Object.entries(importer.dependencies ?? {});
+    const bundleDependencies = new Set();
+    while (queue.length > 0) {
+      const [name, dependency] = queue.shift();
+      const record = await nodeDependencyRecord(
+        name,
+        dependency.version ?? dependency,
+        lockfile,
+      );
+      if (bundleDependencies.has(record.key)) {
+        continue;
+      }
+      bundleDependencies.add(record.key);
+      components.set(record.key, record);
+      for (const child of Object.entries({
+        ...(record.snapshot.dependencies ?? {}),
+        ...(record.snapshot.optionalDependencies ?? {}),
+      })) {
+        queue.push(child);
+      }
+    }
+    dependenciesByBundle.set(bundle.id, bundleDependencies);
+  }
+
+  const goMod = await readFile(
+    resolve(repositoryDirectory, "gen/proto/go.mod"),
+    "utf8",
+  );
+  const goSum = await readFile(
+    resolve(repositoryDirectory, "gen/proto/go.sum"),
+    "utf8",
+  );
+  const sums = new Map();
+  for (const line of goSum.trimEnd().split("\n")) {
+    const match = /^(\S+) (\S+) h1:(\S+)$/.exec(line.trim());
+    if (match && !match[2].endsWith("/go.mod")) {
+      sums.set(`${match[1]}@${match[2]}`, match[3]);
+    }
+  }
+  const goRequirements = [];
+  for (const block of goMod.matchAll(/require\s*\(([^)]*)\)/g)) {
+    for (const line of block[1].trim().split("\n")) {
+      const match = /^(\S+)\s+(\S+)/.exec(line.trim());
+      if (match) {
+        goRequirements.push({ name: match[1], version: match[2] });
+      }
+    }
+  }
+  const goDependencies = new Set();
+  for (const requirement of goRequirements) {
+    const packageKey = `${requirement.name}@${requirement.version}`;
+    const sum = sums.get(packageKey);
+    if (!sum) {
+      throw new Error(`go.sum is missing module checksum: ${packageKey}`);
+    }
+    const key = `golang:${packageKey}`;
+    components.set(key, {
+      checksum: {
+        algorithm: "SHA256",
+        checksumValue: Buffer.from(sum, "base64").toString("hex"),
+      },
+      ecosystem: "golang",
+      key,
+      license: "NOASSERTION",
+      name: requirement.name,
+      version: requirement.version,
+    });
+    goDependencies.add(key);
+  }
+  dependenciesByBundle.set(
+    "runner-protocol",
+    new Set([
+      ...(dependenciesByBundle.get("runner-protocol") ?? []),
+      ...goDependencies,
+    ]),
+  );
+
+  return {
+    components: [...components.values()].sort((left, right) =>
+      compareText(left.key, right.key),
+    ),
+    dependenciesByBundle,
+  };
+}
+
 function packageVerificationCode(files) {
   const checksums = files
     .map((file) => file.sha1)
@@ -307,6 +534,7 @@ export function createSpdxDocument({
   artifacts,
   bundleContents,
   createdAt,
+  runtimeDependencies,
   sourceCommit,
   version,
 }) {
@@ -369,6 +597,59 @@ export function createSpdxDocument({
         relatedSpdxElement: fileId,
         relationshipType: "CONTAINS",
         spdxElementId: packageId,
+      });
+    }
+  }
+
+  for (const dependency of runtimeDependencies.components) {
+    const packageId = dependencySpdxId(
+      dependency.ecosystem,
+      dependency.name,
+      dependency.version,
+    );
+    packages.push({
+      SPDXID: packageId,
+      checksums: [dependency.checksum],
+      copyrightText: "NOASSERTION",
+      downloadLocation: "NOASSERTION",
+      externalRefs: [
+        {
+          referenceCategory: "PACKAGE-MANAGER",
+          referenceLocator: packageUrl(
+            dependency.ecosystem,
+            dependency.name,
+            dependency.version,
+          ),
+          referenceType: "purl",
+        },
+      ],
+      filesAnalyzed: false,
+      licenseConcluded: "NOASSERTION",
+      licenseDeclared: dependency.license,
+      name: dependency.name,
+      primaryPackagePurpose: "LIBRARY",
+      versionInfo: dependency.version,
+    });
+  }
+  for (const bundle of contractBundles) {
+    const dependencies = [
+      ...(runtimeDependencies.dependenciesByBundle.get(bundle.id) ?? []),
+    ].sort(compareText);
+    for (const dependencyKey of dependencies) {
+      const dependency = runtimeDependencies.components.find(
+        ({ key }) => key === dependencyKey,
+      );
+      if (!dependency) {
+        throw new Error(`SBOM dependency is missing: ${dependencyKey}`);
+      }
+      relationships.push({
+        relatedSpdxElement: dependencySpdxId(
+          dependency.ecosystem,
+          dependency.name,
+          dependency.version,
+        ),
+        relationshipType: "DEPENDS_ON",
+        spdxElementId: `SPDXRef-Package-${bundle.id}`,
       });
     }
   }
@@ -479,6 +760,7 @@ export async function buildContractRelease({
     }
 
     artifacts.sort((left, right) => compareText(left.filename, right.filename));
+    const runtimeDependencies = await runtimeDependencyInventory();
     const sbomFilename = sbomName(identity.version);
     const sbomContents = Buffer.from(
       json(
@@ -486,6 +768,7 @@ export async function buildContractRelease({
           artifacts,
           bundleContents,
           createdAt: sbomCreatedAt,
+          runtimeDependencies,
           sourceCommit: identity.sourceCommit,
           version: identity.version,
         }),
@@ -504,6 +787,21 @@ export async function buildContractRelease({
 
     const manifest = {
       schemaVersion: 1,
+      compatibility: compatibilityDeclaration(identity.version),
+      dependencies: runtimeDependencies.components.map((dependency) => ({
+        bundles: contractBundles
+          .filter((bundle) =>
+            runtimeDependencies.dependenciesByBundle
+              .get(bundle.id)
+              ?.has(dependency.key),
+          )
+          .map(({ id }) => id),
+        checksum: dependency.checksum,
+        ecosystem: dependency.ecosystem,
+        license: dependency.license,
+        name: dependency.name,
+        version: dependency.version,
+      })),
       release: {
         createdAt: sbomCreatedAt,
         repository: releaseRepository,

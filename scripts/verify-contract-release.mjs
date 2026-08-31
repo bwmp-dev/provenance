@@ -9,7 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, posix, relative, resolve } from "node:path";
+import { isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { extract as extractTar, list as listTar } from "tar";
@@ -19,7 +19,6 @@ import {
   archiveName,
   checksumName,
   contractBundles,
-  createSpdxDocument,
   releaseManifestName,
   releaseRepository,
   repositoryDirectory,
@@ -29,6 +28,10 @@ import {
   validateSpdxTimestamp,
 } from "./contract-release.mjs";
 
+const maximumArchiveEntries = 1000;
+const maximumArchiveEntrySize = 20 * 1024 * 1024;
+const maximumUnpackedArchiveSize = 100 * 1024 * 1024;
+
 function invariant(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -37,6 +40,170 @@ function invariant(condition, message) {
 
 function digest(contents, algorithm = "sha256") {
   return createHash(algorithm).update(contents).digest("hex");
+}
+
+function compareText(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function dependencySpdxId(ecosystem, name, version) {
+  const key = `${ecosystem}:${name}@${version}`;
+  const readable = key.replaceAll(/[^A-Za-z0-9.-]/g, "-");
+  return `SPDXRef-Dependency-${readable}-${digest(Buffer.from(key)).slice(0, 12)}`;
+}
+
+function packageUrl(ecosystem, name, version) {
+  if (ecosystem === "npm" && name.startsWith("@")) {
+    const [scope, packageName] = name.slice(1).split("/");
+    return `pkg:npm/%40${scope}/${packageName}@${version}`;
+  }
+  return `pkg:${ecosystem}/${name}@${version}`;
+}
+
+function checksumFromIntegrity(integrity) {
+  const match = /^(sha512|sha256|sha1)-(.+)$/.exec(integrity ?? "");
+  invariant(match, `unsupported dependency integrity: ${integrity}`);
+  return {
+    algorithm: match[1].toUpperCase(),
+    checksumValue: Buffer.from(match[2], "base64").toString("hex"),
+  };
+}
+
+async function installedNodeLicense(name, version) {
+  const virtualStore = resolve(repositoryDirectory, "node_modules/.pnpm");
+  const prefix = `${name.replace("/", "+")}@${version}`;
+  const candidates = (await readdir(virtualStore))
+    .filter((entry) => entry === prefix || entry.startsWith(`${prefix}_`))
+    .sort(compareText);
+  for (const candidate of candidates) {
+    try {
+      const packageDocument = JSON.parse(
+        await readFile(
+          resolve(
+            virtualStore,
+            candidate,
+            "node_modules",
+            ...name.split("/"),
+            "package.json",
+          ),
+          "utf8",
+        ),
+      );
+      if (
+        packageDocument.name === name &&
+        packageDocument.version === version
+      ) {
+        return packageDocument.license || "NOASSERTION";
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+  throw new Error(
+    `installed package is missing license evidence: ${name}@${version}`,
+  );
+}
+
+async function expectedRuntimeDependencies() {
+  const lockfile = parseYaml(
+    await readFile(resolve(repositoryDirectory, "pnpm-lock.yaml"), "utf8"),
+  );
+  const components = new Map();
+  const dependenciesByBundle = new Map();
+  for (const bundle of contractBundles.filter(
+    ({ nodeImporter }) => nodeImporter,
+  )) {
+    const importer = lockfile.importers?.[bundle.nodeImporter];
+    invariant(
+      importer,
+      `pnpm lockfile is missing importer: ${bundle.nodeImporter}`,
+    );
+    const queue = Object.entries(importer.dependencies ?? {});
+    const bundleDependencies = new Set();
+    while (queue.length > 0) {
+      const [name, dependency] = queue.shift();
+      const reference = dependency.version ?? dependency;
+      const snapshot = lockfile.snapshots?.[`${name}@${reference}`];
+      invariant(
+        snapshot,
+        `pnpm lockfile is missing runtime snapshot: ${name}@${reference}`,
+      );
+      const version = reference.replace(/\(.+$/, "");
+      const packageKey = `${name}@${version}`;
+      const metadata = lockfile.packages?.[packageKey];
+      invariant(
+        metadata?.resolution?.integrity,
+        `pnpm lockfile is missing integrity evidence: ${packageKey}`,
+      );
+      const key = `npm:${packageKey}`;
+      if (bundleDependencies.has(key)) {
+        continue;
+      }
+      bundleDependencies.add(key);
+      components.set(key, {
+        checksum: checksumFromIntegrity(metadata.resolution.integrity),
+        ecosystem: "npm",
+        key,
+        license: await installedNodeLicense(name, version),
+        name,
+        version,
+      });
+      for (const child of Object.entries({
+        ...(snapshot.dependencies ?? {}),
+        ...(snapshot.optionalDependencies ?? {}),
+      })) {
+        queue.push(child);
+      }
+    }
+    dependenciesByBundle.set(bundle.id, bundleDependencies);
+  }
+
+  const goMod = await readFile(
+    resolve(repositoryDirectory, "gen/proto/go.mod"),
+    "utf8",
+  );
+  const goSum = await readFile(
+    resolve(repositoryDirectory, "gen/proto/go.sum"),
+    "utf8",
+  );
+  const sums = new Map();
+  for (const line of goSum.trimEnd().split("\n")) {
+    const match = /^(\S+) (\S+) h1:(\S+)$/.exec(line.trim());
+    if (match && !match[2].endsWith("/go.mod")) {
+      sums.set(`${match[1]}@${match[2]}`, match[3]);
+    }
+  }
+  const runnerDependencies = new Set(
+    dependenciesByBundle.get("runner-protocol") ?? [],
+  );
+  for (const block of goMod.matchAll(/require\s*\(([^)]*)\)/g)) {
+    for (const line of block[1].trim().split("\n")) {
+      const match = /^(\S+)\s+(\S+)/.exec(line.trim());
+      if (!match) {
+        continue;
+      }
+      const packageKey = `${match[1]}@${match[2]}`;
+      const sum = sums.get(packageKey);
+      invariant(sum, `go.sum is missing module checksum: ${packageKey}`);
+      const key = `golang:${packageKey}`;
+      components.set(key, {
+        checksum: {
+          algorithm: "SHA256",
+          checksumValue: Buffer.from(sum, "base64").toString("hex"),
+        },
+        ecosystem: "golang",
+        key,
+        license: "NOASSERTION",
+        name: match[1],
+        version: match[2],
+      });
+      runnerDependencies.add(key);
+    }
+  }
+  dependenciesByBundle.set("runner-protocol", runnerDependencies);
+  return { components, dependenciesByBundle };
 }
 
 function sorted(values) {
@@ -74,21 +241,45 @@ function assertSafeArchivePath(path, root) {
   );
 }
 
-async function archiveEntries(archivePath, archiveRoot) {
+export async function archiveEntries(archivePath, archiveRoot) {
   const entries = [];
+  let unpackedSize = 0;
+  let validationError;
   await listTar({
     file: archivePath,
     strict: true,
     onReadEntry(entry) {
-      assertSafeArchivePath(entry.path, archiveRoot);
-      invariant(
-        entry.type === "File",
-        `archive entry is not a file: ${entry.path}`,
-      );
-      entries.push(entry.path);
+      try {
+        assertSafeArchivePath(entry.path, archiveRoot);
+        invariant(
+          entry.type === "File",
+          `archive entry is not a file: ${entry.path}`,
+        );
+        invariant(
+          Number.isSafeInteger(entry.size) &&
+            entry.size >= 0 &&
+            entry.size <= maximumArchiveEntrySize,
+          `archive entry is too large: ${entry.path}`,
+        );
+        invariant(
+          entries.length < maximumArchiveEntries,
+          "archive contains too many entries",
+        );
+        unpackedSize += entry.size;
+        invariant(
+          unpackedSize <= maximumUnpackedArchiveSize,
+          "archive unpacked size is too large",
+        );
+        entries.push(entry.path);
+      } catch (error) {
+        validationError ??= error;
+      }
       entry.resume();
     },
   });
+  if (validationError) {
+    throw validationError;
+  }
   equalStringSets(
     entries,
     new Set(entries),
@@ -97,7 +288,11 @@ async function archiveEntries(archivePath, archiveRoot) {
   return entries;
 }
 
-async function extractCheckedArchive(archivePath, destination, archiveRoot) {
+export async function extractCheckedArchive(
+  archivePath,
+  destination,
+  archiveRoot,
+) {
   const entries = await archiveEntries(archivePath, archiveRoot);
   await mkdir(destination, { recursive: true });
   await extractTar({
@@ -144,9 +339,14 @@ async function verifyArchive({
     `${archive.filename} digest differs`,
   );
 
+  const verifiedArchivePath = resolve(
+    verificationDirectory,
+    `.verified-${expectedFilename}`,
+  );
+  await writeFile(verifiedArchivePath, contents, { flag: "wx", mode: 0o400 });
   const archiveRoot = archive.filename.slice(0, -".tar.gz".length);
   const entries = await extractCheckedArchive(
-    archivePath,
+    verifiedArchivePath,
     verificationDirectory,
     archiveRoot,
   );
@@ -210,6 +410,12 @@ async function verifyArchive({
         packageDocument.version === version,
         `package version differs: ${file.path}`,
       );
+    } else if (file.transform === "openapi-json") {
+      const openapiDocument = JSON.parse(fileContents.toString("utf8"));
+      invariant(
+        openapiDocument.openapi === "3.1.1",
+        `generated OpenAPI JSON differs: ${file.path}`,
+      );
     } else {
       invariant(
         file.transform === undefined,
@@ -233,14 +439,264 @@ async function verifyArchive({
     ].sort((left, right) =>
       left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
     ),
+    root: extractedRoot,
   };
 }
 
-function run(command, arguments_, workingDirectory, description) {
+function packageVerificationCode(files) {
+  const checksums = files
+    .map((file) => file.sha1)
+    .sort(compareText)
+    .join("");
+  return digest(Buffer.from(checksums, "ascii"), "sha1");
+}
+
+function exactObject(actual, expected, message) {
+  invariant(
+    JSON.stringify(actual) === JSON.stringify(expected),
+    `${message}\nexpected: ${JSON.stringify(expected)}\nactual: ${JSON.stringify(actual)}`,
+  );
+}
+
+async function verifySpdxSemantics({
+  artifacts,
+  bundleContents,
+  createdAt,
+  dependencyManifest,
+  sbom,
+  sourceCommit,
+  version,
+}) {
+  exactObject(
+    {
+      SPDXID: sbom.SPDXID,
+      creationInfo: sbom.creationInfo,
+      dataLicense: sbom.dataLicense,
+      documentNamespace: sbom.documentNamespace,
+      name: sbom.name,
+      spdxVersion: sbom.spdxVersion,
+    },
+    {
+      SPDXID: "SPDXRef-DOCUMENT",
+      creationInfo: {
+        created: createdAt,
+        creators: ["Tool: @bwmp-dev/provenance-contract-release"],
+      },
+      dataLicense: "CC0-1.0",
+      documentNamespace: `${releaseRepository}/releases/tag/v${encodeURIComponent(version)}/spdx/${sourceCommit}`,
+      name: `provenance-contracts-${version}`,
+      spdxVersion: "SPDX-2.3",
+    },
+    "release SPDX document metadata differs",
+  );
+
+  const runtimeDependencies = await expectedRuntimeDependencies();
+  exactObject(
+    dependencyManifest,
+    [...runtimeDependencies.components.values()]
+      .sort((left, right) => compareText(left.key, right.key))
+      .map((dependency) => ({
+        bundles: contractBundles
+          .filter((bundle) =>
+            runtimeDependencies.dependenciesByBundle
+              .get(bundle.id)
+              ?.has(dependency.key),
+          )
+          .map(({ id }) => id),
+        checksum: dependency.checksum,
+        ecosystem: dependency.ecosystem,
+        license: dependency.license,
+        name: dependency.name,
+        version: dependency.version,
+      })),
+    "release dependency manifest differs",
+  );
+  const artifactsByBundle = new Map(
+    artifacts.map((artifact) => [artifact.bundle, artifact]),
+  );
+  const contentsByBundle = new Map(
+    bundleContents.map((contents) => [contents.bundle, contents.files]),
+  );
+  const packagesById = new Map();
+  for (const packageDocument of sbom.packages ?? []) {
+    invariant(
+      !packagesById.has(packageDocument.SPDXID),
+      `duplicate SPDX package: ${packageDocument.SPDXID}`,
+    );
+    packagesById.set(packageDocument.SPDXID, packageDocument);
+  }
+  const filesById = new Map();
+  for (const file of sbom.files ?? []) {
+    invariant(
+      !filesById.has(file.SPDXID),
+      `duplicate SPDX file: ${file.SPDXID}`,
+    );
+    filesById.set(file.SPDXID, file);
+  }
+
+  const expectedPackageIds = [];
+  const expectedFileIds = [];
+  const expectedRelationships = [];
+  const describedPackages = [];
+  for (const bundle of contractBundles) {
+    const packageId = `SPDXRef-Package-${bundle.id}`;
+    const artifact = artifactsByBundle.get(bundle.id);
+    const bundleFiles = contentsByBundle.get(bundle.id);
+    invariant(
+      artifact && bundleFiles,
+      `SPDX source bundle is missing: ${bundle.id}`,
+    );
+    expectedPackageIds.push(packageId);
+    describedPackages.push(packageId);
+    exactObject(
+      packagesById.get(packageId),
+      {
+        SPDXID: packageId,
+        checksums: [{ algorithm: "SHA256", checksumValue: artifact.sha256 }],
+        copyrightText: "NOASSERTION",
+        downloadLocation: "NOASSERTION",
+        filesAnalyzed: true,
+        licenseConcluded: "NOASSERTION",
+        licenseDeclared: "Apache-2.0",
+        name: `provenance-${bundle.id}`,
+        packageFileName: artifact.filename,
+        packageVerificationCode: {
+          packageVerificationCodeValue: packageVerificationCode(bundleFiles),
+        },
+        primaryPackagePurpose: "LIBRARY",
+        versionInfo: version,
+      },
+      `SPDX package differs: ${bundle.id}`,
+    );
+    expectedRelationships.push(
+      JSON.stringify({
+        relatedSpdxElement: packageId,
+        relationshipType: "DESCRIBES",
+        spdxElementId: "SPDXRef-DOCUMENT",
+      }),
+    );
+    for (const [index, file] of bundleFiles.entries()) {
+      const fileId = `SPDXRef-File-${bundle.id}-${String(index + 1).padStart(4, "0")}`;
+      expectedFileIds.push(fileId);
+      exactObject(
+        filesById.get(fileId),
+        {
+          SPDXID: fileId,
+          checksums: [
+            { algorithm: "SHA1", checksumValue: file.sha1 },
+            { algorithm: "SHA256", checksumValue: file.sha256 },
+          ],
+          copyrightText: "NOASSERTION",
+          fileName: `./${artifact.filename.slice(0, -".tar.gz".length)}/${file.path}`,
+          licenseConcluded: "NOASSERTION",
+          licenseInfoInFiles: ["NOASSERTION"],
+        },
+        `SPDX file differs: ${bundle.id}/${file.path}`,
+      );
+      expectedRelationships.push(
+        JSON.stringify({
+          relatedSpdxElement: fileId,
+          relationshipType: "CONTAINS",
+          spdxElementId: packageId,
+        }),
+      );
+    }
+  }
+
+  for (const dependency of [...runtimeDependencies.components.values()].sort(
+    (left, right) => compareText(left.key, right.key),
+  )) {
+    const packageId = dependencySpdxId(
+      dependency.ecosystem,
+      dependency.name,
+      dependency.version,
+    );
+    expectedPackageIds.push(packageId);
+    exactObject(
+      packagesById.get(packageId),
+      {
+        SPDXID: packageId,
+        checksums: [dependency.checksum],
+        copyrightText: "NOASSERTION",
+        downloadLocation: "NOASSERTION",
+        externalRefs: [
+          {
+            referenceCategory: "PACKAGE-MANAGER",
+            referenceLocator: packageUrl(
+              dependency.ecosystem,
+              dependency.name,
+              dependency.version,
+            ),
+            referenceType: "purl",
+          },
+        ],
+        filesAnalyzed: false,
+        licenseConcluded: "NOASSERTION",
+        licenseDeclared: dependency.license,
+        name: dependency.name,
+        primaryPackagePurpose: "LIBRARY",
+        versionInfo: dependency.version,
+      },
+      `SPDX dependency differs: ${dependency.key}`,
+    );
+  }
+  for (const bundle of contractBundles) {
+    for (const dependencyKey of [
+      ...(runtimeDependencies.dependenciesByBundle.get(bundle.id) ?? []),
+    ].sort(compareText)) {
+      const dependency = runtimeDependencies.components.get(dependencyKey);
+      invariant(dependency, `expected dependency is missing: ${dependencyKey}`);
+      expectedRelationships.push(
+        JSON.stringify({
+          relatedSpdxElement: dependencySpdxId(
+            dependency.ecosystem,
+            dependency.name,
+            dependency.version,
+          ),
+          relationshipType: "DEPENDS_ON",
+          spdxElementId: `SPDXRef-Package-${bundle.id}`,
+        }),
+      );
+    }
+  }
+
+  equalStringSets(
+    packagesById.keys(),
+    expectedPackageIds,
+    "SPDX package inventory differs",
+  );
+  equalStringSets(
+    filesById.keys(),
+    expectedFileIds,
+    "SPDX file inventory differs",
+  );
+  equalStringSets(
+    sbom.documentDescribes ?? [],
+    describedPackages,
+    "SPDX described package inventory differs",
+  );
+  equalStringSets(
+    (sbom.relationships ?? []).map((relationship) =>
+      JSON.stringify(relationship),
+    ),
+    expectedRelationships,
+    "SPDX relationship inventory differs",
+  );
+}
+
+function run(
+  command,
+  arguments_,
+  workingDirectory,
+  description,
+  environment = {},
+  shell = false,
+) {
   const result = spawnSync(command, arguments_, {
     cwd: workingDirectory,
     encoding: "utf8",
-    shell: false,
+    env: { ...process.env, ...environment },
+    shell,
   });
   invariant(
     result.error === undefined,
@@ -252,115 +708,166 @@ function run(command, arguments_, workingDirectory, description) {
   );
 }
 
-async function withConsumerArchive(directory, bundle, version, callback) {
-  const cacheDirectory = resolve(
-    repositoryDirectory,
-    bundle === "config-schema"
-      ? "packages/config-schema/.cache"
-      : bundle === "attestation-schema"
-        ? "packages/verification/.cache"
-        : bundle === "runner-protocol"
-          ? "packages/runner-protocol/.cache"
-          : bundle === "typescript-client"
-            ? "packages/api-client/.cache"
-            : ".cache",
+function installNodeConsumer(packageDirectory, description) {
+  const windows = process.platform === "win32";
+  run(
+    windows ? (process.env.ComSpec ?? "cmd.exe") : "pnpm",
+    windows
+      ? [
+          "/d",
+          "/s",
+          "/c",
+          "pnpm install --offline --ignore-scripts --frozen-lockfile=false",
+        ]
+      : ["install", "--offline", "--ignore-scripts", "--frozen-lockfile=false"],
+    packageDirectory,
+    description,
+    {
+      CI: "true",
+      npm_config_offline: "true",
+    },
   );
-  await mkdir(cacheDirectory, { recursive: true });
-  const temporaryDirectory = await mkdtemp(
-    join(cacheDirectory, `release-${bundle}-`),
-  );
-  const filename = archiveName(bundle, version);
-  const archiveRoot = filename.slice(0, -".tar.gz".length);
-  try {
-    await extractCheckedArchive(
-      resolve(directory, filename),
-      temporaryDirectory,
-      archiveRoot,
-    );
-    await callback(resolve(temporaryDirectory, archiveRoot));
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
 }
 
-async function verifyConsumers(directory, version) {
-  await withConsumerArchive(
-    directory,
-    "config-schema",
-    version,
-    async (root) => {
-      const configuration = await import(
-        `${pathToFileURL(resolve(root, "package/dist/index.js")).href}?release=${version}`
-      );
-      const source = await readFile(
-        resolve(root, "fixtures/valid/hosted.yml"),
+async function verifyConsumers(bundleRoots, version) {
+  const rootFor = (bundle) => {
+    const root = bundleRoots.get(bundle);
+    invariant(root, `verified consumer bundle is missing: ${bundle}`);
+    const repositoryRelative = relative(repositoryDirectory, root);
+    invariant(
+      isAbsolute(repositoryRelative) ||
+        repositoryRelative === ".." ||
+        repositoryRelative.startsWith(`..${sep}`),
+      `consumer bundle must be isolated from repository caches: ${bundle}`,
+    );
+    return root;
+  };
+
+  {
+    const root = rootFor("config-schema");
+    installNodeConsumer(
+      resolve(root, "package"),
+      "released configuration dependency installation",
+    );
+    const configuration = await import(
+      `${pathToFileURL(resolve(root, "package/dist/index.js")).href}?release=${version}`
+    );
+    const source = await readFile(
+      resolve(root, "fixtures/valid/hosted.yml"),
+      "utf8",
+    );
+    const expectedHash = (
+      await readFile(
+        resolve(root, "fixtures/valid/hosted.normalized.sha256"),
         "utf8",
-      );
-      const expectedHash = (
-        await readFile(
-          resolve(root, "fixtures/valid/hosted.normalized.sha256"),
-          "utf8",
-        )
-      ).trim();
-      invariant(
-        configuration.hashConfiguration(
-          configuration.parseConfiguration(source),
-        ) === expectedHash,
-        "released configuration consumer normalized the fixture differently",
-      );
-    },
-  );
+      )
+    ).trim();
+    invariant(
+      configuration.hashConfiguration(
+        configuration.parseConfiguration(source),
+      ) === expectedHash,
+      "released configuration consumer normalized the fixture differently",
+    );
+  }
 
-  await withConsumerArchive(
-    directory,
-    "attestation-schema",
-    version,
-    async (root) => {
-      const verification = await import(
-        `${pathToFileURL(resolve(root, "package/dist/index.js")).href}?release=${version}`
-      );
-      const document = await readJson(
-        resolve(root, "fixtures/valid/hosted.json"),
-        "released hosted attestation",
-      );
-      const vector = await readJson(
-        resolve(root, "fixtures/vectors/hosted.json"),
-        "released hosted vector",
-      );
-      verification.validateAttestation(document);
-      invariant(
-        verification.verifyAttestationSignature(
-          document,
-          Buffer.from(vector.publicKeyHex, "hex"),
-        ),
-        "released attestation consumer rejected the hosted signature vector",
-      );
-    },
-  );
+  {
+    const root = rootFor("attestation-schema");
+    installNodeConsumer(
+      resolve(root, "package"),
+      "released attestation dependency installation",
+    );
+    const verification = await import(
+      `${pathToFileURL(resolve(root, "package/dist/index.js")).href}?release=${version}`
+    );
+    const document = await readJson(
+      resolve(root, "fixtures/valid/hosted.json"),
+      "released hosted attestation",
+    );
+    const vector = await readJson(
+      resolve(root, "fixtures/vectors/hosted.json"),
+      "released hosted vector",
+    );
+    verification.validateAttestation(document);
+    invariant(
+      verification.verifyAttestationSignature(
+        document,
+        Buffer.from(vector.publicKeyHex, "hex"),
+      ),
+      "released attestation consumer rejected the hosted signature vector",
+    );
+  }
 
-  await withConsumerArchive(
-    directory,
-    "runner-protocol",
-    version,
-    async (root) => {
-      const protocol = await import(
-        `${pathToFileURL(resolve(root, "typescript/dist/index.js")).href}?release=${version}`
-      );
-      invariant(
-        protocol.RunnerMessageSchema,
-        "released runner message schema is missing",
-      );
-      invariant(
-        protocol.GatewayMessageSchema,
-        "released gateway message schema is missing",
-      );
-      run("go", ["test", "./..."], resolve(root, "go"), "released Go bindings");
-    },
-  );
+  {
+    const root = rootFor("runner-protocol");
+    installNodeConsumer(
+      resolve(root, "typescript"),
+      "released runner TypeScript dependency installation",
+    );
+    const protocol = await import(
+      `${pathToFileURL(resolve(root, "typescript/dist/index.js")).href}?release=${version}`
+    );
+    invariant(
+      protocol.RunnerMessageSchema,
+      "released runner message schema is missing",
+    );
+    invariant(
+      protocol.GatewayMessageSchema,
+      "released gateway message schema is missing",
+    );
+    await writeFile(
+      resolve(root, "typescript/consumer.mts"),
+      [
+        'import { GatewayMessageSchema, RunnerMessageSchema } from "./dist/index.js";',
+        "void GatewayMessageSchema;",
+        "void RunnerMessageSchema;",
+        "",
+      ].join("\n"),
+    );
+    await writeFile(
+      resolve(root, "typescript/consumer-tsconfig.json"),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
+            noEmit: true,
+            strict: true,
+            target: "ES2022",
+          },
+          include: ["consumer.mts"],
+        },
+        null,
+        2,
+      ),
+    );
+    run(
+      process.execPath,
+      [
+        resolve(root, "typescript/node_modules/typescript/bin/tsc"),
+        "--project",
+        resolve(root, "typescript/consumer-tsconfig.json"),
+      ],
+      resolve(root, "typescript"),
+      "released runner TypeScript declarations",
+    );
+    run("go", ["test", "./..."], resolve(root, "go"), "released Go bindings", {
+      GOPROXY: "off",
+    });
+  }
 
-  await withConsumerArchive(directory, "openapi", version, async (root) => {
+  {
+    const root = rootFor("openapi");
     const specification = parseYaml(
       await readFile(resolve(root, "provenance.v1.yaml"), "utf8"),
+    );
+    const jsonSpecification = await readJson(
+      resolve(root, "openapi.json"),
+      "released OpenAPI JSON",
+    );
+    exactObject(
+      jsonSpecification,
+      specification,
+      "released OpenAPI JSON differs from YAML",
     );
     const inventory = await readJson(
       resolve(root, "operation-inventory.json"),
@@ -374,66 +881,92 @@ async function verifyConsumers(directory, version) {
       Array.isArray(inventory) && inventory.length > 0,
       "released API inventory is empty",
     );
-  });
+    const methods = new Set([
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put",
+    ]);
+    const operations = Object.entries(specification.paths ?? {}).flatMap(
+      ([path, pathItem]) =>
+        Object.entries(pathItem)
+          .filter(([method]) => methods.has(method))
+          .map(([method, operation]) => ({
+            method,
+            operationId: operation.operationId,
+            path,
+            tag: operation.tags?.[0],
+          })),
+    );
+    const compareInventory = (left, right) =>
+      compareText(left.path, right.path) ||
+      compareText(left.method, right.method) ||
+      compareText(left.operationId, right.operationId);
+    exactObject(
+      operations.sort(compareInventory),
+      inventory.sort(compareInventory),
+      "released OpenAPI operation inventory differs",
+    );
+  }
 
-  await withConsumerArchive(
-    directory,
-    "typescript-client",
-    version,
-    async (root) => {
-      const clientModule = await import(
-        `${pathToFileURL(resolve(root, "package/dist/index.js")).href}?release=${version}`
-      );
-      const client = clientModule.createProvenanceClient({
-        baseUrl: "https://api.example.test",
-      });
-      invariant(
-        typeof client.GET === "function",
-        "released API client is not executable",
-      );
+  {
+    const root = rootFor("typescript-client");
+    installNodeConsumer(
+      resolve(root, "package"),
+      "released API client dependency installation",
+    );
+    const clientModule = await import(
+      `${pathToFileURL(resolve(root, "package/dist/index.js")).href}?release=${version}`
+    );
+    const client = clientModule.createProvenanceClient({
+      baseUrl: "https://api.example.test",
+    });
+    invariant(
+      typeof client.GET === "function",
+      "released API client is not executable",
+    );
 
-      await writeFile(
-        resolve(root, "consumer.mts"),
-        [
-          'import { createProvenanceClient, type paths } from "./package/dist/index.js";',
-          'const path: keyof paths = "/v1/organizations";',
-          'const client = createProvenanceClient({ baseUrl: "https://api.example.test" });',
-          "void client.GET(path);",
-          "",
-        ].join("\n"),
-      );
-      await writeFile(
-        resolve(root, "tsconfig.json"),
-        JSON.stringify(
-          {
-            compilerOptions: {
-              module: "NodeNext",
-              moduleResolution: "NodeNext",
-              noEmit: true,
-              strict: true,
-              target: "ES2023",
-            },
-            include: ["consumer.mts"],
+    await writeFile(
+      resolve(root, "consumer.mts"),
+      [
+        'import { createProvenanceClient, type paths } from "./package/dist/index.js";',
+        'const path: keyof paths = "/v1/organizations";',
+        'const client = createProvenanceClient({ baseUrl: "https://api.example.test" });',
+        "void client.GET(path);",
+        "",
+      ].join("\n"),
+    );
+    await writeFile(
+      resolve(root, "tsconfig.json"),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
+            noEmit: true,
+            strict: true,
+            target: "ES2023",
           },
-          null,
-          2,
-        ),
-      );
-      run(
-        process.execPath,
-        [
-          resolve(
-            repositoryDirectory,
-            "packages/api-client/node_modules/typescript/bin/tsc",
-          ),
-          "--project",
-          resolve(root, "tsconfig.json"),
-        ],
-        root,
-        "released TypeScript client declarations",
-      );
-    },
-  );
+          include: ["consumer.mts"],
+        },
+        null,
+        2,
+      ),
+    );
+    run(
+      process.execPath,
+      [
+        resolve(root, "package/node_modules/typescript/bin/tsc"),
+        "--project",
+        resolve(root, "tsconfig.json"),
+      ],
+      root,
+      "released TypeScript client declarations",
+    );
+  }
 }
 
 export async function verifyContractRelease({
@@ -441,6 +974,7 @@ export async function verifyContractRelease({
   consumers = false,
   version,
 }) {
+  validateReleaseIdentity(version, "0".repeat(40));
   const resolvedDirectory = resolve(directory);
   const manifestFilename = releaseManifestName(version);
   const manifestContents = await readFile(
@@ -448,6 +982,19 @@ export async function verifyContractRelease({
   );
   const manifest = JSON.parse(manifestContents.toString("utf8"));
   invariant(manifest.schemaVersion === 1, "unsupported release manifest");
+  exactObject(
+    manifest.compatibility,
+    {
+      action: "not-released",
+      attestationSchema: "v1",
+      cli: "not-released",
+      configSchema: "v1",
+      openapi: "v1",
+      runnerProtocol: "v1",
+      sdk: { typescriptClient: version },
+    },
+    "release compatibility declaration differs",
+  );
   invariant(manifest.release?.version === version, "release version differs");
   invariant(manifest.release?.tag === `v${version}`, "release tag differs");
   invariant(
@@ -559,19 +1106,20 @@ export async function verifyContractRelease({
         }),
       );
     }
-    const expectedSbom = createSpdxDocument({
+    await verifySpdxSemantics({
       artifacts: manifest.artifacts,
       bundleContents,
       createdAt,
+      dependencyManifest: manifest.dependencies,
+      sbom,
       sourceCommit: identity.sourceCommit,
       version,
     });
-    invariant(
-      JSON.stringify(sbom) === JSON.stringify(expectedSbom),
-      "release SPDX SBOM contents differ",
-    );
     if (consumers) {
-      await verifyConsumers(resolvedDirectory, version);
+      await verifyConsumers(
+        new Map(bundleContents.map(({ bundle, root }) => [bundle, root])),
+        version,
+      );
     }
   } finally {
     await rm(verificationDirectory, { force: true, recursive: true });
