@@ -53,10 +53,12 @@ tests:
       timeoutSeconds: 10
       assertions:
         - stream: combined
-          pattern: ^ExamplePlugin 1\.4\.0-rc\.1$
+          operator: contains
+          pattern: ExamplePlugin 1.4.0-rc.1
           match: present
           minimumOccurrences: 1
         - stream: stderr
+          operator: regex
           pattern: Exception|ERROR
           match: absent
 release:

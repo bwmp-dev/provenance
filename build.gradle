@@ -88,6 +88,7 @@ project(":paper-probe") {
     dependencies {
         compileOnly("io.papermc.paper:paper-api:${paperApiVersion}")
         add(paperApiArtifact.name, "io.papermc.paper:paper-api:${paperApiVersion}")
+        implementation("com.google.re2j:re2j:1.8")
         implementation("org.snakeyaml:snakeyaml-engine:2.10")
         testImplementation(platform("org.junit:junit-bom:6.0.3"))
         testImplementation("org.junit.jupiter:junit-jupiter")

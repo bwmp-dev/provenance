@@ -71,10 +71,17 @@
   },
   {
     "name": "invalid regular expression",
-    "path": ["tests", "console", 0, "assertions", 0, "pattern"],
+    "path": ["tests", "console", 0, "assertions", 1, "pattern"],
     "value": "[unterminated",
     "validator": "format",
-    "errorPath": ["tests", "console", 0, "assertions", 0, "pattern"]
+    "errorPath": ["tests", "console", 0, "assertions", 1, "pattern"]
+  },
+  {
+    "name": "unknown assertion operator",
+    "path": ["tests", "console", 0, "assertions", 0, "operator"],
+    "value": "glob",
+    "validator": "enum",
+    "errorPath": ["tests", "console", 0, "assertions", 0, "operator"]
   },
   {
     "name": "publishing release without a target",
