@@ -1,0 +1,369 @@
+syntax = "proto3";
+
+package provenance.runner.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/provenance-dev/provenance/gen/proto/provenance/runner/v1;runnerv1";
+
+message LeaseIdentity {
+  string lease_id = 1;
+  string job_id = 2;
+  string execution_id = 3;
+  google.protobuf.Timestamp expires_at = 4;
+
+  reserved 5 to 9;
+}
+
+message AttemptIdentity {
+  string attempt_id = 1;
+  uint32 attempt_number = 2;
+  string release_candidate_id = 3;
+  string matrix_entry_id = 4;
+
+  reserved 5 to 9;
+}
+
+message OrganizationScope {
+  oneof scope {
+    google.protobuf.Empty platform = 1;
+    string organization_id = 2;
+  }
+
+  reserved 3 to 9;
+}
+
+message Digest {
+  DigestAlgorithm algorithm = 1;
+  bytes value = 2;
+
+  reserved 3 to 9;
+}
+
+enum DigestAlgorithm {
+  DIGEST_ALGORITHM_UNSPECIFIED = 0;
+  DIGEST_ALGORITHM_SHA256 = 1;
+  DIGEST_ALGORITHM_SHA512 = 2;
+}
+
+message DependencyDigest {
+  string dependency_id = 1;
+  string filename = 2;
+  Digest digest = 3;
+
+  reserved 4 to 9;
+}
+
+message JobHashes {
+  Digest artifact = 1;
+  Digest configuration = 2;
+  repeated DependencyDigest dependencies = 3;
+  Digest environment = 4;
+  Digest policy = 5;
+
+  reserved 6 to 9;
+}
+
+message ResolvedEnvironment {
+  ServerProvider provider = 1;
+  string game_version = 2;
+  string server_version = 3;
+  uint32 server_build = 4;
+  string java_distribution = 5;
+  string java_version = 6;
+  OperatingSystem operating_system = 7;
+  Architecture architecture = 8;
+  Digest runner_image = 9;
+  Digest server_binary = 10;
+  string catalog_snapshot_id = 11;
+
+  reserved 12 to 19;
+}
+
+enum ServerProvider {
+  SERVER_PROVIDER_UNSPECIFIED = 0;
+  SERVER_PROVIDER_PAPER = 1;
+}
+
+enum OperatingSystem {
+  OPERATING_SYSTEM_UNSPECIFIED = 0;
+  OPERATING_SYSTEM_LINUX = 1;
+  OPERATING_SYSTEM_WINDOWS = 2;
+  OPERATING_SYSTEM_MACOS = 3;
+}
+
+enum Architecture {
+  ARCHITECTURE_UNSPECIFIED = 0;
+  ARCHITECTURE_AMD64 = 1;
+  ARCHITECTURE_ARM64 = 2;
+}
+
+enum SandboxKind {
+  SANDBOX_KIND_UNSPECIFIED = 0;
+  SANDBOX_KIND_PROCESS = 1;
+  SANDBOX_KIND_CONTAINER = 2;
+  SANDBOX_KIND_GVISOR = 3;
+}
+
+message ResourceLimits {
+  uint32 cpu_millis = 1;
+  uint64 memory_bytes = 2;
+  uint64 disk_bytes = 3;
+  uint32 process_count = 4;
+
+  reserved 5 to 9;
+}
+
+message NetworkEndpoint {
+  string hostname = 1;
+  repeated uint32 ports = 2;
+
+  reserved 3 to 9;
+}
+
+message NetworkPolicy {
+  NetworkMode mode = 1;
+  repeated NetworkEndpoint allowlist = 2;
+  uint32 maximum_connections = 3;
+
+  reserved 4 to 9;
+}
+
+enum NetworkMode {
+  NETWORK_MODE_UNSPECIFIED = 0;
+  NETWORK_MODE_NONE = 1;
+  NETWORK_MODE_RESTRICTED = 2;
+  NETWORK_MODE_ALLOWLIST = 3;
+  NETWORK_MODE_UNRESTRICTED = 4;
+}
+
+message EffectivePolicy {
+  SandboxKind sandbox = 1;
+  NetworkPolicy network = 2;
+  ResourceLimits resources = 3;
+  google.protobuf.Duration preparation_timeout = 4;
+  google.protobuf.Duration execution_timeout = 5;
+  google.protobuf.Duration graceful_shutdown_timeout = 6;
+  EnvironmentRequirement requirement = 7;
+
+  reserved 8 to 15;
+}
+
+enum EnvironmentRequirement {
+  ENVIRONMENT_REQUIREMENT_UNSPECIFIED = 0;
+  ENVIRONMENT_REQUIREMENT_REQUIRED = 1;
+  ENVIRONMENT_REQUIREMENT_INFORMATIONAL = 2;
+}
+
+message Capacity {
+  uint32 concurrent_jobs = 1;
+  uint32 available_jobs = 2;
+  uint32 cpu_millis = 3;
+  uint64 memory_bytes = 4;
+  uint64 disk_bytes = 5;
+
+  reserved 6 to 9;
+}
+
+message RunnerPolicy {
+  repeated SandboxKind sandboxes = 1;
+  NetworkPolicy maximum_network = 2;
+  ResourceLimits maximum_resources_per_job = 3;
+  uint32 maximum_concurrent_jobs = 4;
+
+  reserved 5 to 9;
+}
+
+message Capabilities {
+  string runner_version = 1;
+  repeated string protocol_versions = 2;
+  OperatingSystem operating_system = 3;
+  Architecture architecture = 4;
+  repeated SandboxKind sandboxes = 5;
+  repeated ServerProvider providers = 6;
+  Capacity capacity = 7;
+  RunnerPolicy policy = 8;
+  map<string, string> labels = 9;
+
+  reserved 10 to 15;
+}
+
+message ObjectDownload {
+  string uri = 1;
+  Digest digest = 2;
+  string filename = 3;
+  google.protobuf.Timestamp expires_at = 4;
+
+  reserved 5 to 9;
+}
+
+message ObjectUpload {
+  string uri = 1;
+  string content_type = 2;
+  google.protobuf.Timestamp expires_at = 3;
+
+  reserved 4 to 9;
+}
+
+message DependencyInput {
+  string dependency_id = 1;
+  ObjectDownload object = 2;
+
+  reserved 3 to 9;
+}
+
+message JobSpecification {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  OrganizationScope organization_scope = 3;
+  JobHashes hashes = 4;
+  ResolvedEnvironment environment = 5;
+  EffectivePolicy effective_policy = 6;
+  ObjectDownload artifact = 7;
+  repeated DependencyInput dependencies = 8;
+  bytes normalized_configuration_json = 9;
+  ObjectUpload complete_log_upload = 10;
+
+  reserved 11 to 19;
+}
+
+enum JobPhase {
+  JOB_PHASE_UNSPECIFIED = 0;
+  JOB_PHASE_ACCEPTED = 1;
+  JOB_PHASE_PREPARING = 2;
+  JOB_PHASE_RUNNING = 3;
+  JOB_PHASE_CANCELLING = 4;
+}
+
+message ResourceUsage {
+  google.protobuf.Duration cpu_time = 1;
+  uint64 peak_memory_bytes = 2;
+  uint64 disk_read_bytes = 3;
+  uint64 disk_write_bytes = 4;
+  uint64 network_receive_bytes = 5;
+  uint64 network_transmit_bytes = 6;
+
+  reserved 7 to 9;
+}
+
+enum LogStream {
+  LOG_STREAM_UNSPECIFIED = 0;
+  LOG_STREAM_STDOUT = 1;
+  LOG_STREAM_STDERR = 2;
+  LOG_STREAM_RUNNER = 3;
+  LOG_STREAM_PROBE = 4;
+}
+
+message LogEntry {
+  uint64 sequence = 1;
+  google.protobuf.Timestamp observed_at = 2;
+  LogStream stream = 3;
+  bytes data = 4;
+  bool partial = 5;
+  bool redacted = 6;
+
+  reserved 7 to 9;
+}
+
+enum AssertionKind {
+  ASSERTION_KIND_UNSPECIFIED = 0;
+  ASSERTION_KIND_STARTUP = 1;
+  ASSERTION_KIND_CONSOLE = 2;
+  ASSERTION_KIND_LIFECYCLE = 3;
+  ASSERTION_KIND_POLICY = 4;
+}
+
+enum AssertionOutcome {
+  ASSERTION_OUTCOME_UNSPECIFIED = 0;
+  ASSERTION_OUTCOME_PASSED = 1;
+  ASSERTION_OUTCOME_FAILED = 2;
+  ASSERTION_OUTCOME_SKIPPED = 3;
+}
+
+message AssertionResult {
+  string assertion_id = 1;
+  string name = 2;
+  AssertionKind kind = 3;
+  AssertionOutcome outcome = 4;
+  string summary = 5;
+  bytes details_json = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+
+  reserved 9 to 15;
+}
+
+enum LifecycleEventKind {
+  LIFECYCLE_EVENT_KIND_UNSPECIFIED = 0;
+  LIFECYCLE_EVENT_KIND_SERVER_STARTING = 1;
+  LIFECYCLE_EVENT_KIND_SERVER_READY = 2;
+  LIFECYCLE_EVENT_KIND_PLUGIN_ENABLED = 3;
+  LIFECYCLE_EVENT_KIND_PLUGIN_DISABLED = 4;
+  LIFECYCLE_EVENT_KIND_SERVER_STOPPED = 5;
+}
+
+message LifecycleEvent {
+  LifecycleEventKind kind = 1;
+  google.protobuf.Timestamp observed_at = 2;
+  map<string, string> attributes = 3;
+
+  reserved 4 to 9;
+}
+
+enum ResultOutcome {
+  RESULT_OUTCOME_UNSPECIFIED = 0;
+  RESULT_OUTCOME_PASSED = 1;
+  RESULT_OUTCOME_FAILED = 2;
+}
+
+message LogObject {
+  string object_key = 1;
+  Digest digest = 2;
+  uint64 compressed_size_bytes = 3;
+  string content_type = 4;
+
+  reserved 5 to 9;
+}
+
+message StructuredResult {
+  ResultOutcome outcome = 1;
+  repeated AssertionResult assertions = 2;
+  repeated LifecycleEvent lifecycle_events = 3;
+  ResourceUsage usage = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+  optional int32 process_exit_code = 7;
+  LogObject complete_log = 8;
+
+  reserved 9 to 15;
+}
+
+enum FailureCategory {
+  FAILURE_CATEGORY_UNSPECIFIED = 0;
+  FAILURE_CATEGORY_PLUGIN = 1;
+  FAILURE_CATEGORY_INFRASTRUCTURE = 2;
+  FAILURE_CATEGORY_POLICY = 3;
+}
+
+enum FailureStage {
+  FAILURE_STAGE_UNSPECIFIED = 0;
+  FAILURE_STAGE_LEASE = 1;
+  FAILURE_STAGE_PREPARATION = 2;
+  FAILURE_STAGE_STARTUP = 3;
+  FAILURE_STAGE_EXECUTION = 4;
+  FAILURE_STAGE_CLEANUP = 5;
+  FAILURE_STAGE_RESULT_UPLOAD = 6;
+}
+
+message FailureDetail {
+  FailureCategory category = 1;
+  FailureStage stage = 2;
+  string code = 3;
+  string summary = 4;
+  bool retryable = 5;
+  bytes details_json = 6;
+
+  reserved 7 to 15;
+}

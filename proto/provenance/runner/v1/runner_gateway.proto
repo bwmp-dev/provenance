@@ -1,0 +1,250 @@
+syntax = "proto3";
+
+package provenance.runner.v1;
+
+import "common.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/provenance-dev/provenance/gen/proto/provenance/runner/v1;runnerv1";
+
+service RunnerGateway {
+  rpc Connect(stream RunnerMessage) returns (stream GatewayMessage);
+}
+
+message RunnerMessage {
+  string message_id = 1;
+  google.protobuf.Timestamp sent_at = 2;
+
+  oneof payload {
+    Authenticate authenticate = 10;
+    Capabilities capabilities = 11;
+    Heartbeat heartbeat = 12;
+    LeaseAccepted lease_accepted = 13;
+    LeaseRejected lease_rejected = 14;
+    LeaseRenewal lease_renewal = 15;
+    JobPreparing job_preparing = 16;
+    JobStarted job_started = 17;
+    LogBatch log_batch = 18;
+    UsageReport usage = 19;
+    JobCompleted completed = 20;
+    JobFailed failed = 21;
+    JobCancelled cancelled = 22;
+  }
+
+  reserved 3 to 9;
+  reserved 23 to 29;
+}
+
+message GatewayMessage {
+  string message_id = 1;
+  google.protobuf.Timestamp sent_at = 2;
+
+  oneof payload {
+    Authenticated authenticated = 10;
+    LeaseOffer offer = 11;
+    CancelJob cancel = 12;
+    DrainRunner drain = 13;
+    PolicyUpdate policy_update = 14;
+    RotateCredential credential_rotation = 15;
+    ShutdownRunner shutdown = 16;
+  }
+
+  reserved 3 to 9;
+  reserved 17 to 29;
+}
+
+message Authenticate {
+  string runner_id = 1;
+  string instance_id = 2;
+  bytes connection_credential = 3;
+  string protocol_version = 4;
+
+  reserved 5 to 9;
+  reserved "registration_token";
+}
+
+message Authenticated {
+  string runner_id = 1;
+  string connection_id = 2;
+  OrganizationScope organization_scope = 3;
+  google.protobuf.Timestamp credential_expires_at = 4;
+  google.protobuf.Duration heartbeat_interval = 5;
+  google.protobuf.Duration lease_duration = 6;
+  google.protobuf.Timestamp server_time = 7;
+  string protocol_version = 8;
+
+  reserved 9 to 15;
+}
+
+message HeartbeatLease {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  JobPhase phase = 3;
+
+  reserved 4 to 9;
+}
+
+message Heartbeat {
+  uint64 sequence = 1;
+  Capacity capacity = 2;
+  repeated HeartbeatLease active_leases = 3;
+  google.protobuf.Timestamp observed_at = 4;
+
+  reserved 5 to 9;
+}
+
+message LeaseOffer {
+  JobSpecification job = 1;
+  google.protobuf.Timestamp offer_expires_at = 2;
+
+  reserved 3 to 9;
+}
+
+message LeaseAccepted {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  google.protobuf.Timestamp accepted_at = 3;
+
+  reserved 4 to 9;
+}
+
+enum LeaseRejectionReason {
+  LEASE_REJECTION_REASON_UNSPECIFIED = 0;
+  LEASE_REJECTION_REASON_AT_CAPACITY = 1;
+  LEASE_REJECTION_REASON_UNSUPPORTED = 2;
+  LEASE_REJECTION_REASON_POLICY = 3;
+  LEASE_REJECTION_REASON_DRAINING = 4;
+  LEASE_REJECTION_REASON_OFFER_EXPIRED = 5;
+}
+
+message LeaseRejected {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  LeaseRejectionReason reason = 3;
+  string summary = 4;
+
+  reserved 5 to 9;
+}
+
+message LeaseRenewal {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  google.protobuf.Duration requested_extension = 3;
+  google.protobuf.Timestamp observed_at = 4;
+
+  reserved 5 to 9;
+}
+
+message JobPreparing {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  google.protobuf.Timestamp started_at = 3;
+
+  reserved 4 to 9;
+}
+
+message JobStarted {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  google.protobuf.Timestamp started_at = 3;
+
+  reserved 4 to 9;
+}
+
+message LogBatch {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  repeated LogEntry entries = 3;
+  uint64 dropped_entry_count = 4;
+
+  reserved 5 to 9;
+}
+
+message UsageReport {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  uint64 sequence = 3;
+  google.protobuf.Timestamp observed_at = 4;
+  ResourceUsage cumulative = 5;
+
+  reserved 6 to 9;
+}
+
+message JobCompleted {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  StructuredResult result = 3;
+
+  reserved 4 to 9;
+}
+
+message JobFailed {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  FailureDetail failure = 3;
+  ResourceUsage usage = 4;
+  LogObject complete_log = 5;
+  google.protobuf.Timestamp failed_at = 6;
+
+  reserved 7 to 9;
+}
+
+message JobCancelled {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  string cancellation_id = 3;
+  google.protobuf.Timestamp cancelled_at = 4;
+  bool cleanup_completed = 5;
+  FailureDetail cleanup_failure = 6;
+
+  reserved 7 to 9;
+}
+
+message CancelJob {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  string cancellation_id = 3;
+  string reason = 4;
+  google.protobuf.Timestamp deadline = 5;
+  bool force = 6;
+
+  reserved 7 to 9;
+}
+
+message DrainRunner {
+  string drain_id = 1;
+  string reason = 2;
+  google.protobuf.Timestamp deadline = 3;
+  bool cancel_active_jobs = 4;
+
+  reserved 5 to 9;
+}
+
+message PolicyUpdate {
+  string policy_version = 1;
+  Digest policy_digest = 2;
+  RunnerPolicy policy = 3;
+  google.protobuf.Timestamp effective_at = 4;
+
+  reserved 5 to 9;
+}
+
+message RotateCredential {
+  string rotation_id = 1;
+  bytes connection_credential = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  google.protobuf.Timestamp reconnect_before = 4;
+
+  reserved 5 to 9;
+  reserved "registration_token";
+}
+
+message ShutdownRunner {
+  string shutdown_id = 1;
+  string reason = 2;
+  google.protobuf.Timestamp deadline = 3;
+  bool restart_allowed = 4;
+
+  reserved 5 to 9;
+}
