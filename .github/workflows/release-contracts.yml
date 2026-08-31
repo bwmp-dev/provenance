@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
+      artifact-metadata: write
       attestations: write
       contents: write
       id-token: write
@@ -97,7 +98,7 @@ jobs:
         with:
           subject-path: dist/contracts/*
       - name: Attest contract SBOM
-        uses: actions/attest-sbom@v4
+        uses: actions/attest@v4
         with:
           subject-path: dist/contracts/*.tar.gz
           sbom-path: dist/contracts/provenance-contracts-${{ steps.release.outputs.version }}.spdx.json
