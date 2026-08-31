@@ -7,9 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.re2j.Pattern;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 class CommandTestRunnerTest {
@@ -92,30 +94,71 @@ class CommandTestRunnerTest {
   }
 
   @Test
-  void watchdogReportsTimeoutAndStopsTheSuite() {
-    CollectingSink sink = new CollectingSink();
+  void timeoutEvidenceCompletesBeforeSuiteAndSinkClose() throws Exception {
+    BlockingTimeoutSink sink = new BlockingTimeoutSink();
     var watchdog = Executors.newSingleThreadScheduledExecutor();
-    try (CommandTestRunner runner = new CommandTestRunner(sink, 1_024, watchdog)) {
-      CommandTestRunner.CommandSuiteResult result =
-          runner.run(
-              List.of(timeoutTest(), successTest()),
-              dispatcher(
-                  true,
-                  output -> {
-                    try {
-                      assertTrue(sink.timeout.await(2, TimeUnit.SECONDS));
-                    } catch (InterruptedException exception) {
-                      Thread.currentThread().interrupt();
-                      throw new AssertionError(exception);
-                    }
-                    return true;
-                  }));
+    var execution = Executors.newSingleThreadExecutor();
+    CommandTestRunner runner = new CommandTestRunner(sink, 1_024, watchdog);
+    try {
+      var completion =
+          execution.submit(
+              () -> {
+                CommandTestRunner.CommandSuiteResult result =
+                    runner.run(
+                        List.of(timeoutTest(), successTest()),
+                        dispatcher(
+                            true,
+                            output -> {
+                              await(sink.timeoutEntered);
+                              sink.dispatchReturned.countDown();
+                              return true;
+                            }));
+                runner.close();
+                sink.close();
+                return result;
+              });
+
+      assertTrue(sink.dispatchReturned.await(2, TimeUnit.SECONDS));
+      assertFalse(completion.isDone());
+      assertFalse(sink.closed.get());
+      assertEquals(
+          List.of(
+              EventType.COMMAND_REGISTRATION,
+              EventType.COMMAND_EXECUTION_STARTED,
+              EventType.COMMAND_TIMEOUT),
+          sink.eventTypes());
+
+      sink.releaseTimeout.countDown();
+      CommandTestRunner.CommandSuiteResult result = completion.get(2, TimeUnit.SECONDS);
 
       assertFalse(result.passed());
       assertTrue(result.timedOut());
-      assertEquals(1, sink.events(EventType.COMMAND_EXECUTION_STARTED).size());
+      assertEquals(
+          List.of(
+              EventType.COMMAND_REGISTRATION,
+              EventType.COMMAND_EXECUTION_STARTED,
+              EventType.COMMAND_TIMEOUT,
+              EventType.CLASSIFICATION,
+              EventType.COMMAND_OUTPUT,
+              EventType.COMMAND_EXECUTION_COMPLETED,
+              EventType.COMMAND_TEST_COMPLETED),
+          sink.eventTypes());
       assertEquals(
           "command_timeout", sink.events(EventType.CLASSIFICATION).getFirst().data().get("code"));
+      assertTrue(sink.closed.get());
+    } finally {
+      sink.releaseTimeout.countDown();
+      execution.shutdownNow();
+      runner.close();
+    }
+  }
+
+  private static void await(CountDownLatch latch) {
+    try {
+      assertTrue(latch.await(2, TimeUnit.SECONDS));
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new AssertionError(exception);
     }
   }
 
@@ -170,18 +213,47 @@ class CommandTestRunnerTest {
 
   private static final class CollectingSink implements EventSink {
     private final List<ProbeEvent> values = new ArrayList<>();
-    private final CountDownLatch timeout = new CountDownLatch(1);
 
     @Override
     public synchronized void emit(ProbeEvent event) {
       values.add(event);
-      if (event.type() == EventType.COMMAND_TIMEOUT) {
-        timeout.countDown();
-      }
     }
 
     synchronized List<ProbeEvent> events(EventType type) {
       return values.stream().filter(event -> event.type() == type).toList();
+    }
+  }
+
+  private static final class BlockingTimeoutSink implements EventSink {
+    private final List<ProbeEvent> values = new CopyOnWriteArrayList<>();
+    private final CountDownLatch timeoutEntered = new CountDownLatch(1);
+    private final CountDownLatch releaseTimeout = new CountDownLatch(1);
+    private final CountDownLatch dispatchReturned = new CountDownLatch(1);
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    @Override
+    public void emit(ProbeEvent event) {
+      if (closed.get()) {
+        throw new AssertionError("event emitted after sink close");
+      }
+      values.add(event);
+      if (event.type() == EventType.COMMAND_TIMEOUT) {
+        timeoutEntered.countDown();
+        await(releaseTimeout);
+      }
+    }
+
+    @Override
+    public void close() {
+      closed.set(true);
+    }
+
+    List<ProbeEvent> events(EventType type) {
+      return values.stream().filter(event -> event.type() == type).toList();
+    }
+
+    List<EventType> eventTypes() {
+      return values.stream().map(ProbeEvent::type).toList();
     }
   }
 }

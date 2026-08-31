@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -14,6 +15,9 @@ final class CommandTestRunner implements AutoCloseable {
   private final EventSink sink;
   private final ScheduledExecutorService watchdog;
   private final int maximumOutputBytes;
+  private final Object timeoutCallbackMonitor = new Object();
+  private int activeTimeoutCallbacks;
+  private boolean closed;
 
   CommandTestRunner(EventSink sink, int maximumOutputBytes) {
     this(
@@ -35,6 +39,7 @@ final class CommandTestRunner implements AutoCloseable {
   }
 
   CommandSuiteResult run(List<ConsoleCommandTest> tests, CommandDispatcher dispatcher) {
+    ensureOpen();
     boolean passed = true;
     for (ConsoleCommandTest test : tests) {
       CommandRunResult result = run(test, dispatcher);
@@ -82,6 +87,8 @@ final class CommandTestRunner implements AutoCloseable {
 
     CommandOutputCapture output = new CommandOutputCapture(maximumOutputBytes);
     AtomicReference<ExecutionState> state = new AtomicReference<>(ExecutionState.RUNNING);
+    AtomicReference<Throwable> timeoutEvidenceFailure = new AtomicReference<>();
+    CountDownLatch timeoutEvidenceCompleted = new CountDownLatch(1);
     emit(
         EventType.COMMAND_EXECUTION_STARTED,
         Map.of(
@@ -91,13 +98,27 @@ final class CommandTestRunner implements AutoCloseable {
     ScheduledFuture<?> timeout =
         watchdog.schedule(
             () -> {
-              if (state.compareAndSet(ExecutionState.RUNNING, ExecutionState.TIMED_OUT)) {
-                emit(
-                    EventType.COMMAND_TIMEOUT,
-                    Map.of("testId", test.id(), "timeoutSeconds", test.timeoutSeconds()));
-                classify(
-                    ProbeClassification.COMMAND_TIMEOUT,
-                    Map.of("testId", test.id(), "timeoutSeconds", test.timeoutSeconds()));
+              if (!beginTimeoutCallback()) {
+                return;
+              }
+              try {
+                if (state.compareAndSet(ExecutionState.RUNNING, ExecutionState.TIMED_OUT)) {
+                  try {
+                    emit(
+                        EventType.COMMAND_TIMEOUT,
+                        Map.of("testId", test.id(), "timeoutSeconds", test.timeoutSeconds()));
+                    classify(
+                        ProbeClassification.COMMAND_TIMEOUT,
+                        Map.of("testId", test.id(), "timeoutSeconds", test.timeoutSeconds()));
+                  } catch (RuntimeException | Error failure) {
+                    timeoutEvidenceFailure.set(failure);
+                    throw failure;
+                  } finally {
+                    timeoutEvidenceCompleted.countDown();
+                  }
+                }
+              } finally {
+                endTimeoutCallback();
               }
             },
             test.timeoutSeconds(),
@@ -110,6 +131,7 @@ final class CommandTestRunner implements AutoCloseable {
       state.compareAndSet(ExecutionState.RUNNING, ExecutionState.FINISHED);
       timeout.cancel(false);
       boolean timedOut = state.get() == ExecutionState.TIMED_OUT;
+      awaitTimeoutEvidence(timedOut, timeoutEvidenceCompleted, timeoutEvidenceFailure);
       emitOutput(test, output);
       emit(
           EventType.COMMAND_EXECUTION_COMPLETED,
@@ -129,6 +151,7 @@ final class CommandTestRunner implements AutoCloseable {
     state.compareAndSet(ExecutionState.RUNNING, ExecutionState.FINISHED);
     timeout.cancel(false);
     boolean timedOut = state.get() == ExecutionState.TIMED_OUT;
+    awaitTimeoutEvidence(timedOut, timeoutEvidenceCompleted, timeoutEvidenceFailure);
     emitOutput(test, output);
     emit(
         EventType.COMMAND_EXECUTION_COMPLETED,
@@ -226,13 +249,75 @@ final class CommandTestRunner implements AutoCloseable {
     emit(EventType.CLASSIFICATION, classification.data(evidence));
   }
 
+  private void awaitTimeoutEvidence(
+      boolean timedOut,
+      CountDownLatch completed,
+      AtomicReference<Throwable> failureReference) {
+    if (!timedOut) {
+      return;
+    }
+    try {
+      completed.await();
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted while waiting for timeout evidence", exception);
+    }
+    Throwable failure = failureReference.get();
+    if (failure instanceof RuntimeException runtimeException) {
+      throw runtimeException;
+    }
+    if (failure instanceof Error error) {
+      throw error;
+    }
+  }
+
+  private boolean beginTimeoutCallback() {
+    synchronized (timeoutCallbackMonitor) {
+      if (closed) {
+        return false;
+      }
+      activeTimeoutCallbacks++;
+      return true;
+    }
+  }
+
+  private void endTimeoutCallback() {
+    synchronized (timeoutCallbackMonitor) {
+      activeTimeoutCallbacks--;
+      timeoutCallbackMonitor.notifyAll();
+    }
+  }
+
+  private void ensureOpen() {
+    synchronized (timeoutCallbackMonitor) {
+      if (closed) {
+        throw new IllegalStateException("command test runner is closed");
+      }
+    }
+  }
+
   private void emit(EventType type, Map<String, Object> data) {
     sink.emit(ProbeEvent.now(type, data));
   }
 
   @Override
   public void close() {
-    watchdog.shutdownNow();
+    synchronized (timeoutCallbackMonitor) {
+      closed = true;
+    }
+    watchdog.shutdown();
+    try {
+      synchronized (timeoutCallbackMonitor) {
+        while (activeTimeoutCallbacks > 0) {
+          timeoutCallbackMonitor.wait();
+        }
+      }
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted while closing command test runner", exception);
+    } finally {
+      watchdog.shutdownNow();
+    }
   }
 
   interface CommandDispatcher {
