@@ -1,0 +1,72 @@
+[
+  {
+    "name": "unknown envelope field",
+    "path": ["debug"],
+    "value": true,
+    "validator": "additionalProperties",
+    "errorPath": []
+  },
+  {
+    "name": "unknown statement field",
+    "path": ["statement", "organizationId"],
+    "value": "private-tenant",
+    "validator": "additionalProperties",
+    "errorPath": ["statement"]
+  },
+  {
+    "name": "malformed artifact hash",
+    "path": ["statement", "subject", "digest", "value"],
+    "value": "SHA256:not-a-digest",
+    "validator": "pattern",
+    "errorPath": ["statement", "subject", "digest", "value"]
+  },
+  {
+    "name": "floating source revision",
+    "path": ["statement", "source", "commit"],
+    "value": "main",
+    "validator": "pattern",
+    "errorPath": ["statement", "source", "commit"]
+  },
+  {
+    "name": "malformed verification timestamp",
+    "path": ["statement", "verifiedAt"],
+    "value": "yesterday",
+    "validator": "pattern",
+    "errorPath": ["statement", "verifiedAt"]
+  },
+  {
+    "name": "hosted runner cannot claim organization trust",
+    "path": ["statement", "runner", "trust"],
+    "value": "organization-reported",
+    "validator": "const",
+    "errorPath": ["statement", "runner", "trust"]
+  },
+  {
+    "name": "hosted runner must identify gVisor sandbox",
+    "path": ["statement", "runner", "sandbox", "kind"],
+    "value": "container",
+    "validator": "const",
+    "errorPath": ["statement", "runner", "sandbox", "kind"]
+  },
+  {
+    "name": "unsupported signature algorithm",
+    "path": ["signature", "algorithm"],
+    "value": "Ed448",
+    "validator": "const",
+    "errorPath": ["signature", "algorithm"]
+  },
+  {
+    "name": "padded or truncated signature",
+    "path": ["signature", "value"],
+    "value": "AAAA==",
+    "validator": "pattern",
+    "errorPath": ["signature", "value"]
+  },
+  {
+    "name": "key ID containing a newline",
+    "path": ["signature", "keyId"],
+    "value": "test-key\nsecond-line",
+    "validator": "pattern",
+    "errorPath": ["signature", "keyId"]
+  }
+]

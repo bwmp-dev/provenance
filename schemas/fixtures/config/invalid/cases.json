@@ -1,0 +1,100 @@
+[
+  {
+    "name": "unknown root field",
+    "path": ["unexpected"],
+    "value": true,
+    "validator": "additionalProperties",
+    "errorPath": []
+  },
+  {
+    "name": "unknown nested field",
+    "path": ["resources", "memory"],
+    "value": "2GiB",
+    "validator": "additionalProperties",
+    "errorPath": ["resources"]
+  },
+  {
+    "name": "unsafe artifact traversal",
+    "path": ["artifact", "path"],
+    "value": "../secrets/plugin.jar",
+    "validator": "pattern",
+    "errorPath": ["artifact", "path"]
+  },
+  {
+    "name": "malformed project identifier",
+    "path": ["project", "id"],
+    "value": "Example Plugin",
+    "validator": "pattern",
+    "errorPath": ["project", "id"]
+  },
+  {
+    "name": "floating version alias",
+    "path": ["artifact", "version"],
+    "value": "latest",
+    "validator": "pattern",
+    "errorPath": ["artifact", "version"]
+  },
+  {
+    "name": "zero duration",
+    "path": ["tests", "startup", "timeoutSeconds"],
+    "value": 0,
+    "validator": "minimum",
+    "errorPath": ["tests", "startup", "timeoutSeconds"]
+  },
+  {
+    "name": "unsafe memory allocation",
+    "path": ["resources", "memoryMiB"],
+    "value": 65536,
+    "validator": "maximum",
+    "errorPath": ["resources", "memoryMiB"]
+  },
+  {
+    "name": "unsafe CPU allocation",
+    "path": ["resources", "cpuCores"],
+    "value": 32,
+    "validator": "maximum",
+    "errorPath": ["resources", "cpuCores"]
+  },
+  {
+    "name": "IP address is not an allowlist hostname",
+    "path": ["network", "allowlist", 0, "hostname"],
+    "value": "169.254.169.254",
+    "validator": "pattern",
+    "errorPath": ["network", "allowlist", 0, "hostname"]
+  },
+  {
+    "name": "invalid port",
+    "path": ["network", "allowlist", 0, "ports", 0],
+    "value": 0,
+    "validator": "minimum",
+    "errorPath": ["network", "allowlist", 0, "ports", 0]
+  },
+  {
+    "name": "invalid regular expression",
+    "path": ["tests", "console", 0, "assertions", 0, "pattern"],
+    "value": "[unterminated",
+    "validator": "format",
+    "errorPath": ["tests", "console", 0, "assertions", 0, "pattern"]
+  },
+  {
+    "name": "publishing release without a target",
+    "path": ["release", "targets"],
+    "value": [],
+    "validator": "minItems",
+    "errorPath": ["release", "targets"]
+  },
+  {
+    "name": "allowlist mode without destinations",
+    "path": ["network", "allowlist"],
+    "value": [],
+    "validator": "minItems",
+    "errorPath": ["network", "allowlist"]
+  },
+  {
+    "name": "arbitrary dependency URL",
+    "path": ["dependencies", 0, "url"],
+    "value": "https://example.invalid/plugin.jar",
+    "validator": "oneOf",
+    "errorPath": ["dependencies", 0]
+  }
+]

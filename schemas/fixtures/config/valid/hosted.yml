@@ -1,0 +1,78 @@
+apiVersion: provenance.dev/v1
+project:
+  id: example-plugin
+  name: Example Plugin
+artifact:
+  id: example-plugin
+  version: 1.4.0-rc.1
+  path: build/libs/example-plugin.jar
+paper:
+  matrix:
+    - id: paper-1.20.6
+      minecraftVersion: 1.20.6
+      paperBuild: 151
+      javaVersion: 21
+      policy: required
+    - id: paper-1.21.4
+      minecraftVersion: 1.21.4
+      paperBuild: 232
+      javaVersion: 21
+      policy: informational
+  recommendations:
+    enabled: true
+    apiFloor: 1.20.6
+    newVersions: informational
+  gatePolicy:
+    requiredFailure: block
+    informationalFailure: report
+    infrastructureFailure: retry
+    maxInfrastructureRetries: 2
+dependencies:
+  - id: luckperms
+    provider: modrinth
+    projectId: Vebnzrzj
+    versionId: 7deKzE7F
+    sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    required: true
+  - id: shared-library
+    provider: organization-upload
+    artifactId: shared-library
+    version: 2.3.1
+    sha256: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
+    required: false
+tests:
+  startup:
+    timeoutSeconds: 120
+    stabilizationSeconds: 10
+    requirePluginEnabled: true
+    shutdownTimeoutSeconds: 30
+    requireCleanShutdown: true
+  console:
+    - id: version-command
+      command: example version
+      timeoutSeconds: 10
+      assertions:
+        - stream: combined
+          pattern: ^ExamplePlugin 1\.4\.0-rc\.1$
+          match: present
+          minimumOccurrences: 1
+        - stream: stderr
+          pattern: Exception|ERROR
+          match: absent
+release:
+  mode: manual
+  targets:
+    - modrinth-production
+network:
+  mode: allowlist
+  allowlist:
+    - hostname: api.modrinth.com
+      ports:
+        - 443
+resources:
+  cpuCores: 2
+  memoryMiB: 2048
+  diskMiB: 4096
+  processes: 256
+  wallTimeoutSeconds: 900
+  logBytes: 10485760

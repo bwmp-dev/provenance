@@ -1,0 +1,9 @@
+{
+  "description": "Test-only deterministic Ed25519 vector for the hosted attestation fixture.",
+  "fixture": "../valid/hosted.json",
+  "privateKeySeedHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "publicKeyHex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+  "canonicalStatementSha256": "286a071c088eb793a5192db1a3594b0965401d93fd5576beced097b8a49d3ce1",
+  "signingInputSha256": "caab9d0a43ca94b65da96cc96ae4b81eba4e412dc49342c2d3b1a86da9d57c0b",
+  "signatureBase64Url": "AjebJLn1uC5Fy19tF-r4Bn8GNce-8kBjaq1mXrf1hpIEffVX_HyjiTXtaAt2NbrRrUHLk0Dt9p-06f0tkRzlBg"
+}

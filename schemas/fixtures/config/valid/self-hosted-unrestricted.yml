@@ -1,0 +1,46 @@
+apiVersion: provenance.dev/v1
+project:
+  id: private-plugin
+  name: Private Plugin
+artifact:
+  id: private-plugin
+  version: 1.0.0
+  path: target/private-plugin.jar
+paper:
+  matrix:
+    - id: paper-1.21.4
+      minecraftVersion: 1.21.4
+      paperBuild: 232
+      javaVersion: 21
+      policy: required
+  recommendations:
+    enabled: false
+    apiFloor: 1.21.4
+    newVersions: informational
+  gatePolicy:
+    requiredFailure: block
+    informationalFailure: report
+    infrastructureFailure: retry
+    maxInfrastructureRetries: 0
+dependencies: []
+tests:
+  startup:
+    timeoutSeconds: 90
+    stabilizationSeconds: 5
+    requirePluginEnabled: true
+    shutdownTimeoutSeconds: 30
+    requireCleanShutdown: true
+  console: []
+release:
+  mode: test-only
+  targets: []
+network:
+  mode: unrestricted
+  allowlist: []
+resources:
+  cpuCores: 1.5
+  memoryMiB: 1536
+  diskMiB: 2048
+  processes: 128
+  wallTimeoutSeconds: 600
+  logBytes: 5242880

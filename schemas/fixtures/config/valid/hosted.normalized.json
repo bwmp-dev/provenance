@@ -1,0 +1,113 @@
+{
+  "apiVersion": "provenance.dev/v1",
+  "artifact": {
+    "id": "example-plugin",
+    "path": "build/libs/example-plugin.jar",
+    "version": "1.4.0-rc.1"
+  },
+  "dependencies": [
+    {
+      "id": "luckperms",
+      "projectId": "Vebnzrzj",
+      "provider": "modrinth",
+      "required": true,
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "versionId": "7deKzE7F"
+    },
+    {
+      "artifactId": "shared-library",
+      "id": "shared-library",
+      "provider": "organization-upload",
+      "required": false,
+      "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      "version": "2.3.1"
+    }
+  ],
+  "network": {
+    "allowlist": [
+      {
+        "hostname": "api.modrinth.com",
+        "ports": [
+          443
+        ]
+      }
+    ],
+    "mode": "allowlist"
+  },
+  "paper": {
+    "gatePolicy": {
+      "informationalFailure": "report",
+      "infrastructureFailure": "retry",
+      "maxInfrastructureRetries": 2,
+      "requiredFailure": "block"
+    },
+    "matrix": [
+      {
+        "id": "paper-1.20.6",
+        "javaVersion": 21,
+        "minecraftVersion": "1.20.6",
+        "paperBuild": 151,
+        "policy": "required"
+      },
+      {
+        "id": "paper-1.21.4",
+        "javaVersion": 21,
+        "minecraftVersion": "1.21.4",
+        "paperBuild": 232,
+        "policy": "informational"
+      }
+    ],
+    "recommendations": {
+      "apiFloor": "1.20.6",
+      "enabled": true,
+      "newVersions": "informational"
+    }
+  },
+  "project": {
+    "id": "example-plugin",
+    "name": "Example Plugin"
+  },
+  "release": {
+    "mode": "manual",
+    "targets": [
+      "modrinth-production"
+    ]
+  },
+  "resources": {
+    "cpuCores": 2,
+    "diskMiB": 4096,
+    "logBytes": 10485760,
+    "memoryMiB": 2048,
+    "processes": 256,
+    "wallTimeoutSeconds": 900
+  },
+  "tests": {
+    "console": [
+      {
+        "assertions": [
+          {
+            "match": "present",
+            "minimumOccurrences": 1,
+            "pattern": "^ExamplePlugin 1\\.4\\.0-rc\\.1$",
+            "stream": "combined"
+          },
+          {
+            "match": "absent",
+            "pattern": "Exception|ERROR",
+            "stream": "stderr"
+          }
+        ],
+        "command": "example version",
+        "id": "version-command",
+        "timeoutSeconds": 10
+      }
+    ],
+    "startup": {
+      "requireCleanShutdown": true,
+      "requirePluginEnabled": true,
+      "shutdownTimeoutSeconds": 30,
+      "stabilizationSeconds": 10,
+      "timeoutSeconds": 120
+    }
+  }
+}

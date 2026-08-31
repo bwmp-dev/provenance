@@ -1,0 +1,88 @@
+{
+  "mediaType": "application/vnd.provenance.attestation.v1+json",
+  "statement": {
+    "apiVersion": "provenance.dev/attestation/v1",
+    "subject": {
+      "name": "private-plugin-1.0.0.jar",
+      "version": "1.0.0",
+      "sizeBytes": 98123,
+      "digest": {
+        "algorithm": "sha256",
+        "value": "abababababababababababababababababababababababababababababababab"
+      }
+    },
+    "source": {
+      "provider": "github",
+      "repository": "example-org/private-plugin",
+      "commit": "fedcba9876543210fedcba9876543210fedcba98",
+      "ref": "refs/heads/main"
+    },
+    "configuration": {
+      "apiVersion": "provenance.dev/v1",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    },
+    "dependencies": [],
+    "environments": [
+      {
+        "id": "paper-1.20.6",
+        "provider": "paper",
+        "minecraftVersion": "1.20.6",
+        "paperBuild": 151,
+        "javaVersion": 21,
+        "runnerImageDigest": {
+          "algorithm": "sha256",
+          "value": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+        },
+        "policy": "required",
+        "outcome": "passed"
+      }
+    ],
+    "assertions": [
+      {
+        "id": "ready",
+        "environmentId": "paper-1.20.6",
+        "type": "startup-ready",
+        "outcome": "passed",
+        "evidenceDigest": {
+          "algorithm": "sha256",
+          "value": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      {
+        "id": "clean-shutdown",
+        "environmentId": "paper-1.20.6",
+        "type": "clean-shutdown",
+        "outcome": "passed",
+        "evidenceDigest": {
+          "algorithm": "sha256",
+          "value": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+        }
+      }
+    ],
+    "runner": {
+      "id": "example-org-runner-1",
+      "hosting": "self-hosted",
+      "trust": "organization-reported",
+      "version": "1.2.0",
+      "sandbox": {
+        "kind": "container",
+        "version": "27.5.1",
+        "imageDigest": {
+          "algorithm": "sha256",
+          "value": "fafafafafafafafafafafafafafafafafafafafafafafafafafafafafafafafa"
+        },
+        "networkMode": "unrestricted"
+      }
+    },
+    "verifiedAt": "2026-08-30T21:45:00Z"
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "canonicalization": "RFC8785",
+    "keyId": "https://example.org/provenance-keys.json#test-self-hosted-2026",
+    "value": "24XTCqb5_Cy9Lf2YWTiQFO85ZfXwPtA-tnP6lCH8GrZ5dKhQgmW1nZYACj_GUOCeszTj3-zWU_z1u8_IWvFBCw"
+  }
+}

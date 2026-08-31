@@ -1,0 +1,3 @@
+shared: &shared
+  id: example
+project: *shared
