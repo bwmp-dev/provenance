@@ -117,6 +117,20 @@ export function validateReleaseIdentity(version, sourceCommit) {
   return { sourceCommit: sourceCommit.toLowerCase(), version };
 }
 
+export function validateSpdxTimestamp(createdAt) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(createdAt)) {
+    throw new Error("SBOM creation time must be an RFC 3339 UTC timestamp");
+  }
+  const parsed = new Date(createdAt);
+  if (
+    Number.isNaN(parsed.valueOf()) ||
+    parsed.toISOString().replace(".000Z", "Z") !== createdAt
+  ) {
+    throw new Error("SBOM creation time is invalid");
+  }
+  return createdAt;
+}
+
 export function archiveName(bundleId, version) {
   return `provenance-${bundleId}-${version}.tar.gz`;
 }
@@ -129,8 +143,12 @@ export function checksumName(version) {
   return `provenance-contracts-${version}.sha256`;
 }
 
-function digest(contents) {
-  return createHash("sha256").update(contents).digest("hex");
+export function sbomName(version) {
+  return `provenance-contracts-${version}.spdx.json`;
+}
+
+function digest(contents, algorithm = "sha256") {
+  return createHash(algorithm).update(contents).digest("hex");
 }
 
 function compareText(left, right) {
@@ -214,6 +232,7 @@ async function stageEntry({
   await writeFile(destinationPath, contents, { mode: 0o644 });
   files.push({
     path: destination,
+    sha1: digest(contents, "sha1"),
     sha256: digest(contents),
     size: contents.byteLength,
     source: sourceRelative,
@@ -247,6 +266,14 @@ export async function toolchainManifest() {
   const workspace = JSON.parse(
     await readFile(resolve(repositoryDirectory, "package.json"), "utf8"),
   );
+  const requirements = await readFile(
+    resolve(repositoryDirectory, "requirements-contracts.txt"),
+    "utf8",
+  );
+  const spdxTools = /^spdx-tools==([^\r\n]+)$/m.exec(requirements)?.[1];
+  if (!spdxTools) {
+    throw new Error("spdx-tools must be pinned in requirements-contracts.txt");
+  }
   return {
     buf: workspace.devDependencies["@bufbuild/buf"],
     go: (
@@ -263,16 +290,114 @@ export async function toolchainManifest() {
     ).devDependencies["openapi-typescript"],
     pnpm: workspace.packageManager,
     protocGenEs: workspace.devDependencies["@bufbuild/protoc-gen-es"],
+    spdxTools,
     tar: workspace.devDependencies.tar,
   };
 }
 
+function packageVerificationCode(files) {
+  const checksums = files
+    .map((file) => file.sha1)
+    .sort(compareText)
+    .join("");
+  return digest(Buffer.from(checksums, "ascii"), "sha1");
+}
+
+export function createSpdxDocument({
+  artifacts,
+  bundleContents,
+  createdAt,
+  sourceCommit,
+  version,
+}) {
+  validateSpdxTimestamp(createdAt);
+  const artifactsByBundle = new Map(
+    artifacts.map((artifact) => [artifact.bundle, artifact]),
+  );
+  const contentsByBundle = new Map(
+    bundleContents.map((contents) => [contents.bundle, contents.files]),
+  );
+  const packages = [];
+  const files = [];
+  const relationships = [];
+  const documentDescribes = [];
+
+  for (const bundle of contractBundles) {
+    const artifact = artifactsByBundle.get(bundle.id);
+    const bundleFiles = contentsByBundle.get(bundle.id);
+    if (!artifact || !bundleFiles) {
+      throw new Error(`SBOM input is missing bundle: ${bundle.id}`);
+    }
+    const packageId = `SPDXRef-Package-${bundle.id}`;
+    documentDescribes.push(packageId);
+    packages.push({
+      SPDXID: packageId,
+      checksums: [{ algorithm: "SHA256", checksumValue: artifact.sha256 }],
+      copyrightText: "NOASSERTION",
+      downloadLocation: "NOASSERTION",
+      filesAnalyzed: true,
+      licenseConcluded: "NOASSERTION",
+      licenseDeclared: "Apache-2.0",
+      name: `provenance-${bundle.id}`,
+      packageFileName: artifact.filename,
+      packageVerificationCode: {
+        packageVerificationCodeValue: packageVerificationCode(bundleFiles),
+      },
+      primaryPackagePurpose: "LIBRARY",
+      versionInfo: version,
+    });
+    relationships.push({
+      relatedSpdxElement: packageId,
+      relationshipType: "DESCRIBES",
+      spdxElementId: "SPDXRef-DOCUMENT",
+    });
+
+    for (const [index, file] of bundleFiles.entries()) {
+      const fileId = `SPDXRef-File-${bundle.id}-${String(index + 1).padStart(4, "0")}`;
+      files.push({
+        SPDXID: fileId,
+        checksums: [
+          { algorithm: "SHA1", checksumValue: file.sha1 },
+          { algorithm: "SHA256", checksumValue: file.sha256 },
+        ],
+        copyrightText: "NOASSERTION",
+        fileName: `./${artifact.filename.slice(0, -".tar.gz".length)}/${file.path}`,
+        licenseConcluded: "NOASSERTION",
+        licenseInfoInFiles: ["NOASSERTION"],
+      });
+      relationships.push({
+        relatedSpdxElement: fileId,
+        relationshipType: "CONTAINS",
+        spdxElementId: packageId,
+      });
+    }
+  }
+
+  return {
+    SPDXID: "SPDXRef-DOCUMENT",
+    creationInfo: {
+      created: createdAt,
+      creators: ["Tool: @bwmp-dev/provenance-contract-release"],
+    },
+    dataLicense: "CC0-1.0",
+    documentDescribes,
+    documentNamespace: `${releaseRepository}/releases/tag/v${encodeURIComponent(version)}/spdx/${sourceCommit}`,
+    files,
+    name: `provenance-contracts-${version}`,
+    packages,
+    relationships,
+    spdxVersion: "SPDX-2.3",
+  };
+}
+
 export async function buildContractRelease({
+  createdAt,
   outputDirectory,
   sourceCommit,
   version,
 }) {
   const identity = validateReleaseIdentity(version, sourceCommit);
+  const sbomCreatedAt = validateSpdxTimestamp(createdAt);
   const resolvedOutput = resolve(outputDirectory);
   await assertEmptyOutputDirectory(resolvedOutput);
 
@@ -280,6 +405,7 @@ export async function buildContractRelease({
     join(tmpdir(), "provenance-contract-release-"),
   );
   const artifacts = [];
+  const bundleContents = [];
   try {
     for (const bundle of contractBundles) {
       const stagingDirectory = resolve(temporaryDirectory, bundle.id);
@@ -303,11 +429,27 @@ export async function buildContractRelease({
         sourceCommit: identity.sourceCommit,
         files,
       };
+      const embeddedManifestContents = Buffer.from(
+        json(embeddedManifest),
+        "utf8",
+      );
       await writeFile(
         resolve(stagingDirectory, "RELEASE-MANIFEST.json"),
-        json(embeddedManifest),
+        embeddedManifestContents,
         { mode: 0o644 },
       );
+      bundleContents.push({
+        bundle: bundle.id,
+        files: [
+          ...files,
+          {
+            path: "RELEASE-MANIFEST.json",
+            sha1: digest(embeddedManifestContents, "sha1"),
+            sha256: digest(embeddedManifestContents),
+            size: embeddedManifestContents.byteLength,
+          },
+        ].sort((left, right) => compareText(left.path, right.path)),
+      });
 
       const filename = archiveName(bundle.id, identity.version);
       const archivePath = resolve(resolvedOutput, filename);
@@ -337,9 +479,33 @@ export async function buildContractRelease({
     }
 
     artifacts.sort((left, right) => compareText(left.filename, right.filename));
+    const sbomFilename = sbomName(identity.version);
+    const sbomContents = Buffer.from(
+      json(
+        createSpdxDocument({
+          artifacts,
+          bundleContents,
+          createdAt: sbomCreatedAt,
+          sourceCommit: identity.sourceCommit,
+          version: identity.version,
+        }),
+      ),
+      "utf8",
+    );
+    const sbom = {
+      filename: sbomFilename,
+      format: "SPDX-2.3",
+      sha256: digest(sbomContents),
+      size: sbomContents.byteLength,
+    };
+    await writeFile(resolve(resolvedOutput, sbomFilename), sbomContents, {
+      mode: 0o644,
+    });
+
     const manifest = {
       schemaVersion: 1,
       release: {
+        createdAt: sbomCreatedAt,
         repository: releaseRepository,
         sourceCommit: identity.sourceCommit,
         tag: `v${identity.version}`,
@@ -347,6 +513,7 @@ export async function buildContractRelease({
       },
       toolchain: await toolchainManifest(),
       artifacts,
+      sbom,
     };
     const manifestFilename = releaseManifestName(identity.version);
     const manifestContents = Buffer.from(json(manifest), "utf8");
@@ -359,6 +526,7 @@ export async function buildContractRelease({
     const checksums = [
       ...artifacts.map(({ filename, sha256 }) => ({ filename, sha256 })),
       { filename: manifestFilename, sha256: digest(manifestContents) },
+      { filename: sbomFilename, sha256: digest(sbomContents) },
     ]
       .sort((left, right) => compareText(left.filename, right.filename))
       .map(({ filename, sha256 }) => `${sha256}  ${filename}`)
@@ -380,17 +548,22 @@ function parseArguments(arguments_) {
     const name = arguments_[index];
     const value = arguments_[index + 1];
     if (
-      !["--output", "--source-commit", "--version"].includes(name) ||
+      !["--created-at", "--output", "--source-commit", "--version"].includes(
+        name,
+      ) ||
       !value
     ) {
       throw new Error(`invalid release argument: ${name ?? "<missing>"}`);
     }
     values[name.slice(2)] = value;
   }
-  if (!values.version || !values["source-commit"]) {
-    throw new Error("--version and --source-commit are required");
+  if (!values.version || !values["source-commit"] || !values["created-at"]) {
+    throw new Error(
+      "--version, --source-commit, and --created-at are required",
+    );
   }
   return {
+    createdAt: values["created-at"],
     outputDirectory:
       values.output ?? resolve(repositoryDirectory, "dist/contracts"),
     sourceCommit: values["source-commit"],

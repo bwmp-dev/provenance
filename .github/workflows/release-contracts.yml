@@ -65,6 +65,9 @@ jobs:
           fi
           version="${GITHUB_REF_NAME#v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          commit_timestamp="$(git show -s --format=%ct "$GITHUB_SHA")"
+          created_at="$(node -p 'new Date(Number(process.argv[1]) * 1000).toISOString().replace(".000Z", "Z")' "$commit_timestamp")"
+          echo "created_at=$created_at" >> "$GITHUB_OUTPUT"
           if [[ "$version" == *-* ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
@@ -76,6 +79,7 @@ jobs:
           pnpm release:contracts --
           --version "${{ steps.release.outputs.version }}"
           --source-commit "$GITHUB_SHA"
+          --created-at "${{ steps.release.outputs.created_at }}"
           --output dist/contracts
       - name: Verify contract archives and consumers
         run: >-
@@ -92,6 +96,11 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: dist/contracts/*
+      - name: Attest contract SBOM
+        uses: actions/attest-sbom@v4
+        with:
+          subject-path: dist/contracts/*.tar.gz
+          sbom-path: dist/contracts/provenance-contracts-${{ steps.release.outputs.version }}.spdx.json
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

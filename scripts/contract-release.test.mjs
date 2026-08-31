@@ -10,6 +10,7 @@ import { verifyContractRelease } from "./verify-contract-release.mjs";
 
 const version = "0.0.0-contract-test.1";
 const sourceCommit = "0".repeat(40);
+const createdAt = "2000-01-01T00:00:00Z";
 
 function digest(contents) {
   return createHash("sha256").update(contents).digest("hex");
@@ -23,7 +24,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     join(tmpdir(), "provenance-release-second-"),
   );
   try {
-    const options = { sourceCommit, version };
+    const options = { createdAt, sourceCommit, version };
     await buildContractRelease({
       ...options,
       outputDirectory: firstDirectory,
@@ -37,6 +38,17 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       directory: firstDirectory,
       version,
     });
+    const sbom = JSON.parse(
+      await readFile(resolve(firstDirectory, manifest.sbom.filename), "utf8"),
+    );
+    assert.equal(sbom.packages.length, 5);
+    assert.equal(
+      sbom.relationships.length,
+      sbom.packages.length + sbom.files.length,
+    );
+    t.diagnostic(
+      `SPDX 2.3 SBOM covers ${sbom.packages.length} packages and ${sbom.files.length} archived files`,
+    );
 
     const firstFiles = (await readdir(firstDirectory)).sort();
     const secondFiles = (await readdir(secondDirectory)).sort();
@@ -70,6 +82,7 @@ test("contract release rejects invalid identities and non-empty output", async (
   try {
     await assert.rejects(
       buildContractRelease({
+        createdAt,
         outputDirectory,
         sourceCommit,
         version: "not-semver",
@@ -78,16 +91,27 @@ test("contract release rejects invalid identities and non-empty output", async (
     );
     await assert.rejects(
       buildContractRelease({
+        createdAt,
         outputDirectory,
         sourceCommit: "short",
         version,
       }),
       /40-character Git SHA/,
     );
+    await assert.rejects(
+      buildContractRelease({
+        createdAt: "2000-01-01",
+        outputDirectory,
+        sourceCommit,
+        version,
+      }),
+      /RFC 3339 UTC timestamp/,
+    );
 
     await appendFile(resolve(outputDirectory, "existing"), "content");
     await assert.rejects(
       buildContractRelease({
+        createdAt,
         outputDirectory,
         sourceCommit,
         version,

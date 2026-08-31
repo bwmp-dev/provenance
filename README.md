@@ -47,14 +47,15 @@ the configuration schema and parser, attestation schema and verifier, runner
 protocol sources and bindings, OpenAPI document, and generated TypeScript API
 client. Every archive embeds a manifest of its files, source paths, sizes, and
 SHA-256 digests. The release also includes an aggregate manifest and checksum
-file.
+file, plus a deterministic SPDX 2.3 JSON SBOM covering every file in all five
+archives.
 
-Builds require a clean output directory and explicit version and 40-character
-source commit:
+Builds require a clean output directory, explicit version and 40-character
+source commit, and an RFC 3339 UTC timestamp derived from that commit:
 
 ```sh
 pnpm check
-pnpm release:contracts -- --version 1.2.3 --source-commit "$COMMIT"
+pnpm release:contracts -- --version 1.2.3 --source-commit "$COMMIT" --created-at 2026-08-30T00:00:00Z
 pnpm release:verify -- --version 1.2.3 --consumers
 ```
 
@@ -62,13 +63,14 @@ The tag workflow accepts SemVer tags whose commit is reachable from `main`,
 reruns the complete repository check, validates every extracted archive and its
 consumers, and refuses to overwrite an existing GitHub release. It uses only the
 repository `GITHUB_TOKEN` and GitHub's OIDC identity to create SLSA
-build-provenance attestations for all release assets; no publishing secret is
-required. After downloading a release, verify its checksum file and GitHub
-attestation:
+build-provenance attestations for all release assets and a dedicated SPDX SBOM
+attestation for the five archives; no publishing secret is required. After
+downloading a release, verify its checksum file and GitHub attestations:
 
 ```sh
 sha256sum --check provenance-contracts-1.2.3.sha256
 gh attestation verify provenance-config-schema-1.2.3.tar.gz --repo bwmp-dev/provenance
+gh attestation verify provenance-config-schema-1.2.3.tar.gz --repo bwmp-dev/provenance --predicate-type https://spdx.dev/Document
 ```
 
 ## License

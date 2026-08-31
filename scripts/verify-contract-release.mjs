@@ -19,11 +19,14 @@ import {
   archiveName,
   checksumName,
   contractBundles,
+  createSpdxDocument,
   releaseManifestName,
   releaseRepository,
   repositoryDirectory,
+  sbomName,
   toolchainManifest,
   validateReleaseIdentity,
+  validateSpdxTimestamp,
 } from "./contract-release.mjs";
 
 function invariant(condition, message) {
@@ -32,8 +35,8 @@ function invariant(condition, message) {
   }
 }
 
-function digest(contents) {
-  return createHash("sha256").update(contents).digest("hex");
+function digest(contents, algorithm = "sha256") {
+  return createHash(algorithm).update(contents).digest("hex");
 }
 
 function sorted(values) {
@@ -197,6 +200,10 @@ async function verifyArchive({
       digest(fileContents) === file.sha256,
       `bundle digest differs: ${file.path}`,
     );
+    invariant(
+      digest(fileContents, "sha1") === file.sha1,
+      `bundle SHA-1 differs: ${file.path}`,
+    );
     if (file.transform === "release-version") {
       const packageDocument = JSON.parse(fileContents.toString("utf8"));
       invariant(
@@ -210,6 +217,23 @@ async function verifyArchive({
       );
     }
   }
+  const embeddedManifestContents = await readFile(
+    resolve(extractedRoot, "RELEASE-MANIFEST.json"),
+  );
+  return {
+    bundle: archive.bundle,
+    files: [
+      ...embeddedManifest.files,
+      {
+        path: "RELEASE-MANIFEST.json",
+        sha1: digest(embeddedManifestContents, "sha1"),
+        sha256: digest(embeddedManifestContents),
+        size: embeddedManifestContents.byteLength,
+      },
+    ].sort((left, right) =>
+      left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
+    ),
+  };
 }
 
 function run(command, arguments_, workingDirectory, description) {
@@ -430,6 +454,7 @@ export async function verifyContractRelease({
     manifest.release?.repository === releaseRepository,
     "release repository differs",
   );
+  const createdAt = validateSpdxTimestamp(manifest.release?.createdAt ?? "");
   const identity = validateReleaseIdentity(
     version,
     manifest.release?.sourceCommit ?? "",
@@ -444,6 +469,42 @@ export async function verifyContractRelease({
     manifest.artifacts.map((artifact) => artifact.bundle),
     contractBundles.map((bundle) => bundle.id),
     "release bundle inventory differs",
+  );
+
+  const expectedSbomFilename = sbomName(version);
+  invariant(
+    manifest.sbom?.filename === expectedSbomFilename,
+    "release SBOM filename differs",
+  );
+  invariant(
+    manifest.sbom?.format === "SPDX-2.3",
+    "release SBOM format differs",
+  );
+  const sbomContents = await readFile(
+    resolve(resolvedDirectory, expectedSbomFilename),
+  );
+  invariant(
+    sbomContents.byteLength === manifest.sbom?.size,
+    "release SBOM size differs",
+  );
+  invariant(
+    digest(sbomContents) === manifest.sbom?.sha256,
+    "release SBOM digest differs",
+  );
+  const sbom = await readJson(
+    resolve(resolvedDirectory, expectedSbomFilename),
+    "release SPDX SBOM",
+  );
+  run(
+    "python",
+    [
+      "-m",
+      "spdx_tools.spdx.clitools.pyspdxtools",
+      "-i",
+      resolve(resolvedDirectory, expectedSbomFilename),
+    ],
+    repositoryDirectory,
+    "official SPDX 2.3 validation",
   );
 
   const checksumFilename = checksumName(version);
@@ -462,6 +523,7 @@ export async function verifyContractRelease({
   const expectedChecksums = [
     ...manifest.artifacts.map((artifact) => artifact.filename),
     manifestFilename,
+    expectedSbomFilename,
   ];
   equalStringSets(
     checksums.keys(),
@@ -472,24 +534,42 @@ export async function verifyContractRelease({
     checksums.get(manifestFilename) === digest(manifestContents),
     "release manifest checksum differs",
   );
+  invariant(
+    checksums.get(expectedSbomFilename) === manifest.sbom.sha256,
+    "release SBOM checksum differs",
+  );
 
   const verificationDirectory = await mkdtemp(
     join(tmpdir(), "provenance-contract-verify-"),
   );
   try {
+    const bundleContents = [];
     for (const archive of manifest.artifacts) {
       invariant(
         checksums.get(archive.filename) === archive.sha256,
         `${archive.filename} checksum file differs`,
       );
-      await verifyArchive({
-        archive,
-        directory: resolvedDirectory,
-        releaseSourceCommit: identity.sourceCommit,
-        version,
-        verificationDirectory,
-      });
+      bundleContents.push(
+        await verifyArchive({
+          archive,
+          directory: resolvedDirectory,
+          releaseSourceCommit: identity.sourceCommit,
+          version,
+          verificationDirectory,
+        }),
+      );
     }
+    const expectedSbom = createSpdxDocument({
+      artifacts: manifest.artifacts,
+      bundleContents,
+      createdAt,
+      sourceCommit: identity.sourceCommit,
+      version,
+    });
+    invariant(
+      JSON.stringify(sbom) === JSON.stringify(expectedSbom),
+      "release SPDX SBOM contents differ",
+    );
     if (consumers) {
       await verifyConsumers(resolvedDirectory, version);
     }
