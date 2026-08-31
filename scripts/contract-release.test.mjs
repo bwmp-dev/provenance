@@ -455,3 +455,35 @@ test("release workflow reconciles a verified draft without overwriting assets", 
   assert.doesNotMatch(workflow, /gh release upload[^\n]*--clobber/);
   assert.doesNotMatch(workflow, /gh release create/);
 });
+
+test("release workflow resumes from an immutable tag with trusted verifier code", async () => {
+  const workflow = await readFile(
+    resolve(import.meta.dirname, "../.github/workflows/release-contracts.yml"),
+    "utf8",
+  );
+
+  assert.match(
+    workflow,
+    /policy_sha: \$\{\{ steps\.release\.outputs\.policy_sha \}\}/,
+  );
+  assert.match(workflow, /source_sha="\$tagged_sha"/);
+  assert.match(
+    workflow,
+    /ref: \$\{\{ needs\.validate\.outputs\.policy_sha \}\}/,
+  );
+  assert.match(
+    workflow,
+    /Reviewed release commit is no longer the current main tip before tag creation/,
+  );
+
+  const identityFunction = workflow.slice(
+    workflow.indexOf("          verify_release_identity() {"),
+    workflow.indexOf("          validate_release_metadata() {"),
+  );
+  assert.notEqual(identityFunction.length, 0);
+  assert.match(
+    identityFunction,
+    /git merge-base --is-ancestor "\$SOURCE_SHA" "\$POLICY_SHA"/,
+  );
+  assert.doesNotMatch(identityFunction, /origin\/main/);
+});

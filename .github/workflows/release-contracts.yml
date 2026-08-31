@@ -23,6 +23,7 @@ jobs:
       contents: read
     outputs:
       created_at: ${{ steps.release.outputs.created_at }}
+      policy_sha: ${{ steps.release.outputs.policy_sha }}
       prerelease: ${{ steps.release.outputs.prerelease }}
       source_sha: ${{ steps.release.outputs.source_sha }}
       tag: ${{ steps.release.outputs.tag }}
@@ -56,6 +57,7 @@ jobs:
             exit 1
           fi
           source_sha="$main_sha"
+          policy_sha="$main_sha"
           tag="v$VERSION"
           if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" 2>/dev/null)"; then
             tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
@@ -65,14 +67,16 @@ jobs:
               exit 1
             fi
             tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
-            if [[ "$tagged_sha" != "$main_sha" ]]; then
-              echo "Existing tag does not identify the current reviewed main tip: $tag" >&2
+            if ! git merge-base --is-ancestor "$tagged_sha" "$policy_sha"; then
+              echo "Existing tag does not identify a commit contained in the reviewed main history: $tag" >&2
               exit 1
             fi
+            source_sha="$tagged_sha"
           fi
           commit_timestamp="$(git show -s --format=%ct "$source_sha")"
           created_at="$(date --utc --date="@$commit_timestamp" +%Y-%m-%dT%H:%M:%SZ)"
           echo "created_at=$created_at" >> "$GITHUB_OUTPUT"
+          echo "policy_sha=$policy_sha" >> "$GITHUB_OUTPUT"
           echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -157,19 +161,20 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ needs.validate.outputs.source_sha }}
+          ref: ${{ needs.validate.outputs.policy_sha }}
       - name: Revalidate reviewed main commit and release destination
         env:
           GH_TOKEN: ${{ github.token }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
           SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
           TAG: ${{ needs.validate.outputs.tag }}
         shell: bash
         run: |
-          git fetch origin main:refs/remotes/origin/main --no-tags
-          if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
-            echo "Reviewed release commit is no longer the current main tip." >&2
+          if [[ "$(git rev-parse HEAD)" != "$POLICY_SHA" ]]; then
+            echo "Privileged release checkout does not match the reviewed policy commit." >&2
             exit 1
           fi
+          git fetch origin main:refs/remotes/origin/main --no-tags
           if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null)"; then
             tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
             tag_object="$(jq --raw-output '.object.sha' <<<"$tag_ref")"
@@ -182,6 +187,13 @@ jobs:
               echo "Existing tag does not identify the reviewed main commit: $TAG" >&2
               exit 1
             fi
+            if ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Existing tag is outside the reviewed main history: $TAG" >&2
+              exit 1
+            fi
+          elif [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+            echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
+            exit 1
           fi
       - uses: actions/download-artifact@v8
         with:
@@ -196,13 +208,26 @@ jobs:
           --source-sha "${{ needs.validate.outputs.source_sha }}"
       - name: Confirm publish identity
         env:
+          GH_TOKEN: ${{ github.token }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
           SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+          TAG: ${{ needs.validate.outputs.tag }}
         shell: bash
         run: |
-          git fetch origin main:refs/remotes/origin/main --no-tags
-          if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
-            echo "Reviewed release commit is no longer the current main tip." >&2
-            exit 1
+          if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null)"; then
+            tag_object="$(jq --raw-output 'select(.object.type == "tag") | .object.sha' <<<"$tag_ref")"
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
+            if [[ -z "$tag_object" || "$tagged_sha" != "$SOURCE_SHA" ]] ||
+              ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Existing release tag does not match the reviewed release identity." >&2
+              exit 1
+            fi
+          else
+            git fetch origin main:refs/remotes/origin/main --no-tags
+            if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+              echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
+              exit 1
+            fi
           fi
       - name: Attest contract artifacts
         uses: actions/attest@v4
@@ -210,17 +235,30 @@ jobs:
           subject-path: dist/contracts/*
       - name: Reconfirm bundle and publish identity
         env:
+          GH_TOKEN: ${{ github.token }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
           SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+          TAG: ${{ needs.validate.outputs.tag }}
         shell: bash
         run: |
           python3 scripts/verify-release-bundle.py \
             --version "${{ needs.validate.outputs.version }}" \
             --directory dist/contracts \
             --source-sha "$SOURCE_SHA"
-          git fetch origin main:refs/remotes/origin/main --no-tags
-          if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
-            echo "Reviewed release commit is no longer the current main tip." >&2
-            exit 1
+          if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null)"; then
+            tag_object="$(jq --raw-output 'select(.object.type == "tag") | .object.sha' <<<"$tag_ref")"
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
+            if [[ -z "$tag_object" || "$tagged_sha" != "$SOURCE_SHA" ]] ||
+              ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Existing release tag does not match the reviewed release identity." >&2
+              exit 1
+            fi
+          else
+            git fetch origin main:refs/remotes/origin/main --no-tags
+            if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+              echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
+              exit 1
+            fi
           fi
       - name: Attest contract SBOM
         uses: actions/attest@v4
@@ -230,6 +268,7 @@ jobs:
       - name: Create or reuse annotated release tag
         env:
           GH_TOKEN: ${{ github.token }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
           SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
           TAG: ${{ needs.validate.outputs.tag }}
         shell: bash
@@ -238,11 +277,6 @@ jobs:
             --version "${{ needs.validate.outputs.version }}" \
             --directory dist/contracts \
             --source-sha "$SOURCE_SHA"
-          git fetch origin main:refs/remotes/origin/main --no-tags
-          if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
-            echo "Reviewed release commit is no longer the current main tip." >&2
-            exit 1
-          fi
           if tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null)"; then
             tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
             tag_object="$(jq --raw-output '.object.sha' <<<"$tag_ref")"
@@ -255,8 +289,17 @@ jobs:
               echo "Existing tag does not identify the reviewed main commit: $TAG" >&2
               exit 1
             fi
+            if ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Existing tag is outside the reviewed main history: $TAG" >&2
+              exit 1
+            fi
             echo "Reusing annotated tag $TAG at $SOURCE_SHA."
             exit 0
+          fi
+          git fetch origin main:refs/remotes/origin/main --no-tags
+          if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
+            echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
+            exit 1
           fi
           tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags" \
             --method POST \
@@ -299,6 +342,7 @@ jobs:
           TAG: ${{ needs.validate.outputs.tag }}
           VERSION: ${{ needs.validate.outputs.version }}
           SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+          POLICY_SHA: ${{ needs.validate.outputs.policy_sha }}
         shell: bash
         run: |
           compatibility="$(printf '%s\n' \
@@ -317,11 +361,6 @@ jobs:
               --version "$VERSION" \
               --directory dist/contracts \
               --source-sha "$SOURCE_SHA"
-            git fetch origin main:refs/remotes/origin/main --no-tags
-            if [[ "$SOURCE_SHA" != "$(git rev-parse origin/main)" ]]; then
-              echo "Reviewed release commit is no longer the current main tip." >&2
-              return 1
-            fi
             local tag_ref tag_object tagged_sha tag_type
             tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG")"
             tag_type="$(jq --raw-output '.object.type' <<<"$tag_ref")"
@@ -333,6 +372,10 @@ jobs:
             tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq .object.sha)"
             if [[ "$tagged_sha" != "$SOURCE_SHA" ]]; then
               echo "Release tag does not identify the reviewed main commit: $TAG" >&2
+              return 1
+            fi
+            if ! git merge-base --is-ancestor "$SOURCE_SHA" "$POLICY_SHA"; then
+              echo "Release tag is outside the reviewed main history: $TAG" >&2
               return 1
             fi
           }
