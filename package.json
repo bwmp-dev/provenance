@@ -9,7 +9,8 @@
   "scripts": {
     "build": "pnpm --recursive --if-present run build && pnpm run build:go",
     "build:go": "go -C gen/proto build ./...",
-    "check": "pnpm run format:check && pnpm run lint:contracts && pnpm run generate:check && pnpm run test",
+    "check": "pnpm run format:check && pnpm run lint:contracts && pnpm run generate:check && pnpm run test && pnpm run check:java && pnpm run security:check",
+    "check:java": "node scripts/run-gradle.mjs :check",
     "format": "prettier --write \"**/*.{js,json,md,mjs,ts,yaml,yml}\" && buf format --write proto/provenance/runner/v1",
     "format:check": "prettier --check \"**/*.{js,json,md,mjs,ts,yaml,yml}\" && buf format --diff --exit-code proto/provenance/runner/v1",
     "generate": "buf generate --template buf.gen.yaml",
@@ -17,6 +18,7 @@
     "lint:contracts": "buf lint proto/provenance/runner/v1",
     "test": "pnpm run build && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:proto",
     "test:proto": "node --test proto/provenance/runner/v1/contract.test.mjs",
+    "security:check": "pnpm audit --audit-level high && go -C gen/proto run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
     "test:python": "python schemas/config/test_contract.py && python schemas/attestation/test_contract.py",
     "test:vectors": "node schemas/attestation/verify_vectors.mjs"
   },

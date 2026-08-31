@@ -1,6 +1,6 @@
 module github.com/bwmp-dev/provenance/gen/proto
 
-go 1.25.0
+go 1.25.13
 
 require (
 	google.golang.org/grpc v1.83.2

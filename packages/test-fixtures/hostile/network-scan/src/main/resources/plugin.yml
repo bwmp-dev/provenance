@@ -1,0 +1,4 @@
+name: ProvenanceNetworkScan
+version: 1.0.0
+main: dev.provenance.fixtures.hostile.NetworkScanPlugin
+api-version: "1.21"

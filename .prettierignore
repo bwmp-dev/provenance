@@ -1,2 +1,4 @@
 AGENTS.md
 packages/runner-protocol/src/gen/
+# pnpm owns the generated lockfile; frozen installs validate it in CI.
+pnpm-lock.yaml

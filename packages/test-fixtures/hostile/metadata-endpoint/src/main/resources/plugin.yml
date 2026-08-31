@@ -1,0 +1,4 @@
+name: ProvenanceMetadataEndpoint
+version: 1.0.0
+main: dev.provenance.fixtures.hostile.MetadataEndpointPlugin
+api-version: "1.21"

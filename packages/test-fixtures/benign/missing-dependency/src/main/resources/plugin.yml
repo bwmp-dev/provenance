@@ -1,0 +1,5 @@
+name: ProvenanceMissingDependency
+version: 1.0.0
+main: dev.provenance.fixtures.MissingDependencyPlugin
+api-version: "1.21"
+depend: [ProvenanceRequiredDependency]

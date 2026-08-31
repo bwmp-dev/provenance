@@ -1,0 +1,7 @@
+name: ProvenanceCommandSuccess
+version: 1.0.0
+main: dev.provenance.fixtures.CommandSuccessPlugin
+api-version: "1.21"
+commands:
+  provenance-success:
+    description: Emits a deterministic success marker

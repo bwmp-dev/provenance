@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -33,6 +34,11 @@ jobs:
         with:
           go-version-file: .go-version
           cache-dependency-path: gen/proto/go.sum
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21.0.4+7"
+          cache: gradle
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -45,4 +51,4 @@ jobs:
         if: github.event_name == 'pull_request'
         run: >-
           pnpm exec buf breaking proto/provenance/runner/v1
-          --against ".git#branch=${{ github.base_ref }},subdir=proto/provenance/runner/v1"
+          --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }},subdir=proto/provenance/runner/v1"

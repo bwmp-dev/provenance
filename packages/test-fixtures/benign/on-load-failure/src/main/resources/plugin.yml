@@ -1,0 +1,4 @@
+name: ProvenanceOnLoadFailure
+version: 1.0.0
+main: dev.provenance.fixtures.OnLoadFailurePlugin
+api-version: "1.21"

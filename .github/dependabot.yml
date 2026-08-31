@@ -12,11 +12,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: maven
-    directory: /packages/test-fixtures
-    schedule:
-      interval: weekly
-  - package-ecosystem: maven
-    directory: /plugins/paper-probe
+  - package-ecosystem: gradle
+    directory: /
     schedule:
       interval: weekly
