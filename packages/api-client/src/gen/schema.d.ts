@@ -153,6 +153,25 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
+    "/v1/projects/{projectId}/config-snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate and persist an immutable project configuration snapshot */
+        post: operations["createProjectConfigSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/github/installations": {
         parameters: {
             query?: never;
@@ -707,6 +726,26 @@ export interface components {
             items: components["schemas"]["Project"][];
             page: components["schemas"]["PageInfo"];
         };
+        CreateProjectConfigSnapshotRequest: {
+            sourceCommit: string;
+            sourceRef?: string;
+            rawYaml: string;
+            /** @description Compact canonical UTF-8 JSON text whose SHA-256 is configurationHash. */
+            normalizedJson: string;
+            /** @constant */
+            schemaVersion: 1;
+            configurationHash: components["schemas"]["Sha256Digest"];
+        };
+        ProjectConfigSnapshot: {
+            id: components["schemas"]["StableId"];
+            projectId: components["schemas"]["StableId"];
+            sourceCommit: string;
+            sourceRef?: string;
+            /** @constant */
+            schemaVersion: 1;
+            configurationHash: components["schemas"]["Sha256Digest"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
         GitHubInstallation: {
             id: components["schemas"]["StableId"];
             githubInstallationId: number;
@@ -765,6 +804,8 @@ export interface components {
         };
         CreateReleaseCandidateRequest: {
             artifactId: components["schemas"]["StableId"];
+            /** @description Exact immutable snapshot identity. New clients send this with configurationHash; hash-only requests remain compatible only while the hash identifies one project snapshot. */
+            configurationSnapshotId?: components["schemas"]["StableId"];
             configurationHash: components["schemas"]["Sha256Digest"];
             version: string;
             changelog?: string;
@@ -776,6 +817,8 @@ export interface components {
             id: components["schemas"]["StableId"];
             projectId: components["schemas"]["StableId"];
             artifactId: components["schemas"]["StableId"];
+            /** @description Exact immutable configuration snapshot used by the candidate. */
+            configurationSnapshotId?: components["schemas"]["StableId"];
             configurationHash: components["schemas"]["Sha256Digest"];
             version: string;
             state: components["schemas"]["ReleaseCandidateState"];
@@ -1173,6 +1216,11 @@ export interface components {
         UpdateProject: {
             content: {
                 "application/json": components["schemas"]["UpdateProjectRequest"];
+            };
+        };
+        CreateProjectConfigSnapshot: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectConfigSnapshotRequest"];
             };
         };
         CreateGitHubConnection: {
@@ -1593,6 +1641,36 @@ export interface operations {
                 };
             };
             409: components["responses"]["IdempotencyConflict"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProjectConfigSnapshot: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["CreateProjectConfigSnapshot"];
+        responses: {
+            /** @description Configuration snapshot created. */
+            201: {
+                headers: {
+                    /** @description Canonical configuration snapshot resource URL. */
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectConfigSnapshot"];
+                };
+            };
+            409: components["responses"]["IdempotencyConflict"];
+            422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

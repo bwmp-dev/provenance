@@ -141,6 +141,78 @@ test("project creation matches the platform wire contract", () => {
   assert.equal(location.schema.format, "uri-reference");
 });
 
+test("configuration snapshot creation preserves canonical source identity", () => {
+  const createSnapshot = operation("createProjectConfigSnapshot");
+  const request =
+    document.components.schemas.CreateProjectConfigSnapshotRequest;
+  const snapshot = document.components.schemas.ProjectConfigSnapshot;
+
+  assert.deepEqual(createSnapshot.security, [{ BearerAuth: [] }]);
+  assert.deepEqual(request.required, [
+    "sourceCommit",
+    "rawYaml",
+    "normalizedJson",
+    "schemaVersion",
+    "configurationHash",
+  ]);
+  assert.equal(request.additionalProperties, false);
+  assert.equal(
+    request.properties.sourceCommit.pattern,
+    "^(?:[a-f0-9]{40}|[a-f0-9]{64})$",
+  );
+  assert.equal(request.properties.sourceRef.maxLength, 512);
+  assert.equal(request.properties.rawYaml.maxLength, 1_048_576);
+  assert.equal(request.properties.normalizedJson.maxLength, 1_048_576);
+  assert.equal(
+    request.properties.normalizedJson.contentMediaType,
+    "application/json",
+  );
+  assert.match(
+    request.properties.normalizedJson.description,
+    /canonical UTF-8 JSON text whose SHA-256 is configurationHash/,
+  );
+  assert.equal(request.properties.schemaVersion.const, 1);
+  assert.equal(
+    request.properties.configurationHash.$ref,
+    "#/components/schemas/Sha256Digest",
+  );
+  assert.equal(snapshot.additionalProperties, false);
+  assert.deepEqual(snapshot.required, [
+    "id",
+    "projectId",
+    "sourceCommit",
+    "schemaVersion",
+    "configurationHash",
+    "createdAt",
+  ]);
+  assert.equal(snapshot.properties.schemaVersion.const, 1);
+  assert.equal(
+    createSnapshot.responses["201"].headers.Location.schema.format,
+    "uri-reference",
+  );
+  assert.equal(
+    createSnapshot.responses["422"].$ref,
+    "#/components/responses/Problem",
+  );
+
+  const createCandidate =
+    document.components.schemas.CreateReleaseCandidateRequest;
+  assert.ok(!createCandidate.required.includes("configurationSnapshotId"));
+  assert.equal(
+    createCandidate.properties.configurationSnapshotId.allOf[0].$ref,
+    "#/components/schemas/StableId",
+  );
+  assert.match(
+    createCandidate.properties.configurationSnapshotId.description,
+    /New clients send this with configurationHash/,
+  );
+  assert.equal(
+    document.components.schemas.ReleaseCandidate.properties
+      .configurationSnapshotId.allOf[0].$ref,
+    "#/components/schemas/StableId",
+  );
+});
+
 test("authentication, pagination, identifiers, timestamps, and states stay stable", () => {
   assert.deepEqual(Object.keys(document.components.securitySchemes).sort(), [
     "BearerAuth",

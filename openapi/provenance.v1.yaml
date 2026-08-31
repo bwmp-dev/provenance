@@ -312,6 +312,39 @@ paths:
           $ref: "#/components/responses/IdempotencyConflict"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/projects/{projectId}/config-snapshots:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    post:
+      operationId: createProjectConfigSnapshot
+      summary: Validate and persist an immutable project configuration snapshot
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CreateProjectConfigSnapshot"
+      responses:
+        "201":
+          description: Configuration snapshot created.
+          headers:
+            Location:
+              description: Canonical configuration snapshot resource URL.
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectConfigSnapshot"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /v1/github/installations:
     get:
       operationId: listGitHubInstallations
@@ -1035,6 +1068,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/UpdateProjectRequest"
+    CreateProjectConfigSnapshot:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateProjectConfigSnapshotRequest"
     CreateGitHubConnection:
       required: true
       content:
@@ -1398,6 +1437,68 @@ components:
             $ref: "#/components/schemas/Project"
         page:
           $ref: "#/components/schemas/PageInfo"
+    CreateProjectConfigSnapshotRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - sourceCommit
+        - rawYaml
+        - normalizedJson
+        - schemaVersion
+        - configurationHash
+      properties:
+        sourceCommit:
+          type: string
+          pattern: ^(?:[a-f0-9]{40}|[a-f0-9]{64})$
+        sourceRef:
+          type: string
+          minLength: 1
+          maxLength: 512
+          pattern: ^[^\r\n\x00]+$
+        rawYaml:
+          type: string
+          minLength: 1
+          maxLength: 1048576
+        normalizedJson:
+          type: string
+          minLength: 2
+          maxLength: 1048576
+          contentMediaType: application/json
+          description: Compact canonical UTF-8 JSON text whose SHA-256 is configurationHash.
+        schemaVersion:
+          type: integer
+          const: 1
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+    ProjectConfigSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - projectId
+        - sourceCommit
+        - schemaVersion
+        - configurationHash
+        - createdAt
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        projectId:
+          $ref: "#/components/schemas/StableId"
+        sourceCommit:
+          type: string
+          pattern: ^(?:[a-f0-9]{40}|[a-f0-9]{64})$
+        sourceRef:
+          type: string
+          minLength: 1
+          maxLength: 512
+        schemaVersion:
+          type: integer
+          const: 1
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
     GitHubInstallation:
       type: object
       additionalProperties: false
@@ -1548,6 +1649,10 @@ components:
       properties:
         artifactId:
           $ref: "#/components/schemas/StableId"
+        configurationSnapshotId:
+          allOf:
+            - $ref: "#/components/schemas/StableId"
+          description: Exact immutable snapshot identity. New clients send this with configurationHash; hash-only requests remain compatible only while the hash identifies one project snapshot.
         configurationHash:
           $ref: "#/components/schemas/Sha256Digest"
         version:
@@ -1583,6 +1688,10 @@ components:
           $ref: "#/components/schemas/StableId"
         artifactId:
           $ref: "#/components/schemas/StableId"
+        configurationSnapshotId:
+          allOf:
+            - $ref: "#/components/schemas/StableId"
+          description: Exact immutable configuration snapshot used by the candidate.
         configurationHash:
           $ref: "#/components/schemas/Sha256Digest"
         version:

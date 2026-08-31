@@ -145,6 +145,12 @@
   },
   {
     "method": "post",
+    "operationId": "createProjectConfigSnapshot",
+    "path": "/v1/projects/{projectId}/config-snapshots",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "post",
     "operationId": "createIntegration",
     "path": "/v1/projects/{projectId}/integrations",
     "tag": "integrations"
