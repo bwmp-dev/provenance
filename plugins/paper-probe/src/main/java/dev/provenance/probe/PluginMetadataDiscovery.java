@@ -91,9 +91,11 @@ public final class PluginMetadataDiscovery {
     if (!Files.isRegularFile(jarPath, LinkOption.NOFOLLOW_LINKS)) {
       return invalid(jarPath, "plugin artifact must be a regular file");
     }
-    try (JarFile jar = new JarFile(jarPath.toFile())) {
+    byte[] source;
+    boolean paperMetadata;
+    try (JarFile jar = new JarFile(jarPath.toFile(), true)) {
       JarEntry metadata = jar.getJarEntry("plugin.yml");
-      boolean paperMetadata = false;
+      paperMetadata = false;
       if (metadata == null) {
         metadata = jar.getJarEntry("paper-plugin.yml");
         paperMetadata = true;
@@ -109,15 +111,17 @@ public final class PluginMetadataDiscovery {
         return invalid(jarPath, "plugin metadata exceeds 65536 bytes");
       }
       try (InputStream input = jar.getInputStream(metadata)) {
-        byte[] source = input.readNBytes(MAX_METADATA_BYTES + 1);
+        source = input.readNBytes(MAX_METADATA_BYTES + 1);
         if (source.length > MAX_METADATA_BYTES) {
           return invalid(jarPath, "plugin metadata exceeds 65536 bytes");
         }
-        return parse(source, jarPath, paperMetadata);
       }
+    } catch (SecurityException exception) {
+      return invalid(jarPath, "plugin artifact failed JAR security verification");
     } catch (IOException exception) {
       return invalid(jarPath, "plugin artifact is not a readable JAR");
     }
+    return parse(source, jarPath, paperMetadata);
   }
 
   public List<String> undeclaredConfiguredDependencies(

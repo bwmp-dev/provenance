@@ -6,11 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.IntStream;
@@ -349,6 +353,69 @@ class PluginMetadataDiscoveryTest {
     assertEquals(List.of("plugin artifact is not a readable JAR"), inspection.issues());
   }
 
+  @Test
+  void classifiesTamperedSignedJarAsInvalid() throws Exception {
+    Path signedJar = plugins.resolve("signed.jar");
+    Path keyStore = plugins.resolve("test-signing.p12");
+    writeJar(
+        signedJar.getFileName().toString(),
+        "plugin.yml",
+        """
+        name: SignedPlugin
+        version: 1.0.0
+        main: example.SignedPlugin
+        """);
+    runJdkTool(
+        "keytool",
+        "-genkeypair",
+        "-alias",
+        "test-signing",
+        "-keyalg",
+        "RSA",
+        "-keysize",
+        "2048",
+        "-validity",
+        "36500",
+        "-dname",
+        "CN=Provenance Metadata Test",
+        "-storetype",
+        "PKCS12",
+        "-keystore",
+        keyStore.toString(),
+        "-storepass",
+        "changeit",
+        "-keypass",
+        "changeit",
+        "-noprompt");
+    runJdkTool(
+        "jarsigner",
+        "-keystore",
+        keyStore.toString(),
+        "-storepass",
+        "changeit",
+        "-keypass",
+        "changeit",
+        signedJar.toString(),
+        "test-signing");
+    try (FileSystem jar = FileSystems.newFileSystem(signedJar)) {
+      Files.writeString(
+          jar.getPath("/plugin.yml"),
+          """
+          name: TamperedPlugin
+          version: 2.0.0
+          main: example.TamperedPlugin
+          """,
+          StandardCharsets.UTF_8);
+    }
+
+    MetadataInspection inspection = new PluginMetadataDiscovery().inspect(signedJar);
+
+    assertEquals(MetadataStatus.INVALID, inspection.status());
+    assertNull(inspection.descriptor());
+    assertEquals(
+        List.of("plugin artifact failed JAR security verification"), inspection.issues());
+  }
+
   private static String legacyMetadataWithDependencies(int count) {
     String dependencies =
         IntStream.range(0, count)
@@ -374,5 +441,23 @@ class PluginMetadataDiscoveryTest {
       output.write(contents);
       output.closeEntry();
     }
+  }
+
+  private void runJdkTool(String tool, String... arguments) throws Exception {
+    String executableName =
+        System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")
+            ? tool + ".exe"
+            : tool;
+    List<String> command = new ArrayList<>();
+    command.add(Path.of(System.getProperty("java.home"), "bin", executableName).toString());
+    command.addAll(List.of(arguments));
+    Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+    if (!process.waitFor(30, TimeUnit.SECONDS)) {
+      process.destroyForcibly();
+      throw new IOException(tool + " did not finish within 30 seconds");
+    }
+    String output =
+        new String(process.getInputStream().readNBytes(16_384), StandardCharsets.UTF_8);
+    assertEquals(0, process.exitValue(), output);
   }
 }
