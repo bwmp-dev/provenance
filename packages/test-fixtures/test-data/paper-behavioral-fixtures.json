@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "id": "success",
+      "targetPlugin": "ProvenanceSuccess",
+      "artifactPath": "packages/test-fixtures/benign/success/build/libs/success-1.0.0.jar",
+      "testPlan": { "console": [] },
+      "expectedClassifications": [],
+      "requiredEvents": [
+        {
+          "type": "TARGET_REQUIREMENT",
+          "data": {
+            "role": "TARGET",
+            "name": "ProvenanceSuccess",
+            "configured": true,
+            "loaded": true,
+            "enabled": true
+          }
+        },
+        {
+          "type": "SERVER_READY",
+          "data": { "requirementsSatisfied": true }
+        }
+      ]
+    },
+    {
+      "id": "on-load-failure",
+      "targetPlugin": "ProvenanceOnLoadFailure",
+      "artifactPath": "packages/test-fixtures/benign/on-load-failure/build/libs/on-load-failure-1.0.0.jar",
+      "testPlan": { "console": [] },
+      "expectedClassifications": ["on_load_failure"],
+      "requiredEvents": [
+        {
+          "type": "LIFECYCLE_EXCEPTION",
+          "data": { "phase": "LOAD", "plugin": "ProvenanceOnLoadFailure" }
+        },
+        {
+          "type": "SERVER_READY",
+          "data": { "requirementsSatisfied": true }
+        }
+      ]
+    },
+    {
+      "id": "on-enable-failure",
+      "targetPlugin": "ProvenanceOnEnableFailure",
+      "artifactPath": "packages/test-fixtures/benign/on-enable-failure/build/libs/on-enable-failure-1.0.0.jar",
+      "testPlan": { "console": [] },
+      "expectedClassifications": ["on_enable_failure"],
+      "requiredEvents": [
+        {
+          "type": "LIFECYCLE_EXCEPTION",
+          "data": {
+            "phase": "ENABLE",
+            "plugin": "ProvenanceOnEnableFailure"
+          }
+        },
+        {
+          "type": "SERVER_READY",
+          "data": { "requirementsSatisfied": false }
+        }
+      ]
+    },
+    {
+      "id": "missing-dependency",
+      "targetPlugin": "ProvenanceMissingDependency",
+      "artifactPath": "packages/test-fixtures/benign/missing-dependency/build/libs/missing-dependency-1.0.0.jar",
+      "testPlan": { "console": [] },
+      "expectedClassifications": ["missing_required_dependency"],
+      "requiredEvents": [
+        {
+          "type": "TARGET_REQUIREMENT",
+          "data": {
+            "role": "REQUIRED_DEPENDENCY",
+            "name": "ProvenanceRequiredDependency",
+            "configured": true,
+            "loaded": false,
+            "enabled": false
+          }
+        },
+        {
+          "type": "SERVER_READY",
+          "data": { "requirementsSatisfied": false }
+        }
+      ]
+    },
+    {
+      "id": "command-success",
+      "targetPlugin": "ProvenanceCommandSuccess",
+      "artifactPath": "packages/test-fixtures/benign/command-success/build/libs/command-success-1.0.0.jar",
+      "testPlan": {
+        "console": [
+          {
+            "id": "command-success",
+            "command": "provenance-success",
+            "timeoutSeconds": 10,
+            "assertions": [
+              {
+                "stream": "combined",
+                "operator": "contains",
+                "pattern": "PROVENANCE_FIXTURE_COMMAND_OK",
+                "match": "present",
+                "minimumOccurrences": 1
+              },
+              {
+                "stream": "combined",
+                "operator": "regex",
+                "pattern": "^PROVENANCE_.*_OK$",
+                "match": "present",
+                "minimumOccurrences": 1
+              }
+            ]
+          }
+        ]
+      },
+      "expectedClassifications": [],
+      "requiredEvents": [
+        {
+          "type": "COMMAND_REGISTRATION",
+          "data": { "testId": "command-success", "registered": true }
+        },
+        {
+          "type": "COMMAND_OUTPUT",
+          "data": { "testId": "command-success", "truncated": false }
+        },
+        {
+          "type": "COMMAND_TEST_COMPLETED",
+          "data": { "testId": "command-success", "passed": true }
+        },
+        {
+          "type": "TEST_PLAN",
+          "data": {
+            "status": "COMPLETED",
+            "consoleTests": 1,
+            "passed": true,
+            "timedOut": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "command-assertion-failure",
+      "targetPlugin": "ProvenanceCommandAssertionFailure",
+      "artifactPath": "packages/test-fixtures/benign/command-assertion-failure/build/libs/command-assertion-failure-1.0.0.jar",
+      "testPlan": {
+        "console": [
+          {
+            "id": "command-assertion-failure",
+            "command": "provenance-assertion-failure",
+            "timeoutSeconds": 10,
+            "assertions": [
+              {
+                "stream": "combined",
+                "operator": "contains",
+                "pattern": "PROVENANCE_FIXTURE_EXPECTED_OUTPUT",
+                "match": "present",
+                "minimumOccurrences": 1
+              }
+            ]
+          }
+        ]
+      },
+      "expectedClassifications": ["command_assertion_failure"],
+      "requiredEvents": [
+        {
+          "type": "COMMAND_REGISTRATION",
+          "data": {
+            "testId": "command-assertion-failure",
+            "registered": true
+          }
+        },
+        {
+          "type": "COMMAND_ASSERTION",
+          "data": {
+            "testId": "command-assertion-failure",
+            "evaluated": true,
+            "passed": false
+          }
+        },
+        {
+          "type": "COMMAND_TEST_COMPLETED",
+          "data": { "testId": "command-assertion-failure", "passed": false }
+        },
+        {
+          "type": "TEST_PLAN",
+          "data": {
+            "status": "COMPLETED",
+            "consoleTests": 1,
+            "passed": false,
+            "timedOut": false
+          }
+        }
+      ]
+    }
+  ]
+}

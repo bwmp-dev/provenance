@@ -31,6 +31,7 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
   private ProbeConfiguration configuration;
   private EventSink sink;
   private LifecycleExceptionHandler exceptionHandler;
+  private Log4jLifecycleExceptionAppender log4jExceptionAppender;
   private CommandTestPlan commandTestPlan = new CommandTestPlan(List.of());
   private boolean commandTestPlanValid;
   private CommandTestRunner commandTestRunner;
@@ -66,8 +67,12 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
           false);
     }
     exceptionHandler = new LifecycleExceptionHandler(sink, pluginByMainClass);
+    log4jExceptionAppender = Log4jLifecycleExceptionAppender.install(exceptionHandler);
     observe(Logger.getLogger(""));
     observe(Bukkit.getLogger());
+    for (Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
+      observe(plugin.getLogger());
+    }
     emit(
         EventType.PROBE_LOADED,
         Map.of(
@@ -92,6 +97,9 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
       commandTestRunner.close();
     }
     if (exceptionHandler != null) {
+      if (log4jExceptionAppender != null) {
+        log4jExceptionAppender.stop();
+      }
       for (Logger logger : observedLoggers) {
         logger.removeHandler(exceptionHandler);
       }
@@ -353,7 +361,6 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
       CommandSender sender =
           Bukkit.getServer()
               .createCommandSender(component -> output.append(PLAIN_TEXT.serialize(component)));
-      sender.setOp(true);
       return Bukkit.dispatchCommand(sender, command);
     }
   }

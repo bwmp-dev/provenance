@@ -23,7 +23,10 @@ public final class LifecycleExceptionHandler extends Handler {
 
   @Override
   public synchronized void publish(LogRecord record) {
-    Throwable thrown = record.getThrown();
+    publish(record.getThrown());
+  }
+
+  public synchronized void publish(Throwable thrown) {
     if (thrown == null || emitted.contains(thrown)) {
       return;
     }
