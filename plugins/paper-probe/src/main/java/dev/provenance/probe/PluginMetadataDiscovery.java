@@ -50,6 +50,12 @@ public final class PluginMetadataDiscovery {
       Set.of("load", "required", "join-classpath");
   private static final Set<String> RESERVED_PLUGIN_NAMES =
       Set.of("bukkit", "minecraft", "mojang", "spigot", "paper");
+  private static final List<String> PAPER_FORBIDDEN_MAIN_PREFIXES =
+      List.of(
+          "net.minecraft.",
+          "org.bukkit.",
+          "io.papermc.paper.",
+          "com.destroystokoyo.paper.");
   private static final Pattern PLUGIN_NAME = Pattern.compile("[A-Za-z0-9_.-]{1,64}");
   private static final Pattern MAIN_CLASS =
       Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+");
@@ -291,7 +297,9 @@ public final class PluginMetadataDiscovery {
     }
     if (mainClass != null
         && (mainClass.length() > MAX_MAIN_CLASS_CHARACTERS
-            || !MAIN_CLASS.matcher(mainClass).matches())) {
+            || !MAIN_CLASS.matcher(mainClass).matches()
+            || (paperMetadata
+                && PAPER_FORBIDDEN_MAIN_PREFIXES.stream().anyMatch(mainClass::startsWith)))) {
       issues.add("main is not a fully-qualified Java class name");
     }
     if (apiVersion != null
@@ -367,7 +375,7 @@ public final class PluginMetadataDiscovery {
       issues.add(field + " must be a non-empty string");
       return null;
     }
-    return string.trim();
+    return string;
   }
 
   private static List<String> stringList(
@@ -571,20 +579,20 @@ public final class PluginMetadataDiscovery {
     if (value == null) {
       return null;
     }
-    String normalized = value.trim();
-    return PLUGIN_NAME.matcher(normalized).matches() ? normalized : null;
+    return PLUGIN_NAME.matcher(value).matches() ? value : null;
   }
 
   private static String normalizedOutputName(String value, int maximumCharacters) {
-    String normalized = value.trim();
-    if (normalized.isEmpty() || !isBoundedOutputString(normalized, maximumCharacters)) {
+    if (value.isEmpty() || !isBoundedOutputString(value, maximumCharacters)) {
       return null;
     }
-    return normalized;
+    return value;
   }
 
   private static boolean isBoundedOutputString(String value, int maximumCharacters) {
-    if (value.codePoints().anyMatch(Character::isISOControl)) {
+    if (value.startsWith(" ")
+        || value.endsWith(" ")
+        || value.codePoints().anyMatch(Character::isISOControl)) {
       return false;
     }
     for (int index = 0; index < value.length(); index++) {

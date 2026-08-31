@@ -180,6 +180,94 @@ class PluginMetadataDiscoveryTest {
   }
 
   @Test
+  void rejectsDescriptorScalarEdgeSpacesInsteadOfNormalizingThem() throws IOException {
+    Map<String, String> expectedIssues =
+        Map.of(
+            "name", "name contains unsupported characters",
+            "version", "version is invalid or exceeds 128 characters",
+            "main", "main is not a fully-qualified Java class name",
+            "api-version", "api-version is invalid or exceeds 32 characters");
+
+    PluginMetadataDiscovery discovery = new PluginMetadataDiscovery();
+    for (String descriptor : List.of("plugin.yml", "paper-plugin.yml")) {
+      for (Map.Entry<String, String> field : expectedIssues.entrySet()) {
+        for (String edge : List.of("leading", "trailing")) {
+          Map<String, String> values = new LinkedHashMap<>();
+          values.put("name", "EdgeSpacePlugin");
+          values.put("version", "1.0.0");
+          values.put("main", "example.EdgeSpacePlugin");
+          values.put("api-version", "1.21");
+          String original = values.get(field.getKey());
+          values.put(field.getKey(), edge.equals("leading") ? " " + original : original + " ");
+          String artifactName =
+              descriptor.replace(".yml", "") + "-" + field.getKey() + "-" + edge + ".jar";
+
+          writeJar(artifactName, descriptor, descriptorMetadata(values));
+
+          assertEquals(
+              List.of(field.getValue()),
+              discovery.inspect(plugins.resolve(artifactName)).issues(),
+              descriptor + " " + field.getKey() + " " + edge);
+        }
+      }
+    }
+  }
+
+  @Test
+  void enforcesPaperMainNamespacesCaseSensitivelyWithoutChangingLegacyRules()
+      throws IOException {
+    PluginMetadataDiscovery discovery = new PluginMetadataDiscovery();
+    List<String> forbiddenMains =
+        List.of(
+            "net.minecraft.PluginMain",
+            "org.bukkit.PluginMain",
+            "io.papermc.paper.PluginMain",
+            "com.destroystokoyo.paper.PluginMain");
+    for (int index = 0; index < forbiddenMains.size(); index++) {
+      String artifactName = "paper-forbidden-main-" + index + ".jar";
+      writeJar(
+          artifactName,
+          "paper-plugin.yml",
+          descriptorMetadata(
+              Map.of(
+                  "name", "PaperNamespacePlugin",
+                  "version", "1.0.0",
+                  "main", forbiddenMains.get(index),
+                  "api-version", "1.21")));
+
+      assertEquals(
+          List.of("main is not a fully-qualified Java class name"),
+          discovery.inspect(plugins.resolve(artifactName)).issues());
+    }
+
+    writeJar(
+        "paper-case-variant-main.jar",
+        "paper-plugin.yml",
+        descriptorMetadata(
+            Map.of(
+                "name", "PaperCaseVariant",
+                "version", "1.0.0",
+                "main", "Org.bukkit.PluginMain",
+                "api-version", "1.21")));
+    writeJar(
+        "legacy-forbidden-main.jar",
+        "plugin.yml",
+        descriptorMetadata(
+            Map.of(
+                "name", "LegacyNamespacePlugin",
+                "version", "1.0.0",
+                "main", "org.bukkit.PluginMain",
+                "api-version", "1.21")));
+
+    assertEquals(
+        MetadataStatus.VALID,
+        discovery.inspect(plugins.resolve("paper-case-variant-main.jar")).status());
+    assertEquals(
+        MetadataStatus.VALID,
+        discovery.inspect(plugins.resolve("legacy-forbidden-main.jar")).status());
+  }
+
+  @Test
   void validatesPaperApiVersionFloorAndPreservesValidRawPatch() throws IOException {
     writeJar("paper-api-missing.jar", "paper-plugin.yml", paperApiMetadata(null));
     writeJar("paper-api-malformed.jar", "paper-plugin.yml", paperApiMetadata("1.x"));
@@ -814,6 +902,18 @@ class PluginMetadataDiscoveryTest {
         main: example.PaperApiPlugin
         """
         + (apiVersion == null ? "" : "api-version: '" + apiVersion + "'\n");
+  }
+
+  private static String descriptorMetadata(Map<String, String> values) {
+    return "name: '"
+        + values.get("name")
+        + "'\nversion: '"
+        + values.get("version")
+        + "'\nmain: '"
+        + values.get("main")
+        + "'\napi-version: '"
+        + values.get("api-version")
+        + "'\n";
   }
 
   private void assertFreeTextIssue(
