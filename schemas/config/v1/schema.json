@@ -300,8 +300,11 @@
         "pattern": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 1000,
-          "format": "regex"
+          "maxLength": 1000
+        },
+        "operator": {
+          "enum": ["contains", "regex"],
+          "default": "regex"
         },
         "match": {
           "enum": ["present", "absent"]
@@ -313,6 +316,25 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "operator": {
+                "const": "regex"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "format": "regex"
+              }
+            }
+          }
+        },
         {
           "if": {
             "type": "object",

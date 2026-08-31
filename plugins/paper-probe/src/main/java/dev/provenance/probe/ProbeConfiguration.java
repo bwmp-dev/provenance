@@ -9,12 +9,18 @@ public record ProbeConfiguration(
     String target,
     List<String> requiredDependencies,
     Path eventFile,
+    Path testPlanFile,
     long stabilizationMillis,
+    int maximumCommandOutputBytes,
     boolean requestShutdown) {
   public ProbeConfiguration {
     requiredDependencies = List.copyOf(requiredDependencies);
     if (stabilizationMillis < 0) {
       throw new IllegalArgumentException("stabilizationMillis must not be negative");
+    }
+    if (maximumCommandOutputBytes < 1_024 || maximumCommandOutputBytes > 16_384) {
+      throw new IllegalArgumentException(
+          "maximumCommandOutputBytes must be between 1024 and 16384");
     }
   }
 
@@ -32,7 +38,12 @@ public record ProbeConfiguration(
         target,
         List.copyOf(dependencies),
         Path.of(System.getProperty("provenance.probe.events", "provenance-probe-events.ndjson")),
+        Path.of(
+            System.getProperty(
+                "provenance.probe.testPlan", "provenance-test-plan.json")),
         stabilizationMillis,
+        Integer.parseInt(
+            System.getProperty("provenance.probe.maximumCommandOutputBytes", "4096")),
         Boolean.parseBoolean(System.getProperty("provenance.probe.requestShutdown", "true")));
   }
 

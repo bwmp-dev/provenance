@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -19,6 +21,9 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class PaperProbePlugin extends JavaPlugin implements Listener {
+  private static final PlainTextComponentSerializer PLAIN_TEXT =
+      PlainTextComponentSerializer.plainText();
+
   private final PluginMetadataDiscovery discovery = new PluginMetadataDiscovery();
   private final LifecycleValidator validator = new LifecycleValidator();
   private final Set<Logger> observedLoggers = new LinkedHashSet<>();
@@ -26,6 +31,9 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
   private ProbeConfiguration configuration;
   private EventSink sink;
   private LifecycleExceptionHandler exceptionHandler;
+  private CommandTestPlan commandTestPlan = new CommandTestPlan(List.of());
+  private boolean commandTestPlanValid;
+  private CommandTestRunner commandTestRunner;
   private boolean shutdownRequested;
 
   @Override
@@ -41,6 +49,7 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
               .map(MetadataInspection::descriptor)
               .toList();
       inspections.forEach(this::emitMetadataInspection);
+      readCommandTestPlan();
     } catch (IOException exception) {
       throw new IllegalStateException("could not initialize Paper probe", exception);
     }
@@ -72,11 +81,16 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
   @Override
   public void onEnable() {
     Bukkit.getPluginManager().registerEvents(this, this);
+    commandTestRunner =
+        new CommandTestRunner(sink, configuration.maximumCommandOutputBytes());
     emitLoadedPluginStates();
   }
 
   @Override
   public void onDisable() {
+    if (commandTestRunner != null) {
+      commandTestRunner.close();
+    }
     if (exceptionHandler != null) {
       for (Logger logger : observedLoggers) {
         logger.removeHandler(exceptionHandler);
@@ -132,10 +146,46 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
             requirementsSatisfied,
             "lifecycleKind",
             "LIFECYCLE_EVENT_KIND_SERVER_READY"));
+    if (requirementsSatisfied && commandTestPlanValid && !commandTestPlan.console().isEmpty()) {
+      CommandTestRunner.CommandSuiteResult result =
+          commandTestRunner.run(commandTestPlan.console(), new PaperCommandDispatcher());
+      emit(
+          EventType.TEST_PLAN,
+          Map.of(
+              "status", "COMPLETED",
+              "consoleTests", commandTestPlan.console().size(),
+              "passed", result.passed(),
+              "timedOut", result.timedOut()));
+    }
     if (configuration.requestShutdown()) {
-      emit(EventType.CLEAN_SHUTDOWN_REQUESTED, Map.of("reason", "lifecycle probe complete"));
+      emit(EventType.CLEAN_SHUTDOWN_REQUESTED, Map.of("reason", "probe test plan complete"));
       shutdownRequested = true;
       Bukkit.shutdown();
+    }
+  }
+
+  private void readCommandTestPlan() {
+    try {
+      commandTestPlan = new CommandTestPlanReader().read(configuration.testPlanFile());
+      commandTestPlanValid = true;
+      emit(
+          EventType.TEST_PLAN,
+          Map.of(
+              "status", "LOADED",
+              "consoleTests", commandTestPlan.console().size(),
+              "maximumCommandOutputBytes", configuration.maximumCommandOutputBytes()));
+    } catch (IOException | TestPlanException exception) {
+      commandTestPlanValid = false;
+      String issue =
+          exception instanceof TestPlanException
+              ? exception.getMessage()
+              : "could not read test plan";
+      emit(
+          EventType.TEST_PLAN,
+          Map.of("status", "INVALID", "issue", issue));
+      emit(
+          EventType.CLASSIFICATION,
+          ProbeClassification.INVALID_TEST_PLAN.data(Map.of("issue", issue)));
     }
   }
 
@@ -290,5 +340,21 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
 
   private void emit(EventType type, Map<String, Object> data) {
     sink.emit(ProbeEvent.now(type, data));
+  }
+
+  private final class PaperCommandDispatcher implements CommandTestRunner.CommandDispatcher {
+    @Override
+    public boolean isRegistered(String commandLabel) {
+      return Bukkit.getServer().getCommandMap().getCommand(commandLabel) != null;
+    }
+
+    @Override
+    public boolean dispatch(String command, CommandOutputCapture output) {
+      CommandSender sender =
+          Bukkit.getServer()
+              .createCommandSender(component -> output.append(PLAIN_TEXT.serialize(component)));
+      sender.setOp(true);
+      return Bukkit.dispatchCommand(sender, command);
+    }
   }
 }

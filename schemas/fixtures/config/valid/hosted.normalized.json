@@ -84,11 +84,13 @@
           {
             "match": "present",
             "minimumOccurrences": 1,
-            "pattern": "^ExamplePlugin 1\\.4\\.0-rc\\.1$",
+            "operator": "contains",
+            "pattern": "ExamplePlugin 1.4.0-rc.1",
             "stream": "combined"
           },
           {
             "match": "absent",
+            "operator": "regex",
             "pattern": "Exception|ERROR",
             "stream": "stderr"
           }
