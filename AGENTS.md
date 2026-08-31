@@ -1,0 +1,10 @@
+# Public toolkit repository instructions
+
+- Public contracts are authoritative: OpenAPI for HTTP, Protobuf for runner communication, and JSON Schema for configuration and attestations.
+- Never manually edit generated clients or protocol output.
+- Keep the CLI, Action, SDK, schemas, fixtures, and probe free of private platform credentials and implementation details.
+- Preserve backward compatibility unless the assigned work explicitly changes a versioned contract.
+- Unknown configuration fields must fail validation.
+- Fixture attacks must be isolated from ordinary test execution and clearly opt-in.
+- Add contract/golden tests for every schema or protocol behavior change.
+
