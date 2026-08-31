@@ -53,6 +53,33 @@ function runWorkspaceBuild() {
     0,
     `workspace build failed\n${result.stdout}\n${result.stderr}`,
   );
+  const gradle = spawnSync(
+    process.execPath,
+    [
+      resolve(import.meta.dirname, "run-gradle.mjs"),
+      ":paper-probe:jar",
+      ":fixture-success:jar",
+    ],
+    { cwd: resolve(import.meta.dirname, ".."), encoding: "utf8", shell: false },
+  );
+  assert.equal(
+    gradle.status,
+    0,
+    `Paper metadata release build failed\n${gradle.stdout}\n${gradle.stderr}`,
+  );
+}
+
+function runGradleBuild(...tasks) {
+  const result = spawnSync(
+    process.execPath,
+    [resolve(import.meta.dirname, "run-gradle.mjs"), ...tasks],
+    { cwd: resolve(import.meta.dirname, ".."), encoding: "utf8", shell: false },
+  );
+  assert.equal(
+    result.status,
+    0,
+    `Gradle build failed\n${result.stdout}\n${result.stderr}`,
+  );
 }
 
 function privilegedBoundaryVerification(directory) {
@@ -199,6 +226,17 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       await writeFile(staleFile, "stale");
     }
     runWorkspaceBuild();
+    const inspectorJar = resolve(
+      import.meta.dirname,
+      "../plugins/paper-probe/build/libs/paper-probe-0.1.0.jar",
+    );
+    const firstInspector = await readFile(inspectorJar);
+    runGradleBuild(":paper-probe:clean", ":paper-probe:jar");
+    assert.deepEqual(
+      await readFile(inspectorJar),
+      firstInspector,
+      "Paper metadata inspector JAR is not reproducible",
+    );
     for (const staleFile of staleFiles) {
       await assert.rejects(access(staleFile), { code: "ENOENT" });
     }
@@ -221,10 +259,10 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     const sbom = JSON.parse(
       await readFile(resolve(firstDirectory, manifest.sbom.filename), "utf8"),
     );
-    assert.equal(sbom.packages.length, 21);
+    assert.equal(sbom.packages.length, 24);
     assert.equal(
       sbom.packages.filter(({ filesAnalyzed }) => !filesAnalyzed).length,
-      16,
+      18,
     );
     assert(
       sbom.relationships.some(
@@ -233,7 +271,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     );
     assert(sbom.packages.every(({ checksums }) => checksums?.length > 0));
     t.diagnostic(
-      `SPDX 2.3 SBOM covers ${sbom.packages.length} packages, including 16 runtime dependencies, and ${sbom.files.length} archived files`,
+      `SPDX 2.3 SBOM covers ${sbom.packages.length} packages, including 18 runtime dependencies, and ${sbom.files.length} archived files`,
     );
     assert.deepEqual(manifest.compatibility, {
       action: "not-released",
@@ -241,6 +279,10 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       cli: "not-released",
       configSchema: "v1",
       openapi: "v1",
+      paperMetadata: {
+        inspector: version,
+        schema: "v1",
+      },
       runnerProtocol: "v1",
       sdk: { typescriptClient: version },
     });
@@ -448,6 +490,9 @@ test("release workflow reconciles a verified draft without overwriting assets", 
     workflow,
     /Release asset digest conflicts with the verified bundle/,
   );
+  assert.match(workflow, /Paper metadata schema: v1/);
+  assert.match(workflow, /Paper metadata inspector: \$VERSION/);
+  assert.match(workflow, /expected_paths\[@\]\}" -ne 9/);
   assert.match(
     workflow,
     /Published release \$TAG already matches the verified bundle/,

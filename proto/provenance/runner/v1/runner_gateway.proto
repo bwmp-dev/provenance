@@ -48,6 +48,8 @@ message GatewayMessage {
     PolicyUpdate policy_update = 14;
     RotateCredential credential_rotation = 15;
     ShutdownRunner shutdown = 16;
+    RunnerEventAcknowledgement event_acknowledgement = 30;
+    HeartbeatAcknowledgement heartbeat_acknowledgement = 31;
   }
 
   reserved 3 to 9;
@@ -58,6 +60,7 @@ message Authenticate {
   string runner_id = 1;
   string instance_id = 2;
   bytes connection_credential = 3;
+  // The canonical wire value remains "1"; optional behavior is negotiated through capabilities.
   string protocol_version = 4;
 
   reserved 5 to 9;
@@ -72,6 +75,7 @@ message Authenticated {
   google.protobuf.Duration heartbeat_interval = 5;
   google.protobuf.Duration lease_duration = 6;
   google.protobuf.Timestamp server_time = 7;
+  // The canonical wire value remains "1"; optional behavior is negotiated through capabilities.
   string protocol_version = 8;
 
   reserved 9 to 15;
@@ -245,6 +249,58 @@ message ShutdownRunner {
   string reason = 2;
   google.protobuf.Timestamp deadline = 3;
   bool restart_allowed = 4;
+
+  reserved 5 to 9;
+}
+
+enum RunnerMessageDisposition {
+  RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED = 0;
+  RUNNER_MESSAGE_DISPOSITION_APPLIED = 1;
+  RUNNER_MESSAGE_DISPOSITION_ALREADY_APPLIED = 2;
+  RUNNER_MESSAGE_DISPOSITION_STALE = 3;
+}
+
+enum LeaseStatus {
+  LEASE_STATUS_UNSPECIFIED = 0;
+  LEASE_STATUS_OFFERED = 1;
+  LEASE_STATUS_ACCEPTED = 2;
+  LEASE_STATUS_ACTIVE = 3;
+  LEASE_STATUS_COMPLETED = 4;
+  LEASE_STATUS_CANCELLED = 5;
+  LEASE_STATUS_EXPIRED = 6;
+  LEASE_STATUS_RELEASED = 7;
+}
+
+message LeaseReconciliation {
+  // Lease identity, including expiry, reflects authoritative committed gateway state.
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+  RunnerMessageDisposition disposition = 3;
+  LeaseStatus status = 4;
+  JobPhase phase = 5;
+  string terminal_message_id = 6;
+  string cancellation_id = 7;
+
+  reserved 8 to 15;
+}
+
+// Sent only after transactional inspection. Reusing a message ID with identical payload yields
+// ALREADY_APPLIED; conflicting payloads and invalid events fail the stream as transport errors.
+// STALE is nonfatal, and reconciliation always reflects authoritative committed gateway state.
+message RunnerEventAcknowledgement {
+  string runner_message_id = 1;
+  LeaseReconciliation reconciliation = 2;
+  google.protobuf.Timestamp committed_at = 3;
+
+  reserved 4 to 9;
+}
+
+// Confirms the heartbeat sequence only after its state and authoritative reconciliations commit.
+message HeartbeatAcknowledgement {
+  string runner_message_id = 1;
+  uint64 sequence = 2;
+  repeated LeaseReconciliation reconciliations = 3;
+  google.protobuf.Timestamp committed_at = 4;
 
   reserved 5 to 9;
 }

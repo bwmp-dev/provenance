@@ -142,7 +142,16 @@ function parseMessage(buffer) {
 }
 
 function parseEnum(buffer) {
-  return text(decodeFields(buffer), 1);
+  const fields = decodeFields(buffer);
+  return {
+    name: text(fields, 1),
+    values: Object.fromEntries(
+      bytes(fields, 2).map((valueBuffer) => {
+        const value = decodeFields(valueBuffer);
+        return [String(scalar(value, 2)), text(value, 1)];
+      }),
+    ),
+  };
 }
 
 function parseMethod(buffer) {
@@ -231,10 +240,16 @@ test("runner v1 descriptor matches the compatibility snapshot", () => {
       [...messages.keys()].sort(),
       [...snapshot.messageNames].sort(),
     );
-    assert.deepEqual(
-      [...contract.enums].sort(),
-      [...snapshot.enumNames].sort(),
+    const enums = new Map(
+      contract.enums.map((enumeration) => [enumeration.name, enumeration]),
     );
+    assert.deepEqual([...enums.keys()].sort(), [...snapshot.enumNames].sort());
+
+    for (const [enumName, expectedValues] of Object.entries(
+      snapshot.criticalEnums,
+    )) {
+      assert.deepEqual(enums.get(enumName).values, expectedValues);
+    }
 
     const runnerMessage = messages.get("RunnerMessage");
     const gatewayMessage = messages.get("GatewayMessage");

@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bwmp-dev/provenance/schemas/paper-metadata/v1/schema.json",
+  "title": "Provenance Paper metadata inspection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "artifactSha256", "status", "issues"],
+  "properties": {
+    "schemaVersion": {
+      "const": "provenance.paper-metadata/v1"
+    },
+    "artifactSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "status": {
+      "enum": ["valid", "missing", "invalid"]
+    },
+    "issues": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "artifact_invalid",
+          "artifact_signature_invalid",
+          "plugin_api_version_invalid",
+          "plugin_commands_invalid",
+          "plugin_dependencies_invalid",
+          "plugin_main_class_invalid",
+          "plugin_metadata_entry_invalid",
+          "plugin_metadata_invalid",
+          "plugin_metadata_missing",
+          "plugin_metadata_root_field_limit",
+          "plugin_metadata_root_invalid",
+          "plugin_metadata_root_key_invalid",
+          "plugin_metadata_structure_limit",
+          "plugin_metadata_too_large",
+          "plugin_metadata_utf8_invalid",
+          "plugin_metadata_yaml_invalid",
+          "plugin_name_invalid",
+          "plugin_permissions_invalid",
+          "plugin_version_invalid"
+        ]
+      }
+    },
+    "plugin": {
+      "$ref": "#/$defs/plugin"
+    }
+  },
+  "$defs": {
+    "boundedString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+    },
+    "dependencyList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^[A-Za-z0-9_. -]+$"
+      }
+    },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "mainClass",
+        "apiVersion",
+        "requiredDependencies",
+        "softDependencies",
+        "loadBeforeDependencies",
+        "permissions",
+        "commands"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_. -]+$"
+        },
+        "version": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "mainClass": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"
+        },
+        "apiVersion": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+        },
+        "requiredDependencies": {
+          "$ref": "#/$defs/dependencyList"
+        },
+        "softDependencies": {
+          "$ref": "#/$defs/dependencyList"
+        },
+        "loadBeforeDependencies": {
+          "$ref": "#/$defs/dependencyList"
+        },
+        "permissions": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/boundedString"
+          }
+        },
+        "commands": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/boundedString"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "valid"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["plugin"],
+        "properties": {
+          "issues": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": ["plugin"]
+        },
+        "properties": {
+          "issues": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "missing"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "issues": {
+            "minItems": 1,
+            "maxItems": 1,
+            "prefixItems": [
+              {
+                "const": "plugin_metadata_missing"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "invalid"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "issues": {
+            "not": {
+              "contains": {
+                "const": "plugin_metadata_missing"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

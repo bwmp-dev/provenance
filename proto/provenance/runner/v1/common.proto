@@ -188,6 +188,10 @@ message Capabilities {
   map<string, string> labels = 9;
 
   reserved 10 to 15;
+
+  // Consumers reject unspecified, unknown, or duplicate values. A gateway must not offer leases
+  // unless durable acknowledgements are advertised.
+  repeated ProtocolFeature features = 16;
 }
 
 message ObjectDownload {
@@ -213,6 +217,8 @@ message DependencyInput {
   ObjectDownload object = 2;
 
   reserved 3 to 9;
+
+  string plugin_name = 10;
 }
 
 message JobSpecification {
@@ -228,6 +234,8 @@ message JobSpecification {
   ObjectUpload complete_log_upload = 10;
 
   reserved 11 to 19;
+
+  string target_plugin_name = 20;
 }
 
 enum JobPhase {
@@ -356,6 +364,11 @@ enum FailureStage {
   FAILURE_STAGE_EXECUTION = 4;
   FAILURE_STAGE_CLEANUP = 5;
   FAILURE_STAGE_RESULT_UPLOAD = 6;
+}
+
+enum ProtocolFeature {
+  PROTOCOL_FEATURE_UNSPECIFIED = 0;
+  PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS = 1;
 }
 
 message FailureDetail {

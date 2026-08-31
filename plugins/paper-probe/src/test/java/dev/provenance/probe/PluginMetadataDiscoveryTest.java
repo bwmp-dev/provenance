@@ -4,14 +4,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -414,6 +418,32 @@ class PluginMetadataDiscoveryTest {
     assertNull(inspection.descriptor());
     assertEquals(
         List.of("plugin artifact failed JAR security verification"), inspection.issues());
+    assertEquals(
+        List.of("artifact_signature_invalid"),
+        MetadataInspectorMain.issueCodes(inspection.issues()));
+
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    ByteArrayOutputStream error = new ByteArrayOutputStream();
+    int exitCode;
+    try (PrintStream outputStream = new PrintStream(output, true, StandardCharsets.UTF_8);
+        PrintStream errorStream = new PrintStream(error, true, StandardCharsets.UTF_8)) {
+      exitCode =
+          MetadataInspectorMain.run(
+              new String[] {
+                "--expected-sha256", sha256(signedJar), signedJar.toString()
+              },
+              outputStream,
+              errorStream);
+    }
+    assertEquals(0, exitCode);
+    assertEquals("", error.toString(StandardCharsets.UTF_8));
+    assertEquals(
+        "{\"schemaVersion\":\"provenance.paper-metadata/v1\","
+            + "\"artifactSha256\":\""
+            + sha256(signedJar)
+            + "\",\"status\":\"invalid\","
+            + "\"issues\":[\"artifact_signature_invalid\"]}\n",
+        output.toString(StandardCharsets.UTF_8));
   }
 
   private static String legacyMetadataWithDependencies(int count) {
@@ -459,5 +489,17 @@ class PluginMetadataDiscoveryTest {
     String output =
         new String(process.getInputStream().readNBytes(16_384), StandardCharsets.UTF_8);
     assertEquals(0, process.exitValue(), output);
+  }
+
+  private static String sha256(Path path) throws Exception {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    try (var input = Files.newInputStream(path)) {
+      byte[] buffer = new byte[8192];
+      int read;
+      while ((read = input.read(buffer)) != -1) {
+        digest.update(buffer, 0, read);
+      }
+    }
+    return HexFormat.of().formatHex(digest.digest());
   }
 }

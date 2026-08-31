@@ -98,6 +98,29 @@ export const contractBundles = [
     ],
   },
   {
+    id: "paper-metadata",
+    entries: [
+      { source: "LICENSE", destination: "LICENSE" },
+      {
+        source: "schemas/paper-metadata/v1/schema.json",
+        destination: "schema/schema.json",
+      },
+      {
+        source: "plugins/paper-probe/build/libs/paper-probe-0.1.0.jar",
+        destination: "paper-metadata-inspector.jar",
+      },
+      {
+        source: "plugins/paper-probe/runtime-dependencies.json",
+        destination: "runtime-dependencies.json",
+      },
+      {
+        source:
+          "packages/test-fixtures/benign/success/build/libs/success-1.0.0.jar",
+        destination: "fixtures/success.jar",
+      },
+    ],
+  },
+  {
     id: "typescript-client",
     nodeImporter: "packages/api-client",
     entries: [
@@ -165,6 +188,10 @@ export function compatibilityDeclaration(version) {
     cli: "not-released",
     configSchema: "v1",
     openapi: "v1",
+    paperMetadata: {
+      inspector: version,
+      schema: "v1",
+    },
     runnerProtocol: "v1",
     sdk: {
       typescriptClient: version,
@@ -315,6 +342,7 @@ export async function toolchainManifest() {
     go: (
       await readFile(resolve(repositoryDirectory, ".go-version"), "utf8")
     ).trim(),
+    java: "21",
     node: (
       await readFile(resolve(repositoryDirectory, ".node-version"), "utf8")
     ).trim(),
@@ -341,6 +369,9 @@ function packageUrl(ecosystem, name, version) {
   if (ecosystem === "npm" && name.startsWith("@")) {
     const [scope, packageName] = name.slice(1).split("/");
     return `pkg:npm/%40${scope}/${packageName}@${version}`;
+  }
+  if (ecosystem === "maven") {
+    return `pkg:maven/${name.replace(":", "/")}@${version}`;
   }
   return `pkg:${ecosystem}/${name}@${version}`;
 }
@@ -513,6 +544,81 @@ async function runtimeDependencyInventory() {
       ...goDependencies,
     ]),
   );
+
+  const javaDependencies = JSON.parse(
+    await readFile(
+      resolve(
+        repositoryDirectory,
+        "plugins/paper-probe/runtime-dependencies.json",
+      ),
+      "utf8",
+    ),
+  );
+  const paperProbeLock = await readFile(
+    resolve(repositoryDirectory, "plugins/paper-probe/gradle.lockfile"),
+    "utf8",
+  );
+  const paperProbeBuild = await readFile(
+    resolve(repositoryDirectory, "build.gradle"),
+    "utf8",
+  );
+  const expectedJavaCoordinates = new Set(
+    [...paperProbeBuild.matchAll(/\bimplementation\("([^"\r\n]+)"\)/g)].map(
+      (match) => match[1],
+    ),
+  );
+  const paperMetadataDependencies = new Set();
+  if (!Array.isArray(javaDependencies)) {
+    throw new Error(
+      "paper metadata runtime dependency inventory must be an array",
+    );
+  }
+  for (const dependency of javaDependencies) {
+    const name = `${dependency.group}:${dependency.artifact}`;
+    const key = `maven:${name}@${dependency.version}`;
+    if (
+      Object.keys(dependency).sort().join(",") !==
+        "artifact,checksum,group,license,version" ||
+      !/^[0-9a-f]{64}$/.test(dependency.checksum) ||
+      !dependency.license ||
+      !paperProbeLock
+        .split("\n")
+        .some((line) => line.startsWith(`${name}:${dependency.version}=`))
+    ) {
+      throw new Error(`invalid paper metadata runtime dependency: ${key}`);
+    }
+    components.set(key, {
+      checksum: {
+        algorithm: "SHA256",
+        checksumValue: dependency.checksum,
+      },
+      ecosystem: "maven",
+      key,
+      license: dependency.license,
+      name,
+      version: dependency.version,
+    });
+    if (!paperMetadataDependencies.add(key)) {
+      throw new Error(`duplicate paper metadata runtime dependency: ${key}`);
+    }
+  }
+  const declaredJavaCoordinates = new Set(
+    javaDependencies.map(
+      (dependency) =>
+        `${dependency.group}:${dependency.artifact}:${dependency.version}`,
+    ),
+  );
+  if (
+    expectedJavaCoordinates.size !== declaredJavaCoordinates.size ||
+    [...expectedJavaCoordinates].some(
+      (coordinate) => !declaredJavaCoordinates.has(coordinate),
+    )
+  ) {
+    throw new Error(
+      "paper metadata runtime dependency inventory differs from Gradle",
+    );
+  }
+  dependenciesByBundle.set("paper-metadata", paperMetadataDependencies);
 
   return {
     components: [...components.values()].sort((left, right) =>
