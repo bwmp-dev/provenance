@@ -1,4 +1,10 @@
-import { createHash, createPublicKey, KeyObject, verify } from "node:crypto";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  KeyObject,
+  verify,
+} from "node:crypto";
 
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -7,6 +13,19 @@ import schema from "./schema.json" with { type: "json" };
 
 const domain = Buffer.from("Provenance Attestation v1\n", "utf8");
 const rawEd25519Prefix = Buffer.from("302a300506032b6570032100", "hex");
+const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
+const typedArrayBuffer = Object.getOwnPropertyDescriptor(
+  typedArrayPrototype,
+  "buffer",
+).get;
+const typedArrayByteLength = Object.getOwnPropertyDescriptor(
+  typedArrayPrototype,
+  "byteLength",
+).get;
+const typedArrayByteOffset = Object.getOwnPropertyDescriptor(
+  typedArrayPrototype,
+  "byteOffset",
+).get;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 const validate = ajv.compile(schema);
@@ -78,23 +97,77 @@ export class AttestationDigestError extends AttestationError {
   }
 }
 
-function assertUnicodeScalarValue(value) {
+function loneUnicodeSurrogateIndex(value) {
   for (let index = 0; index < value.length; index += 1) {
     const codeUnit = value.charCodeAt(index);
     if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
       const next = value.charCodeAt(index + 1);
       if (next < 0xdc00 || next > 0xdfff) {
-        throw new AttestationError(
-          "strings must not contain lone Unicode surrogates",
-        );
+        return index;
       }
       index += 1;
     } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
-      throw new AttestationError(
-        "strings must not contain lone Unicode surrogates",
-      );
+      return index;
     }
   }
+  return -1;
+}
+
+function assertUnicodeScalarValue(value) {
+  if (loneUnicodeSurrogateIndex(value) !== -1) {
+    throw new AttestationError(
+      "strings must not contain lone Unicode surrogates",
+    );
+  }
+}
+
+function jsonPointerToken(value) {
+  return value.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+function collectUnicodeScalarErrors(value, instancePath = "", errors = []) {
+  if (typeof value === "string") {
+    const index = loneUnicodeSurrogateIndex(value);
+    if (index !== -1) {
+      errors.push({
+        instancePath,
+        schemaPath: "#/unicodeScalarValue",
+        keyword: "unicodeScalarValue",
+        params: { index },
+        message: "must not contain lone Unicode surrogates",
+      });
+    }
+    return errors;
+  }
+
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      collectUnicodeScalarErrors(
+        value[index],
+        `${instancePath}/${index}`,
+        errors,
+      );
+    }
+    return errors;
+  }
+
+  if (value && typeof value === "object") {
+    for (const [key, member] of Object.entries(value)) {
+      const memberPath = `${instancePath}/${jsonPointerToken(key)}`;
+      if (loneUnicodeSurrogateIndex(key) !== -1) {
+        errors.push({
+          instancePath: memberPath,
+          schemaPath: "#/unicodeScalarValue",
+          keyword: "unicodeScalarValue",
+          params: { propertyName: key },
+          message: "property names must not contain lone Unicode surrogates",
+        });
+      }
+      collectUnicodeScalarErrors(member, memberPath, errors);
+    }
+  }
+
+  return errors;
 }
 
 function canonicalize(value) {
@@ -147,6 +220,15 @@ function publicKeyObject(publicKey) {
       }
       key = publicKey;
     } else {
+      let containsPrivateMaterial = true;
+      try {
+        createPrivateKey(publicKey);
+      } catch {
+        containsPrivateMaterial = false;
+      }
+      if (containsPrivateMaterial) {
+        throw new TypeError("the supplied key contains private key material");
+      }
       key = createPublicKey(publicKey);
     }
 
@@ -160,8 +242,11 @@ function publicKeyObject(publicKey) {
 }
 
 export function validateAttestation(document) {
-  if (!validate(document)) {
-    throw new AttestationSchemaError([...validate.errors]);
+  const errors = validate(document) ? [] : [...validate.errors];
+  const unicodeErrors = collectUnicodeScalarErrors(document);
+  errors.push(...unicodeErrors);
+  if (errors.length > 0) {
+    throw new AttestationSchemaError(errors);
   }
   return document;
 }
@@ -241,11 +326,15 @@ export async function verifyAttestedArtifact(
       throw new TypeError("artifact stream chunks must be Uint8Array values");
     }
 
-    observedSizeBytes += chunk.byteLength;
+    const buffer = Reflect.apply(typedArrayBuffer, chunk, []);
+    const byteOffset = Reflect.apply(typedArrayByteOffset, chunk, []);
+    const byteLength = Reflect.apply(typedArrayByteLength, chunk, []);
+    const bytes = new Uint8Array(buffer, byteOffset, byteLength);
+    observedSizeBytes += byteLength;
     if (observedSizeBytes > expectedSizeBytes) {
       throw new AttestationSizeError(expectedSizeBytes, observedSizeBytes);
     }
-    hash.update(chunk);
+    hash.update(bytes);
   }
 
   if (observedSizeBytes !== expectedSizeBytes) {

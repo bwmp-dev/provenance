@@ -196,6 +196,20 @@ test("streaming verification accepts varied chunk boundaries", async () => {
   }
 
   await verifyAttestedArtifact(document, publicKeyObject, [bytes]);
+  await verifyAttestedArtifact(
+    document,
+    publicKeyObject.export({ format: "pem", type: "spki" }),
+    [bytes],
+  );
+  await verifyAttestedArtifact(
+    document,
+    {
+      format: "der",
+      key: publicKeyObject.export({ format: "der", type: "spki" }),
+      type: "spki",
+    },
+    [bytes],
+  );
 });
 
 test("artifact byte tampering and a signature-valid wrong JAR fail by digest", async () => {
@@ -267,6 +281,37 @@ test("truncation and appended bytes report precise sizes and stop reading", asyn
   assert.equal(iteratorClosed, true);
 });
 
+test("stream sizing uses the intrinsic Uint8Array view length", async () => {
+  const original = await readJson("valid/hosted.json");
+  const vector = await readJson("vectors/hosted.json");
+  const publicKey = Buffer.from(vector.publicKeyHex, "hex");
+  const privateKey = privateKeyFromVector(vector);
+  const bytes = Buffer.from("intrinsic byte length");
+  const document = artifactDocument(original, bytes, privateKey);
+
+  class MisreportedChunk extends Uint8Array {
+    get byteLength() {
+      return 1;
+    }
+  }
+  const chunk = new MisreportedChunk(bytes);
+
+  const result = await verifyAttestedArtifact(document, publicKey, [chunk]);
+  assert.equal(result.sizeBytes, bytes.byteLength);
+
+  const dishonestSize = structuredClone(document);
+  dishonestSize.statement.subject.sizeBytes = 1;
+  signDocument(dishonestSize, privateKey);
+  await assert.rejects(
+    verifyAttestedArtifact(dishonestSize, publicKey, [chunk]),
+    (error) =>
+      error instanceof AttestationSizeError &&
+      error.reason === "exceeded" &&
+      error.expectedSizeBytes === 1 &&
+      error.observedSizeBytes === bytes.byteLength,
+  );
+});
+
 test("incorrect signed size and digest fail after valid signature verification", async () => {
   const original = await readJson("valid/hosted.json");
   const vector = await readJson("vectors/hosted.json");
@@ -295,6 +340,7 @@ test("schema, public-key, and signature failures are distinct and consume no byt
   const original = await readJson("valid/hosted.json");
   const vector = await readJson("vectors/hosted.json");
   const publicKey = Buffer.from(vector.publicKeyHex, "hex");
+  const privateKey = privateKeyFromVector(vector);
 
   let bytesRequested = 0;
   async function* observedBytes() {
@@ -347,6 +393,23 @@ test("schema, public-key, and signature failures are distinct and consume no byt
   );
   assert.equal(bytesRequested, 0);
 
+  const privatePem = privateKey.export({ format: "pem", type: "pkcs8" });
+  const privateDer = privateKey.export({ format: "der", type: "pkcs8" });
+  for (const privateMaterial of [
+    privateKey,
+    privatePem,
+    { format: "der", key: privateDer, type: "pkcs8" },
+  ]) {
+    await assert.rejects(
+      verifyAttestedArtifact(original, privateMaterial, observedBytes()),
+      (error) =>
+        error instanceof AttestationKeyError &&
+        error.code === "ERR_ATTESTATION_KEY" &&
+        error.cause instanceof Error,
+    );
+    assert.equal(bytesRequested, 0);
+  }
+
   const wrongSignature = structuredClone(original);
   wrongSignature.signature.value = `${
     wrongSignature.signature.value[0] === "A" ? "B" : "A"
@@ -359,6 +422,55 @@ test("schema, public-key, and signature failures are distinct and consume no byt
       error.reason === "mismatch",
   );
   assert.equal(bytesRequested, 0);
+});
+
+test("lone Unicode surrogates are typed schema failures before byte consumption", async () => {
+  const original = await readJson("valid/hosted.json");
+  const vector = await readJson("vectors/hosted.json");
+  const publicKey = Buffer.from(vector.publicKeyHex, "hex");
+  let bytesRequested = 0;
+  async function* observedBytes() {
+    bytesRequested += 1;
+    yield Buffer.alloc(original.statement.subject.sizeBytes);
+  }
+
+  for (const [path, value] of [
+    [["statement", "subject", "name"], "\ud800.jar"],
+    [["statement", "source", "ref"], "refs/heads/invalid\udfff"],
+  ]) {
+    const malformed = structuredClone(original);
+    setPath(malformed, path, value);
+    await assert.rejects(
+      verifyAttestedArtifact(malformed, publicKey, observedBytes()),
+      (error) =>
+        error instanceof AttestationSchemaError &&
+        error.code === "ERR_ATTESTATION_SCHEMA" &&
+        error.errors.some(
+          (issue) =>
+            issue.keyword === "unicodeScalarValue" &&
+            issue.instancePath === `/${path.join("/")}`,
+        ),
+    );
+    assert.equal(bytesRequested, 0);
+  }
+
+  const mixedInvalidEnvelope = structuredClone(original);
+  mixedInvalidEnvelope.statement.subject.name = "\ud800.jar";
+  mixedInvalidEnvelope.signature.value = "AAAA==";
+  await assert.rejects(
+    verifyAttestedArtifact(mixedInvalidEnvelope, publicKey, observedBytes()),
+    (error) =>
+      error instanceof AttestationSchemaError &&
+      error.errors.some(
+        (issue) => issue.instancePath === "/statement/subject/name",
+      ) &&
+      error.errors.some((issue) => issue.instancePath === "/signature/value"),
+  );
+  assert.equal(bytesRequested, 0);
+
+  const validScalarPair = structuredClone(original);
+  validScalarPair.statement.subject.name = "artifact-\ud83d\udce6.jar";
+  assert.equal(validateAttestation(validScalarPair), validScalarPair);
 });
 
 test("verification is bound to bytes, not the signed filename", async () => {
