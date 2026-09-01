@@ -124,6 +124,32 @@ test("every mutation has deterministic idempotency semantics", () => {
   assert.equal(keySchema.pattern, "^[A-Za-z0-9._:-]{8,128}$");
 });
 
+test("session creation fails closed when a credential cannot be replayed", () => {
+  const createSession = operation("createSession");
+  const parameter = createSession.parameters
+    .map(resolveParameter)
+    .find(({ name }) => name === "Idempotency-Key");
+  const conflict =
+    document.components.responses[
+      createSession.responses["409"].$ref.split("/").at(-1)
+    ];
+
+  assert.equal(
+    createSession.parameters[0].$ref,
+    "#/components/parameters/SessionCreationIdempotencyKey",
+  );
+  assert.match(parameter.description, /retains only a hash/i);
+  assert.match(parameter.description, /credential_not_replayable/);
+  assert.match(parameter.description, /new one-time exchange token/i);
+  assert.match(conflict.description, /idempotency_key_conflict/);
+  assert.match(conflict.description, /credential_not_replayable/);
+  assert.match(conflict.description, /does not mint a replacement credential/i);
+  assert.equal(
+    conflict.content["application/problem+json"].schema.$ref,
+    "#/components/schemas/ProblemDetails",
+  );
+});
+
 test("project creation matches the platform wire contract", () => {
   const createProject = operation("createProject");
   const createRequest = document.components.schemas.CreateProjectRequest;
