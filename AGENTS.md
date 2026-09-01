@@ -7,4 +7,4 @@
 - Unknown configuration fields must fail validation.
 - Fixture attacks must be isolated from ordinary test execution and clearly opt-in.
 - Add contract/golden tests for every schema or protocol behavior change.
-
+- Never request, tag, invoke, or mention an external automated pull-request reviewer unless the user explicitly names and authorizes that exact service.
