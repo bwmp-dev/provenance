@@ -449,6 +449,44 @@ test("key descriptors are snapshotted once before private and public parsing", a
   assert.equal(keyReads, 1);
 });
 
+test("JWK key operations are bounded and each index is snapshotted once", async () => {
+  const original = await readJson("valid/hosted.json");
+  const vector = await readJson("vectors/hosted.json");
+  const privateKey = privateKeyFromVector(vector);
+  const publicJwk = createPublicKey(privateKey).export({ format: "jwk" });
+  let indexReads = 0;
+  const switchingKeyOperations = new Proxy(["verify"], {
+    get(target, property, receiver) {
+      if (property === "0") {
+        indexReads += 1;
+        return indexReads === 1 ? "verify" : "sign";
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+
+  assert.equal(
+    verifyAttestationSignature(original, {
+      format: "jwk",
+      key: { ...publicJwk, key_ops: switchingKeyOperations },
+    }),
+    true,
+  );
+  assert.equal(indexReads, 1);
+
+  assert.throws(
+    () =>
+      verifyAttestationSignature(original, {
+        format: "jwk",
+        key: { ...publicJwk, key_ops: new Array(33).fill("verify") },
+      }),
+    (error) =>
+      error instanceof AttestationKeyError &&
+      error.cause instanceof TypeError &&
+      error.cause.message.includes("at most 32 entries"),
+  );
+});
+
 test("artifact verification uses one detached attestation snapshot", async () => {
   const original = await readJson("valid/hosted.json");
   const vector = await readJson("vectors/hosted.json");

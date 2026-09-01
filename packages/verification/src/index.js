@@ -45,6 +45,7 @@ const dataViewByteOffset = Object.getOwnPropertyDescriptor(
 const maxAttestationSnapshotDepth = 64;
 const maxAttestationSnapshotNodes = 100_000;
 const maxAttestationSnapshotArrayLength = 1_000;
+const maxJwkKeyOperations = 32;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 const validate = ajv.compile(schema);
@@ -438,6 +439,31 @@ function copyKeyBytes(value) {
   throw new TypeError("encoded key material must be bytes");
 }
 
+function snapshotJwkKeyOperations(value) {
+  if (!Array.isArray(value)) {
+    throw new TypeError("JWK key operations must be an array of strings");
+  }
+  const length = Reflect.get(value, "length");
+  if (
+    !Number.isSafeInteger(length) ||
+    length < 0 ||
+    length > maxJwkKeyOperations
+  ) {
+    throw new TypeError(
+      `JWK key operations must contain at most ${maxJwkKeyOperations} entries`,
+    );
+  }
+  const snapshot = new Array(length);
+  for (let index = 0; index < length; index += 1) {
+    const operation = Reflect.get(value, String(index));
+    if (typeof operation !== "string") {
+      throw new TypeError("JWK key operations must be an array of strings");
+    }
+    snapshot[index] = operation;
+  }
+  return Object.freeze(snapshot);
+}
+
 function snapshotJwk(value) {
   if (value === null || typeof value !== "object") {
     throw new TypeError("a JWK key must be an object");
@@ -453,13 +479,7 @@ function snapshotJwk(value) {
   }
   const key = { kty, crv, x };
   if (keyOps !== undefined) {
-    if (
-      !Array.isArray(keyOps) ||
-      !keyOps.every((item) => typeof item === "string")
-    ) {
-      throw new TypeError("JWK key operations must be an array of strings");
-    }
-    key.key_ops = [...keyOps];
+    key.key_ops = snapshotJwkKeyOperations(keyOps);
   }
   if (ext !== undefined) {
     key.ext = ext;
