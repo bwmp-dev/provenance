@@ -449,6 +449,112 @@ test("key descriptors are snapshotted once before private and public parsing", a
   assert.equal(keyReads, 1);
 });
 
+test("artifact verification uses one detached attestation snapshot", async () => {
+  const original = await readJson("valid/hosted.json");
+  const vector = await readJson("vectors/hosted.json");
+  const publicKey = Buffer.from(vector.publicKeyHex, "hex");
+  const privateKey = privateKeyFromVector(vector);
+  const signedBytes = Buffer.from("signed-original");
+  const unsignedBytes = Buffer.from("unsigned-target");
+  assert.equal(signedBytes.byteLength, unsignedBytes.byteLength);
+  const document = artifactDocument(original, signedBytes, privateKey);
+  const signedDigest = sha256(signedBytes);
+  const unsignedDigest = sha256(unsignedBytes);
+  let digestReads = 0;
+  Object.defineProperty(document.statement.subject.digest, "value", {
+    configurable: true,
+    enumerable: true,
+    get() {
+      digestReads += 1;
+      return digestReads === 1 ? signedDigest : unsignedDigest;
+    },
+  });
+  let statementReads = 0;
+  const attackerControlledDocument = new Proxy(document, {
+    get(target, property, receiver) {
+      if (property === "statement") {
+        statementReads += 1;
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+
+  await assert.rejects(
+    verifyAttestedArtifact(attackerControlledDocument, publicKey, [
+      unsignedBytes,
+    ]),
+    (error) =>
+      error instanceof AttestationDigestError &&
+      error.expectedDigest === signedDigest &&
+      error.observedDigest === unsignedDigest,
+  );
+  assert.equal(digestReads, 1);
+  assert.equal(statementReads, 1);
+
+  const mutableDocument = artifactDocument(original, signedBytes, privateKey);
+  async function* mutateAfterSnapshot() {
+    mutableDocument.statement.subject.digest.value = unsignedDigest;
+    yield unsignedBytes;
+  }
+  await assert.rejects(
+    verifyAttestedArtifact(mutableDocument, publicKey, mutateAfterSnapshot()),
+    (error) =>
+      error instanceof AttestationDigestError &&
+      error.expectedDigest === signedDigest &&
+      error.observedDigest === unsignedDigest,
+  );
+});
+
+test("attestation snapshot failures are typed and bounded", async () => {
+  const original = await readJson("valid/hosted.json");
+  const vector = await readJson("vectors/hosted.json");
+  const publicKey = Buffer.from(vector.publicKeyHex, "hex");
+
+  const cyclic = structuredClone(original);
+  cyclic.untrusted = cyclic;
+
+  const unsupported = structuredClone(original);
+  unsupported.untrusted = () => {};
+
+  const unreadable = structuredClone(original);
+  Object.defineProperty(unreadable, "untrusted", {
+    enumerable: true,
+    get() {
+      throw new Error("attacker-controlled read failure");
+    },
+  });
+
+  const excessiveDepth = structuredClone(original);
+  let nested = excessiveDepth;
+  for (let depth = 0; depth < 65; depth += 1) {
+    nested.untrusted = {};
+    nested = nested.untrusted;
+  }
+
+  const excessiveSize = structuredClone(original);
+  excessiveSize.untrusted = new Array(1001).fill(null);
+
+  for (const [document, reason] of [
+    [cyclic, "cycle"],
+    [unsupported, "type"],
+    [unreadable, "read"],
+    [excessiveDepth, "depth"],
+    [excessiveSize, "size"],
+  ]) {
+    await assert.rejects(
+      verifyAttestedArtifact(document, publicKey, []),
+      (error) =>
+        error instanceof AttestationSchemaError &&
+        error.code === "ERR_ATTESTATION_SCHEMA" &&
+        error.errors.some(
+          (issue) =>
+            issue.keyword === "jsonDataSnapshot" &&
+            issue.params.reason === reason,
+        ),
+    );
+  }
+});
+
 test("DER public keys reject trailing private key material", async () => {
   const original = await readJson("valid/hosted.json");
   const vector = await readJson("vectors/hosted.json");

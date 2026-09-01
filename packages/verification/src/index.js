@@ -42,6 +42,9 @@ const dataViewByteOffset = Object.getOwnPropertyDescriptor(
   DataView.prototype,
   "byteOffset",
 ).get;
+const maxAttestationSnapshotDepth = 64;
+const maxAttestationSnapshotNodes = 100_000;
+const maxAttestationSnapshotArrayLength = 1_000;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 const validate = ajv.compile(schema);
@@ -56,8 +59,8 @@ export class AttestationError extends Error {
 }
 
 export class AttestationSchemaError extends AttestationError {
-  constructor(errors) {
-    super("attestation does not satisfy schema v1", errors);
+  constructor(errors, options = undefined) {
+    super("attestation does not satisfy schema v1", errors, options);
     this.name = "AttestationSchemaError";
     this.code = "ERR_ATTESTATION_SCHEMA";
   }
@@ -111,6 +114,200 @@ export class AttestationDigestError extends AttestationError {
     this.expectedDigest = expectedDigest;
     this.observedDigest = observedDigest;
   }
+}
+
+function snapshotSchemaError(instancePath, reason, message, cause = undefined) {
+  return new AttestationSchemaError(
+    [
+      {
+        instancePath,
+        schemaPath: "#/jsonDataSnapshot",
+        keyword: "jsonDataSnapshot",
+        params: { reason },
+        message,
+      },
+    ],
+    cause === undefined ? undefined : { cause },
+  );
+}
+
+function snapshotPropertyValue(value, key, instancePath) {
+  try {
+    return Reflect.get(value, key);
+  } catch (cause) {
+    throw snapshotSchemaError(
+      instancePath,
+      "read",
+      "must be readable as JSON data",
+      cause,
+    );
+  }
+}
+
+function snapshotOwnKeys(value, instancePath) {
+  try {
+    return Reflect.ownKeys(value);
+  } catch (cause) {
+    throw snapshotSchemaError(
+      instancePath,
+      "read",
+      "must expose stable JSON object properties",
+      cause,
+    );
+  }
+}
+
+function snapshotPropertyDescriptor(value, key, instancePath) {
+  try {
+    return Reflect.getOwnPropertyDescriptor(value, key);
+  } catch (cause) {
+    throw snapshotSchemaError(
+      instancePath,
+      "read",
+      "must expose stable JSON property descriptors",
+      cause,
+    );
+  }
+}
+
+function snapshotIsArray(value, instancePath) {
+  try {
+    return Array.isArray(value);
+  } catch (cause) {
+    throw snapshotSchemaError(
+      instancePath,
+      "read",
+      "must expose a readable JSON container shape",
+      cause,
+    );
+  }
+}
+
+function snapshotJsonValue(value, instancePath, depth, state) {
+  state.nodes += 1;
+  if (state.nodes > maxAttestationSnapshotNodes) {
+    throw snapshotSchemaError(
+      instancePath,
+      "size",
+      `must contain at most ${maxAttestationSnapshotNodes} JSON values`,
+    );
+  }
+  if (depth > maxAttestationSnapshotDepth) {
+    throw snapshotSchemaError(
+      instancePath,
+      "depth",
+      `must be nested at most ${maxAttestationSnapshotDepth} levels deep`,
+    );
+  }
+
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string"
+  ) {
+    return value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw snapshotSchemaError(
+        instancePath,
+        "type",
+        "must contain only finite JSON numbers",
+      );
+    }
+    return value;
+  }
+  if (typeof value !== "object") {
+    throw snapshotSchemaError(
+      instancePath,
+      "type",
+      "must contain only JSON data values",
+    );
+  }
+  if (state.ancestors.has(value)) {
+    throw snapshotSchemaError(
+      instancePath,
+      "cycle",
+      "must not contain cyclic references",
+    );
+  }
+
+  state.ancestors.add(value);
+  try {
+    if (snapshotIsArray(value, instancePath)) {
+      const length = snapshotPropertyValue(value, "length", instancePath);
+      if (
+        !Number.isSafeInteger(length) ||
+        length < 0 ||
+        length > maxAttestationSnapshotArrayLength
+      ) {
+        throw snapshotSchemaError(
+          instancePath,
+          "size",
+          `arrays must contain at most ${maxAttestationSnapshotArrayLength} items`,
+        );
+      }
+      const snapshot = new Array(length);
+      for (let index = 0; index < length; index += 1) {
+        const memberPath = `${instancePath}/${index}`;
+        snapshot[index] = snapshotJsonValue(
+          snapshotPropertyValue(value, String(index), memberPath),
+          memberPath,
+          depth + 1,
+          state,
+        );
+      }
+      return Object.freeze(snapshot);
+    }
+
+    const keys = snapshotOwnKeys(value, instancePath);
+    if (state.nodes + keys.length > maxAttestationSnapshotNodes) {
+      throw snapshotSchemaError(
+        instancePath,
+        "size",
+        `must contain at most ${maxAttestationSnapshotNodes} JSON values`,
+      );
+    }
+    const snapshot = {};
+    for (const key of keys) {
+      if (typeof key !== "string") {
+        continue;
+      }
+      const memberPath = `${instancePath}/${jsonPointerToken(key)}`;
+      const descriptor = snapshotPropertyDescriptor(value, key, memberPath);
+      if (descriptor === undefined) {
+        throw snapshotSchemaError(
+          memberPath,
+          "read",
+          "must remain present while its JSON value is read",
+        );
+      }
+      if (!descriptor.enumerable) {
+        continue;
+      }
+      Object.defineProperty(snapshot, key, {
+        configurable: true,
+        enumerable: true,
+        value: snapshotJsonValue(
+          snapshotPropertyValue(value, key, memberPath),
+          memberPath,
+          depth + 1,
+          state,
+        ),
+        writable: true,
+      });
+    }
+    return Object.freeze(snapshot);
+  } finally {
+    state.ancestors.delete(value);
+  }
+}
+
+function snapshotAttestation(document) {
+  return snapshotJsonValue(document, "", 0, {
+    ancestors: new WeakSet(),
+    nodes: 0,
+  });
 }
 
 function loneUnicodeSurrogateIndex(value) {
@@ -416,8 +613,9 @@ export async function verifyAttestedArtifact(
   publicKey,
   artifactBytes,
 ) {
+  const attestation = snapshotAttestation(document);
   try {
-    validateAttestation(document);
+    validateAttestation(attestation);
   } catch (error) {
     if (
       error instanceof AttestationSchemaError &&
@@ -433,7 +631,7 @@ export async function verifyAttestedArtifact(
     throw error;
   }
 
-  if (!verifyAttestationSignature(document, publicKey)) {
+  if (!verifyAttestationSignature(attestation, publicKey)) {
     throw new AttestationSignatureError();
   }
 
@@ -448,8 +646,8 @@ export async function verifyAttestedArtifact(
     );
   }
 
-  const expectedSizeBytes = document.statement.subject.sizeBytes;
-  const expectedDigest = document.statement.subject.digest.value;
+  const expectedSizeBytes = attestation.statement.subject.sizeBytes;
+  const expectedDigest = attestation.statement.subject.digest.value;
   const hash = createHash("sha256");
   let observedSizeBytes = 0;
 
