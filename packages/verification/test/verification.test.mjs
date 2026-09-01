@@ -424,6 +424,52 @@ test("schema, public-key, and signature failures are distinct and consume no byt
   assert.equal(bytesRequested, 0);
 });
 
+test("key descriptors are snapshotted once before private and public parsing", async () => {
+  const original = await readJson("valid/hosted.json");
+  const vector = await readJson("vectors/hosted.json");
+  const privateKey = privateKeyFromVector(vector);
+  const privateDer = privateKey.export({ format: "der", type: "pkcs8" });
+  const unrelatedPublicDer = createPublicKey(
+    privateKeyFromVector(await readJson("vectors/self-hosted.json")),
+  ).export({ format: "der", type: "spki" });
+  let keyReads = 0;
+  const switchingDescriptor = {
+    format: "der",
+    type: "pkcs8",
+    get key() {
+      keyReads += 1;
+      return keyReads === 1 ? unrelatedPublicDer : privateDer;
+    },
+  };
+
+  assert.throws(
+    () => verifyAttestationSignature(original, switchingDescriptor),
+    AttestationKeyError,
+  );
+  assert.equal(keyReads, 1);
+});
+
+test("DER public keys reject trailing private key material", async () => {
+  const original = await readJson("valid/hosted.json");
+  const vector = await readJson("vectors/hosted.json");
+  const privateKey = privateKeyFromVector(vector);
+  const publicDer = createPublicKey(privateKey).export({
+    format: "der",
+    type: "spki",
+  });
+  const privateDer = privateKey.export({ format: "der", type: "pkcs8" });
+
+  assert.throws(
+    () =>
+      verifyAttestationSignature(original, {
+        format: "der",
+        key: Buffer.concat([publicDer, privateDer]),
+        type: "spki",
+      }),
+    AttestationKeyError,
+  );
+});
+
 test("lone Unicode surrogates are typed schema failures before byte consumption", async () => {
   const original = await readJson("valid/hosted.json");
   const vector = await readJson("vectors/hosted.json");

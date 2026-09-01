@@ -26,6 +26,22 @@ const typedArrayByteOffset = Object.getOwnPropertyDescriptor(
   typedArrayPrototype,
   "byteOffset",
 ).get;
+const arrayBufferByteLength = Object.getOwnPropertyDescriptor(
+  ArrayBuffer.prototype,
+  "byteLength",
+).get;
+const dataViewBuffer = Object.getOwnPropertyDescriptor(
+  DataView.prototype,
+  "buffer",
+).get;
+const dataViewByteLength = Object.getOwnPropertyDescriptor(
+  DataView.prototype,
+  "byteLength",
+).get;
+const dataViewByteOffset = Object.getOwnPropertyDescriptor(
+  DataView.prototype,
+  "byteOffset",
+).get;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 const validate = ajv.compile(schema);
@@ -201,11 +217,104 @@ function canonicalize(value) {
   throw new AttestationError("attestation values must use the JSON data model");
 }
 
+function copyTypedArrayBytes(value) {
+  const buffer = Reflect.apply(typedArrayBuffer, value, []);
+  const byteOffset = Reflect.apply(typedArrayByteOffset, value, []);
+  const byteLength = Reflect.apply(typedArrayByteLength, value, []);
+  return Buffer.from(new Uint8Array(buffer, byteOffset, byteLength));
+}
+
+function copyKeyBytes(value) {
+  if (ArrayBuffer.isView(value)) {
+    if (value instanceof DataView) {
+      const buffer = Reflect.apply(dataViewBuffer, value, []);
+      const byteOffset = Reflect.apply(dataViewByteOffset, value, []);
+      const byteLength = Reflect.apply(dataViewByteLength, value, []);
+      return Buffer.from(new Uint8Array(buffer, byteOffset, byteLength));
+    }
+    return copyTypedArrayBytes(value);
+  }
+  if (value instanceof ArrayBuffer) {
+    const byteLength = Reflect.apply(arrayBufferByteLength, value, []);
+    return Buffer.from(new Uint8Array(value, 0, byteLength));
+  }
+  throw new TypeError("encoded key material must be bytes");
+}
+
+function snapshotJwk(value) {
+  if (value === null || typeof value !== "object") {
+    throw new TypeError("a JWK key must be an object");
+  }
+  const kty = Reflect.get(value, "kty");
+  const crv = Reflect.get(value, "crv");
+  const x = Reflect.get(value, "x");
+  const d = Reflect.get(value, "d");
+  const keyOps = Reflect.get(value, "key_ops");
+  const ext = Reflect.get(value, "ext");
+  if (d !== undefined) {
+    throw new TypeError("the supplied JWK contains private key material");
+  }
+  const key = { kty, crv, x };
+  if (keyOps !== undefined) {
+    if (
+      !Array.isArray(keyOps) ||
+      !keyOps.every((item) => typeof item === "string")
+    ) {
+      throw new TypeError("JWK key operations must be an array of strings");
+    }
+    key.key_ops = [...keyOps];
+  }
+  if (ext !== undefined) {
+    key.ext = ext;
+  }
+  return Object.freeze(key);
+}
+
+function snapshotKeyDescriptor(value) {
+  const keyValue = Reflect.get(value, "key");
+  const format = Reflect.get(value, "format");
+  const type = Reflect.get(value, "type");
+  const encoding = Reflect.get(value, "encoding");
+  const passphraseValue = Reflect.get(value, "passphrase");
+  const key =
+    format === "jwk"
+      ? snapshotJwk(keyValue)
+      : typeof keyValue === "string"
+        ? keyValue
+        : copyKeyBytes(keyValue);
+  const descriptor = { key };
+  if (format !== undefined) {
+    descriptor.format = format;
+  }
+  if (type !== undefined) {
+    descriptor.type = type;
+  }
+  if (encoding !== undefined) {
+    descriptor.encoding = encoding;
+  }
+  if (passphraseValue !== undefined) {
+    descriptor.passphrase =
+      typeof passphraseValue === "string"
+        ? passphraseValue
+        : copyKeyBytes(passphraseValue);
+  }
+  return Object.freeze(descriptor);
+}
+
+function containsPrivatePem(value) {
+  const key = typeof value === "string" ? value : value.key;
+  if (typeof key !== "string" && !Buffer.isBuffer(key)) {
+    return false;
+  }
+  const pem = typeof key === "string" ? key : key.toString("ascii");
+  return /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/.test(pem);
+}
+
 function publicKeyObject(publicKey) {
   try {
     let key;
     if (Buffer.isBuffer(publicKey) || publicKey instanceof Uint8Array) {
-      const bytes = Buffer.from(publicKey);
+      const bytes = copyTypedArrayBytes(publicKey);
       if (bytes.length !== 32) {
         throw new TypeError("a raw public key must contain exactly 32 bytes");
       }
@@ -219,17 +328,40 @@ function publicKeyObject(publicKey) {
         throw new TypeError("the supplied key is not a public key");
       }
       key = publicKey;
+    } else if (publicKey instanceof CryptoKey) {
+      key = KeyObject.from(publicKey);
+      if (key.type !== "public") {
+        throw new TypeError("the supplied key is not a public key");
+      }
     } else {
+      const input =
+        typeof publicKey === "string"
+          ? publicKey
+          : snapshotKeyDescriptor(publicKey);
+      if (containsPrivatePem(input)) {
+        throw new TypeError("the supplied key contains private key material");
+      }
+      if (input.format === "der" && input.type !== "spki") {
+        throw new TypeError("a DER public key must use SPKI encoding");
+      }
       let containsPrivateMaterial = true;
       try {
-        createPrivateKey(publicKey);
+        createPrivateKey(input);
       } catch {
         containsPrivateMaterial = false;
       }
       if (containsPrivateMaterial) {
         throw new TypeError("the supplied key contains private key material");
       }
-      key = createPublicKey(publicKey);
+      key = createPublicKey(input);
+      if (input.format === "der") {
+        const canonical = key.export({ format: "der", type: "spki" });
+        if (!input.key.equals(canonical)) {
+          throw new TypeError(
+            "the DER public key must contain exactly one canonical SPKI value",
+          );
+        }
+      }
     }
 
     if (key.asymmetricKeyType !== "ed25519") {
