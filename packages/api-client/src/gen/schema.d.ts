@@ -1154,6 +1154,25 @@ export interface components {
             };
         };
         /**
+         * @description Browser session creation encountered an idempotency conflict. Reusing
+         *     the key with a different request returns code
+         *     `idempotency_key_conflict`.
+         *
+         *     Replaying the same request after its session credential was issued
+         *     returns code `credential_not_replayable`, because the hash-only session
+         *     store cannot reproduce the original Set-Cookie credential. The server
+         *     does not mint a replacement credential for that replay. The caller must
+         *     obtain a new one-time exchange token and use a new idempotency key.
+         */
+        SessionCreationConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /**
          * @description Release candidate creation conflicted with an existing resource or
          *     idempotency record. Reusing an idempotency key with a different request
          *     returns code `idempotency_key_conflict`.
@@ -1180,6 +1199,8 @@ export interface components {
     parameters: {
         /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
         IdempotencyKey: components["schemas"]["IdempotencyKey"];
+        /** @description Caller-generated key scoped to browser session creation. Reusing the key with a different request conflicts. After a request succeeds, the platform retains only a hash of the issued credential and cannot reproduce the original Set-Cookie value. Replaying that same request therefore fails closed with HTTP 409 and code `credential_not_replayable`; the caller must obtain a new one-time exchange token and use a new idempotency key. */
+        SessionCreationIdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Optional caller key. GitHub webhook delivery identity remains anchored by the required X-GitHub-Delivery header. */
         OptionalIdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Opaque continuation cursor returned by the preceding page. */
@@ -1309,8 +1330,8 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /** @description Caller-generated key scoped to browser session creation. Reusing the key with a different request conflicts. After a request succeeds, the platform retains only a hash of the issued credential and cannot reproduce the original Set-Cookie value. Replaying that same request therefore fails closed with HTTP 409 and code `credential_not_replayable`; the caller must obtain a new one-time exchange token and use a new idempotency key. */
+                "Idempotency-Key": components["parameters"]["SessionCreationIdempotencyKey"];
             };
             path?: never;
             cookie?: never;
@@ -1327,7 +1348,7 @@ export interface operations {
                     "application/json": components["schemas"]["Session"];
                 };
             };
-            409: components["responses"]["IdempotencyConflict"];
+            409: components["responses"]["SessionCreationConflict"];
             default: components["responses"]["Problem"];
         };
     };
