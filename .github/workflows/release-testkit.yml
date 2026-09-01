@@ -34,6 +34,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.sha }}
+      - name: Install pinned GitHub CLI
+        shell: bash
+        run: bash scripts/install-github-cli.sh
       - name: Validate immutable release request and empty destination
         id: release
         env:
@@ -43,6 +46,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          expected_gh="$RUNNER_TEMP/gh_2.96.0_linux_amd64/bin/gh"
+          if [[ "$(command -v gh)" != "$expected_gh" ]]; then
+            echo "Pinned GitHub CLI is not first on PATH." >&2
+            exit 1
+          fi
           if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
             echo "Testkit releases must be dispatched from refs/heads/main." >&2
             exit 1
@@ -200,6 +208,9 @@ jobs:
         with:
           name: provenance-${{ needs.validate.outputs.tag }}-${{ needs.validate.outputs.source_sha }}
           path: dist/testkit
+      - name: Install pinned GitHub CLI
+        shell: bash
+        run: bash policy/scripts/install-github-cli.sh
       - name: Revalidate, create dedicated tag, and publish direct assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -211,6 +222,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          expected_gh="$RUNNER_TEMP/gh_2.96.0_linux_amd64/bin/gh"
+          if [[ "$(command -v gh)" != "$expected_gh" ]]; then
+            echo "Pinned GitHub CLI is not first on PATH." >&2
+            exit 1
+          fi
           if [[ "$(git rev-parse HEAD)" != "$POLICY_SHA" ]]; then
             echo "Privileged release checkout does not match reviewed policy." >&2
             exit 1

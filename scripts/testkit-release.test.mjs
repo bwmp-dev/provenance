@@ -82,4 +82,23 @@ test("release workflow is pinned, build-only, and fail-closed", async () => {
   assert.match(workflow, /verifyHostileFixtureArtifacts/);
   assert.match(workflow, /A tag or release already exists for/);
   assert.match(workflow, /contents: write/);
+  assert.equal(workflow.match(/Install pinned GitHub CLI/g)?.length, 2);
+  assert.equal(workflow.match(/command -v gh/g)?.length, 2);
+});
+
+test("release jobs bootstrap the reviewed GitHub CLI bytes", async () => {
+  const installer = await readFile(
+    new URL("./install-github-cli.sh", import.meta.url),
+    "utf8",
+  );
+  assert.match(installer, /version="2\.96\.0"/);
+  assert.match(installer, /b300f2ec7ec9dc9addc39b2ad88c54097ded7ca0/);
+  assert.match(
+    installer,
+    /83d5c2ccad5498f58bf6368acb1ab32588cf43ab3a4b1c301bf36328b1c8bd60/,
+  );
+  assert.match(installer, /archive_size="14652560"/);
+  assert.match(installer, /sha256sum --check --strict/);
+  assert.match(installer, /ELF 64-bit LSB executable, x86-64/);
+  assert.match(installer, /reported_version/);
 });
