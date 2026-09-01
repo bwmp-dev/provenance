@@ -22,7 +22,7 @@
     "test": "pnpm run build && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:openapi && pnpm run test:proto && pnpm run test:release && pnpm run test:paper-harness",
     "test:openapi": "node --test openapi/contract.test.mjs",
     "test:proto": "node --test proto/provenance/runner/v1/contract.test.mjs",
-    "test:release": "node --test scripts/contract-release.test.mjs",
+    "test:release": "node --test scripts/*.test.mjs",
     "test:paper-harness": "node --test packages/test-fixtures/scripts/paper-behavioral.test.mjs",
     "paper:behavioral": "node packages/test-fixtures/scripts/run-paper-behavioral.mjs",
     "security:check": "pnpm audit --audit-level high && go -C gen/proto run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
