@@ -433,15 +433,40 @@ export interface paths {
          *     `*\/*`, or an equal preference. `text/event-stream` is selected only when
          *     it is explicitly the most preferred supported representation.
          *
-         *     The query `cursor` is used for JSON reconciliation and an initial SSE
-         *     request. For SSE reconnects, `Last-Event-ID` takes precedence. Supplying
-         *     both is accepted only when their opaque values are byte-for-byte equal;
-         *     different values fail with HTTP 400 and code `log_cursor_conflict`.
-         *     `Last-Event-ID` with the JSON representation fails with HTTP 400 and code
-         *     `last_event_id_not_applicable`. A cursor is scoped to the authenticated
-         *     tenant, candidate, execution, and attempt. Invalid cursors fail with HTTP
-         *     400; a cursor scoped to another private resource is indistinguishable
-         *     from a missing resource and returns HTTP 404.
+         *     The server first authenticates the caller and authorizes the candidate
+         *     and execution, then negotiates the representation. It validates the
+         *     representation-specific parameters only after those checks. For JSON,
+         *     any `Last-Event-ID` fails with HTTP 400 and code
+         *     `last_event_id_not_applicable`, before either cursor is compared or
+         *     decoded. For SSE, `limit` is not applicable and fails first with HTTP 400
+         *     and code `limit_not_applicable`. Next, differing query `cursor` and
+         *     `Last-Event-ID` values fail with HTTP 400 and code
+         *     `log_cursor_conflict`; equal values are treated as one cursor. A
+         *     syntactically or cryptographically invalid selected cursor then fails
+         *     with HTTP 400 and code `invalid_log_cursor`. A valid cursor scoped to a
+         *     different tenant, candidate, or execution, or whose attempt never
+         *     belonged to the path execution, is indistinguishable from a missing
+         *     private resource and returns HTTP 404. Only after scope is accepted does
+         *     an expired cursor fail with HTTP 410 and code `log_cursor_expired`.
+         *
+         *     Without a cursor, the server selects the execution's current lease
+         *     attempt in offered, accepted, or active state, otherwise its most
+         *     recently created lease attempt, or no attempt before the first lease
+         *     exists. JSON and the initial SSE snapshot start at the earliest retained
+         *     event for that selected attempt. If the relay knows that any earlier live
+         *     prefix was dropped, evicted, or lost on restart, a `log-gap` event is the
+         *     first data event. A valid unexpired cursor for any attempt that belongs
+         *     to the execution selects that attempt even when it is no longer current
+         *     and resumes strictly after the identified event.
+         *
+         *     JSON events are returned in ascending opaque relay order. `limit` counts
+         *     every `ExecutionLogEvent`, including gap and state events. When at least
+         *     one event is returned, `nextCursor` is the position strictly after the
+         *     final returned event, for both full and partial pages. An empty response
+         *     echoes a supplied cursor byte-for-byte without advancing it; it returns
+         *     null only when no cursor was supplied. These rules also apply to empty
+         *     terminal pages. Clients reconcile until an empty page and compare the
+         *     echoed cursor before polling again.
          *
          *     Live relay cursors are opaque, short-lived positions and never promise
          *     replay of missed bytes. If an accepted cursor precedes retained relay
@@ -754,6 +779,67 @@ export interface components {
             message: string;
             code?: string;
         };
+        /** @description Bounded RFC 9457 problem details for private log resources. */
+        PrivateProblemDetails: {
+            /**
+             * Format: uri-reference
+             * @default about:blank
+             */
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
+            /** Format: uri-reference */
+            instance?: string;
+            code: string;
+            traceId?: string;
+            errors?: components["schemas"]["PrivateProblemFieldError"][];
+        };
+        PrivateProblemFieldError: {
+            path?: string;
+            message: string;
+            code?: string;
+        };
+        AuthenticationRequiredProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "authentication_required";
+        };
+        PrivateLogNotFoundProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "private_log_not_found";
+        };
+        LogRequestInvalidProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @enum {string} */
+            code: "last_event_id_not_applicable" | "limit_not_applicable" | "log_cursor_conflict" | "invalid_log_cursor";
+        };
+        LogRepresentationNotAcceptableProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "log_representation_not_acceptable";
+        };
+        LogCursorExpiredProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "log_cursor_expired";
+        };
+        LogRateLimitedProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "log_rate_limited";
+        };
+        LogRelayUnavailableProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "log_relay_unavailable";
+        };
+        CompleteLogNotReadyProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "complete_log_not_ready";
+        };
+        CompleteLogUnavailableProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "complete_log_unavailable";
+        };
+        CompleteLogExpiredProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "complete_log_expired";
+        };
         /** @enum {string} */
         SessionState: "active" | "expired" | "revoked";
         /** @enum {string} */
@@ -1034,7 +1120,9 @@ export interface components {
             executionId: components["schemas"]["BoundedStableId"];
             attemptId: components["schemas"]["BoundedStableId"] | null;
             attemptNumber: number;
+            /** @description Events in ascending opaque relay order, bounded by the JSON limit. */
             events: components["schemas"]["ExecutionLogEvent"][];
+            /** @description Position strictly after the final returned event. An empty page echoes its input cursor without advancing, or returns null when no cursor was supplied. */
             nextCursor: components["schemas"]["LogCursor"] | null;
             liveState: components["schemas"]["LiveLogState"];
             completeLog: components["schemas"]["CompleteLogState"];
@@ -1432,88 +1520,118 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
-        /** @description Authentication is required; no private resource identity is disclosed. */
-        AuthenticationRequired: {
+        /** @description Private request failed without a more specific response. */
+        PrivateProblem: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["PrivateProblemDetails"];
+            };
+        };
+        /** @description Authentication is required; no private resource identity is disclosed. */
+        AuthenticationRequired: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                "WWW-Authenticate": components["headers"]["BearerChallenge"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AuthenticationRequiredProblem"];
             };
         };
         /** @description The private candidate or execution does not exist or the authenticated principal is not authorized to access it. Both cases use the identical status and problem shape to avoid cross-tenant identity disclosure. */
         PrivateLogNotFound: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["PrivateLogNotFoundProblem"];
             };
         };
-        /** @description The cursor is malformed, Last-Event-ID was used with JSON, or the query cursor and Last-Event-ID differ. Stable codes are `invalid_log_cursor`, `last_event_id_not_applicable`, and `log_cursor_conflict`. */
-        LogCursorConflict: {
+        /** @description A representation-specific parameter is not applicable, cursor forms conflict, or the selected cursor is invalid. Stable codes are `last_event_id_not_applicable`, `limit_not_applicable`, `log_cursor_conflict`, and `invalid_log_cursor`. */
+        LogRequestInvalid: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["LogRequestInvalidProblem"];
             };
         };
         /** @description Accept does not permit application/json or text/event-stream. Code `log_representation_not_acceptable` is returned. */
         LogRepresentationNotAcceptable: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["LogRepresentationNotAcceptableProblem"];
+            };
+        };
+        /** @description The valid, correctly scoped live cursor passed its short retention boundary. Code `log_cursor_expired` is returned. This is distinct from an accepted cursor whose position predates retained relay bytes, which returns HTTP 200 with a `log-gap` event. */
+        LogCursorExpired: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["LogCursorExpiredProblem"];
             };
         };
         /** @description The authenticated identity or relay subscriber limit was reached. */
         LogRateLimited: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 "Retry-After": components["headers"]["RetryAfter"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["LogRateLimitedProblem"];
             };
         };
         /** @description The best-effort live relay is unavailable. The client must reconcile execution state and complete-log status; this is not evidence that the execution or authoritative completed log failed. */
         LogRelayUnavailable: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 "Retry-After": components["headers"]["RetryAfter"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["LogRelayUnavailableProblem"];
             };
         };
         /** @description Terminal complete-log verification or durable metadata persistence is still pending. Code `complete_log_not_ready` is returned. */
         CompleteLogNotReady: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 "Retry-After": components["headers"]["RetryAfter"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["CompleteLogNotReadyProblem"];
             };
         };
         /** @description The complete log failed verification/persistence or was not produced. Code `complete_log_unavailable` is returned; structured result evidence remains a separate resource. */
         CompleteLogUnavailable: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["CompleteLogUnavailableProblem"];
             };
         };
         /** @description The private complete log passed its retention boundary and is no longer downloadable. Code `complete_log_expired` is returned. */
         CompleteLogExpired: {
             headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["CompleteLogExpiredProblem"];
             };
         };
         /** @description The idempotency key was reused with a different request. */
@@ -1583,7 +1701,9 @@ export interface components {
         LastEventId: components["schemas"]["Cursor"];
         /** @description Opaque, short-lived live-relay position scoped to the authenticated tenant, candidate, execution, and attempt. It resumes strictly after the identified event and never promises durable replay. */
         LogCursor: components["schemas"]["LogCursor"];
-        /** @description SSE reconnect cursor. It takes precedence over the query cursor; when both are present they must be byte-for-byte equal. It is invalid for the JSON representation and is reauthorized on every reconnect. */
+        /** @description Maximum number of ExecutionLogEvent values in a JSON reconciliation page, including gap and state events. It is invalid for SSE. */
+        LogPageSize: number;
+        /** @description SSE reconnect cursor. When both cursor forms are present they must be byte-for-byte equal. Any Last-Event-ID is invalid for JSON, and every SSE reconnect independently reauthorizes and validates the selected cursor. */
         LogLastEventId: components["schemas"]["LogCursor"];
         OrganizationId: components["schemas"]["StableId"];
         ProjectId: components["schemas"]["StableId"];
@@ -1702,6 +1822,8 @@ export interface components {
         PrivateNoStore: "private, no-store";
         /** @description Content negotiation varies the representation by Accept. */
         VaryAccept: "Accept";
+        /** @description Bounded RFC 9110 Bearer authentication challenge. */
+        BearerChallenge: "Bearer realm=\"provenance\"";
         /** @description Bounded delay in seconds before retrying. */
         RetryAfter: number;
         /** @description RFC 9530 SHA-256 digest of the exact compressed response bytes. */
@@ -2438,6 +2560,7 @@ export interface operations {
             /** @description Bounded execution log descriptor page. */
             200: {
                 headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2446,7 +2569,7 @@ export interface operations {
             };
             401: components["responses"]["AuthenticationRequired"];
             404: components["responses"]["PrivateLogNotFound"];
-            default: components["responses"]["Problem"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     readExecutionLogs: {
@@ -2454,11 +2577,11 @@ export interface operations {
             query?: {
                 /** @description Opaque, short-lived live-relay position scoped to the authenticated tenant, candidate, execution, and attempt. It resumes strictly after the identified event and never promises durable replay. */
                 cursor?: components["parameters"]["LogCursor"];
-                /** @description Maximum number of resources to return. */
-                limit?: components["parameters"]["PageSize"];
+                /** @description Maximum number of ExecutionLogEvent values in a JSON reconciliation page, including gap and state events. It is invalid for SSE. */
+                limit?: components["parameters"]["LogPageSize"];
             };
             header?: {
-                /** @description SSE reconnect cursor. It takes precedence over the query cursor; when both are present they must be byte-for-byte equal. It is invalid for the JSON representation and is reauthorized on every reconnect. */
+                /** @description SSE reconnect cursor. When both cursor forms are present they must be byte-for-byte equal. Any Last-Event-ID is invalid for JSON, and every SSE reconnect independently reauthorizes and validates the selected cursor. */
                 "Last-Event-ID"?: components["parameters"]["LogLastEventId"];
             };
             path: {
@@ -2503,13 +2626,14 @@ export interface operations {
                     "text/event-stream": string;
                 };
             };
-            400: components["responses"]["LogCursorConflict"];
+            400: components["responses"]["LogRequestInvalid"];
             401: components["responses"]["AuthenticationRequired"];
             404: components["responses"]["PrivateLogNotFound"];
             406: components["responses"]["LogRepresentationNotAcceptable"];
+            410: components["responses"]["LogCursorExpired"];
             429: components["responses"]["LogRateLimited"];
             503: components["responses"]["LogRelayUnavailable"];
-            default: components["responses"]["Problem"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     downloadCompleteExecutionLog: {
@@ -2542,7 +2666,7 @@ export interface operations {
             409: components["responses"]["CompleteLogUnavailable"];
             410: components["responses"]["CompleteLogExpired"];
             425: components["responses"]["CompleteLogNotReady"];
-            default: components["responses"]["Problem"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     getVerification: {

@@ -11,6 +11,10 @@ const document = parse(
 const inventory = JSON.parse(
   await readFile(new URL("operation-inventory.json", root), "utf8"),
 );
+const generatedClient = await readFile(
+  new URL("../packages/api-client/src/gen/schema.d.ts", root),
+  "utf8",
+);
 const methods = new Set([
   "delete",
   "get",
@@ -21,6 +25,11 @@ const methods = new Set([
   "put",
 ]);
 const mutations = new Set(["delete", "patch", "post", "put"]);
+const privateLogOperationIds = new Set([
+  "listReleaseCandidateExecutions",
+  "readExecutionLogs",
+  "downloadCompleteExecutionLog",
+]);
 
 const operations = Object.entries(document.paths).flatMap(([path, pathItem]) =>
   Object.entries(pathItem)
@@ -65,7 +74,9 @@ test("every operation exposes structured failure responses", () => {
   for (const { operation } of operations) {
     assert.equal(
       operation.responses.default?.$ref,
-      "#/components/responses/Problem",
+      privateLogOperationIds.has(operation.operationId)
+        ? "#/components/responses/PrivateProblem"
+        : "#/components/responses/Problem",
       operation.operationId,
     );
   }
@@ -367,7 +378,7 @@ test("IFC-010 exposes only bounded candidate execution log operations", () => {
     );
     assert.equal(
       candidate.responses.default.$ref,
-      "#/components/responses/Problem",
+      "#/components/responses/PrivateProblem",
     );
   }
 
@@ -422,9 +433,44 @@ test("IFC-010 cursor negotiation and SSE grammar are unambiguous", () => {
   assert.deepEqual(parameterNames, ["cursor", "limit", "Last-Event-ID"]);
   assert.match(liveLogs.description, /application\/json.*is the default/is);
   assert.match(liveLogs.description, /explicitly the most preferred/i);
-  assert.match(liveLogs.description, /Last-Event-ID.*takes precedence/is);
-  assert.match(liveLogs.description, /byte-for-byte equal/i);
+  assert.match(
+    liveLogs.description,
+    /For JSON,\s+any `Last-Event-ID`.*last_event_id_not_applicable/is,
+  );
+  assert.match(
+    liveLogs.description,
+    /For SSE, `limit`.*limit_not_applicable/is,
+  );
+  assert.match(liveLogs.description, /differing query `cursor`.*conflict/is);
+  assert.match(liveLogs.description, /equal values are treated as one cursor/i);
   assert.match(liveLogs.description, /last_event_id_not_applicable/);
+  assert.match(liveLogs.description, /invalid_log_cursor/);
+  assert.match(liveLogs.description, /different tenant.*HTTP 404/is);
+  assert.match(liveLogs.description, /expired cursor.*HTTP 410/is);
+  assert.match(liveLogs.description, /log_cursor_expired/);
+  assert.match(
+    liveLogs.description,
+    /current lease\s+attempt in offered, accepted, or active state, otherwise its most\s+recently created lease attempt/is,
+  );
+  assert.match(liveLogs.description, /earliest retained\s+event/i);
+  assert.match(
+    liveLogs.description,
+    /cursor for any attempt that belongs\s+to the execution selects that attempt/is,
+  );
+  assert.match(
+    liveLogs.description,
+    /`log-gap` event is the\s+first data event/i,
+  );
+  assert.match(liveLogs.description, /ascending opaque relay order/i);
+  assert.match(
+    liveLogs.description,
+    /`limit` counts\s+every `ExecutionLogEvent`/is,
+  );
+  assert.match(
+    liveLogs.description,
+    /empty response\s+echoes a supplied cursor byte-for-byte without advancing/is,
+  );
+  assert.match(liveLogs.description, /empty\s+terminal pages/i);
   assert.match(liveLogs.description, /never promise\s+replay of missed bytes/i);
   assert.match(
     liveLogs.description,
@@ -440,11 +486,15 @@ test("IFC-010 cursor negotiation and SSE grammar are unambiguous", () => {
   );
   assert.match(
     document.components.parameters.LogLastEventId.description,
-    /reauthorized on every reconnect/,
+    /reconnect independently reauthorizes/,
   );
   assert.equal(
     liveLogs.responses["400"].$ref,
-    "#/components/responses/LogCursorConflict",
+    "#/components/responses/LogRequestInvalid",
+  );
+  assert.equal(
+    liveLogs.responses["410"].$ref,
+    "#/components/responses/LogCursorExpired",
   );
 
   const success = liveLogs.responses["200"];
@@ -491,6 +541,80 @@ test("IFC-010 cursor negotiation and SSE grammar are unambiguous", () => {
   assert.equal(
     liveLogs.responses["406"].$ref,
     "#/components/responses/LogRepresentationNotAcceptable",
+  );
+});
+
+test("IFC-010 private responses are bounded, non-cacheable, and challenge Bearer clients", () => {
+  const schemas = document.components.schemas;
+  const responses = document.components.responses;
+  const privateNoStore = "#/components/headers/PrivateNoStore";
+
+  for (const operationId of privateLogOperationIds) {
+    const candidate = operation(operationId);
+    for (const [status, responseReference] of Object.entries(
+      candidate.responses,
+    )) {
+      const response = responseReference.$ref
+        ? resolveResponse(responseReference)
+        : responseReference;
+      assert.equal(
+        response.headers?.["Cache-Control"]?.$ref,
+        privateNoStore,
+        `${operationId} ${status}`,
+      );
+    }
+  }
+
+  assert.equal(
+    responses.AuthenticationRequired.headers["WWW-Authenticate"].$ref,
+    "#/components/headers/BearerChallenge",
+  );
+  assert.equal(
+    document.components.headers.BearerChallenge.schema.const,
+    'Bearer realm="provenance"',
+  );
+  assert.equal(
+    document.components.headers.BearerChallenge.schema.maxLength,
+    25,
+  );
+  assert.deepEqual(schemas.PrivateProblemDetails.required, [
+    "type",
+    "title",
+    "status",
+    "code",
+  ]);
+  assert.equal(schemas.PrivateProblemDetails.additionalProperties, false);
+  assert.equal(schemas.PrivateProblemDetails.properties.detail.maxLength, 4096);
+  assert.equal(schemas.PrivateProblemDetails.properties.errors.maxItems, 32);
+  assert.equal(
+    schemas.PrivateProblemDetails["x-provenance-max-json-bytes"],
+    16384,
+  );
+  assert.deepEqual(
+    schemas.LogRequestInvalidProblem.allOf[1].properties.code.enum,
+    [
+      "last_event_id_not_applicable",
+      "limit_not_applicable",
+      "log_cursor_conflict",
+      "invalid_log_cursor",
+    ],
+  );
+  assert.equal(
+    schemas.LogCursorExpiredProblem.allOf[1].properties.code.const,
+    "log_cursor_expired",
+  );
+
+  assert.match(
+    generatedClient,
+    /"WWW-Authenticate": components\["headers"\]\["BearerChallenge"\]/,
+  );
+  assert.match(
+    generatedClient,
+    /default: components\["responses"\]\["PrivateProblem"\]/,
+  );
+  assert.match(
+    generatedClient,
+    /410: components\["responses"\]\["LogCursorExpired"\]/,
   );
 });
 
@@ -698,6 +822,8 @@ test("IFC-010 introduced schemas bound arrays, strings, and serialized events", 
     "ExecutionLogGapEvent",
     "ExecutionLogStateEvent",
     "ExecutionCompleteLogStateEvent",
+    "PrivateProblemDetails",
+    "PrivateProblemFieldError",
   ]) {
     assert.equal(schemas[name].additionalProperties, false, name);
   }
@@ -719,6 +845,11 @@ function resolveParameter(parameter) {
   if (!parameter.$ref) return parameter;
   const name = parameter.$ref.split("/").at(-1);
   return document.components.parameters[name];
+}
+
+function resolveResponse(response) {
+  const name = response.$ref.split("/").at(-1);
+  return document.components.responses[name];
 }
 
 function compareInventory(left, right) {
