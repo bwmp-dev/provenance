@@ -819,6 +819,7 @@ const (
 	ProtocolFeature_PROTOCOL_FEATURE_UNSPECIFIED                    ProtocolFeature = 0
 	ProtocolFeature_PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS ProtocolFeature = 1
 	ProtocolFeature_PROTOCOL_FEATURE_CREDENTIAL_ROTATION            ProtocolFeature = 2
+	ProtocolFeature_PROTOCOL_FEATURE_JOB_CORRELATION_V1             ProtocolFeature = 3
 )
 
 // Enum value maps for ProtocolFeature.
@@ -827,11 +828,13 @@ var (
 		0: "PROTOCOL_FEATURE_UNSPECIFIED",
 		1: "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
 		2: "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
+		3: "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
 	}
 	ProtocolFeature_value = map[string]int32{
 		"PROTOCOL_FEATURE_UNSPECIFIED":                    0,
 		"PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS": 1,
 		"PROTOCOL_FEATURE_CREDENTIAL_ROTATION":            2,
+		"PROTOCOL_FEATURE_JOB_CORRELATION_V1":             3,
 	}
 )
 
@@ -2122,6 +2125,101 @@ func (x *DependencyInput) GetPluginName() string {
 	return ""
 }
 
+// JobCorrelation is the bounded IFC-012 correlation carrier introduced for
+// v0.1.0-alpha.7. It is observability identity, not authorization input:
+// organization_scope remains the sole job authorization scope and consumers MUST NOT authorize
+// work from any JobCorrelation value.
+//
+// A gateway MUST attach job_correlation only after the current runner stream advertises
+// JOB_CORRELATION_V1. A runner advertising JOB_CORRELATION_V1 MUST require and validate this
+// message before persisting or executing every offered job. A supporting runner that receives a
+// carrier without having advertised the feature MUST reject the offer. Absence is valid only for
+// explicitly legacy, non-negotiated operation, for which the gateway MUST NOT claim complete
+// gateway/runner correlation.
+//
+// traceparent is exactly 55 lowercase ASCII bytes in canonical W3C version-00 form:
+// 00-<32 lowercase hex trace id>-<16 lowercase hex parent id>-<2 lowercase hex flags>. The trace
+// and parent ids MUST be nonzero. organization_id and project_id are nonzero canonical lowercase
+// hyphenated UUIDs of exactly 36 ASCII bytes. workflow_id is exactly "release/" followed by the
+// release candidate's nonzero canonical lowercase UUID, for a total of 44 ASCII bytes; its suffix
+// MUST equal AttemptIdentity.release_candidate_id. The gateway sources organization_id and
+// project_id from the immutable candidate and MUST preserve all four values across job retries.
+// AttemptIdentity.matrix_entry_id is the alpha test-instance correlation and is deliberately not
+// repeated here.
+//
+// Tracestate, baggage, arbitrary metadata, secrets, plugin output, and authorization scope are not
+// correlation values and MUST NOT be encoded in this message. An exact replay MUST preserve every
+// field byte-for-byte; changing correlation for the same durable job identity is a protocol
+// conflict. Unknown or duplicate JOB_CORRELATION_V1 feature values and any malformed present
+// carrier fail closed.
+type JobCorrelation struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Traceparent    string                 `protobuf:"bytes,1,opt,name=traceparent,proto3" json:"traceparent,omitempty"`
+	OrganizationId string                 `protobuf:"bytes,2,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
+	ProjectId      string                 `protobuf:"bytes,3,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	WorkflowId     string                 `protobuf:"bytes,4,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *JobCorrelation) Reset() {
+	*x = JobCorrelation{}
+	mi := &file_common_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobCorrelation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobCorrelation) ProtoMessage() {}
+
+func (x *JobCorrelation) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobCorrelation.ProtoReflect.Descriptor instead.
+func (*JobCorrelation) Descriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *JobCorrelation) GetTraceparent() string {
+	if x != nil {
+		return x.Traceparent
+	}
+	return ""
+}
+
+func (x *JobCorrelation) GetOrganizationId() string {
+	if x != nil {
+		return x.OrganizationId
+	}
+	return ""
+}
+
+func (x *JobCorrelation) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *JobCorrelation) GetWorkflowId() string {
+	if x != nil {
+		return x.WorkflowId
+	}
+	return ""
+}
+
 type JobSpecification struct {
 	state                       protoimpl.MessageState `protogen:"open.v1"`
 	Lease                       *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
@@ -2135,13 +2233,14 @@ type JobSpecification struct {
 	NormalizedConfigurationJson []byte                 `protobuf:"bytes,9,opt,name=normalized_configuration_json,json=normalizedConfigurationJson,proto3" json:"normalized_configuration_json,omitempty"`
 	CompleteLogUpload           *ObjectUpload          `protobuf:"bytes,10,opt,name=complete_log_upload,json=completeLogUpload,proto3" json:"complete_log_upload,omitempty"`
 	TargetPluginName            string                 `protobuf:"bytes,20,opt,name=target_plugin_name,json=targetPluginName,proto3" json:"target_plugin_name,omitempty"`
+	JobCorrelation              *JobCorrelation        `protobuf:"bytes,21,opt,name=job_correlation,json=jobCorrelation,proto3" json:"job_correlation,omitempty"`
 	unknownFields               protoimpl.UnknownFields
 	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *JobSpecification) Reset() {
 	*x = JobSpecification{}
-	mi := &file_common_proto_msgTypes[17]
+	mi := &file_common_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2153,7 +2252,7 @@ func (x *JobSpecification) String() string {
 func (*JobSpecification) ProtoMessage() {}
 
 func (x *JobSpecification) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[17]
+	mi := &file_common_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2166,7 +2265,7 @@ func (x *JobSpecification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobSpecification.ProtoReflect.Descriptor instead.
 func (*JobSpecification) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{17}
+	return file_common_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *JobSpecification) GetLease() *LeaseIdentity {
@@ -2246,6 +2345,13 @@ func (x *JobSpecification) GetTargetPluginName() string {
 	return ""
 }
 
+func (x *JobSpecification) GetJobCorrelation() *JobCorrelation {
+	if x != nil {
+		return x.JobCorrelation
+	}
+	return nil
+}
+
 type ResourceUsage struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	CpuTime              *durationpb.Duration   `protobuf:"bytes,1,opt,name=cpu_time,json=cpuTime,proto3" json:"cpu_time,omitempty"`
@@ -2260,7 +2366,7 @@ type ResourceUsage struct {
 
 func (x *ResourceUsage) Reset() {
 	*x = ResourceUsage{}
-	mi := &file_common_proto_msgTypes[18]
+	mi := &file_common_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2272,7 +2378,7 @@ func (x *ResourceUsage) String() string {
 func (*ResourceUsage) ProtoMessage() {}
 
 func (x *ResourceUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[18]
+	mi := &file_common_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2285,7 +2391,7 @@ func (x *ResourceUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceUsage.ProtoReflect.Descriptor instead.
 func (*ResourceUsage) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{18}
+	return file_common_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ResourceUsage) GetCpuTime() *durationpb.Duration {
@@ -2344,7 +2450,7 @@ type LogEntry struct {
 
 func (x *LogEntry) Reset() {
 	*x = LogEntry{}
-	mi := &file_common_proto_msgTypes[19]
+	mi := &file_common_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2356,7 +2462,7 @@ func (x *LogEntry) String() string {
 func (*LogEntry) ProtoMessage() {}
 
 func (x *LogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[19]
+	mi := &file_common_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2369,7 +2475,7 @@ func (x *LogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
 func (*LogEntry) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{19}
+	return file_common_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *LogEntry) GetSequence() uint64 {
@@ -2430,7 +2536,7 @@ type AssertionResult struct {
 
 func (x *AssertionResult) Reset() {
 	*x = AssertionResult{}
-	mi := &file_common_proto_msgTypes[20]
+	mi := &file_common_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2442,7 +2548,7 @@ func (x *AssertionResult) String() string {
 func (*AssertionResult) ProtoMessage() {}
 
 func (x *AssertionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[20]
+	mi := &file_common_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2455,7 +2561,7 @@ func (x *AssertionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssertionResult.ProtoReflect.Descriptor instead.
 func (*AssertionResult) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{20}
+	return file_common_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AssertionResult) GetAssertionId() string {
@@ -2525,7 +2631,7 @@ type LifecycleEvent struct {
 
 func (x *LifecycleEvent) Reset() {
 	*x = LifecycleEvent{}
-	mi := &file_common_proto_msgTypes[21]
+	mi := &file_common_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2537,7 +2643,7 @@ func (x *LifecycleEvent) String() string {
 func (*LifecycleEvent) ProtoMessage() {}
 
 func (x *LifecycleEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[21]
+	mi := &file_common_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2550,7 +2656,7 @@ func (x *LifecycleEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LifecycleEvent.ProtoReflect.Descriptor instead.
 func (*LifecycleEvent) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{21}
+	return file_common_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *LifecycleEvent) GetKind() LifecycleEventKind {
@@ -2586,7 +2692,7 @@ type LogObject struct {
 
 func (x *LogObject) Reset() {
 	*x = LogObject{}
-	mi := &file_common_proto_msgTypes[22]
+	mi := &file_common_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2598,7 +2704,7 @@ func (x *LogObject) String() string {
 func (*LogObject) ProtoMessage() {}
 
 func (x *LogObject) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[22]
+	mi := &file_common_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2611,7 +2717,7 @@ func (x *LogObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogObject.ProtoReflect.Descriptor instead.
 func (*LogObject) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{22}
+	return file_common_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *LogObject) GetObjectKey() string {
@@ -2658,7 +2764,7 @@ type StructuredResult struct {
 
 func (x *StructuredResult) Reset() {
 	*x = StructuredResult{}
-	mi := &file_common_proto_msgTypes[23]
+	mi := &file_common_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2670,7 +2776,7 @@ func (x *StructuredResult) String() string {
 func (*StructuredResult) ProtoMessage() {}
 
 func (x *StructuredResult) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[23]
+	mi := &file_common_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2683,7 +2789,7 @@ func (x *StructuredResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StructuredResult.ProtoReflect.Descriptor instead.
 func (*StructuredResult) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{23}
+	return file_common_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *StructuredResult) GetOutcome() ResultOutcome {
@@ -2756,7 +2862,7 @@ type FailureDetail struct {
 
 func (x *FailureDetail) Reset() {
 	*x = FailureDetail{}
-	mi := &file_common_proto_msgTypes[24]
+	mi := &file_common_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2768,7 +2874,7 @@ func (x *FailureDetail) String() string {
 func (*FailureDetail) ProtoMessage() {}
 
 func (x *FailureDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[24]
+	mi := &file_common_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2781,7 +2887,7 @@ func (x *FailureDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FailureDetail.ProtoReflect.Descriptor instead.
 func (*FailureDetail) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{24}
+	return file_common_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *FailureDetail) GetCategory() FailureCategory {
@@ -2956,7 +3062,15 @@ const file_common_proto_rawDesc = "" +
 	"\vplugin_name\x18\n" +
 	" \x01(\tR\n" +
 	"pluginNameJ\x04\b\x03\x10\n" +
-	"\"\x97\x06\n" +
+	"\"\xa1\x01\n" +
+	"\x0eJobCorrelation\x12 \n" +
+	"\vtraceparent\x18\x01 \x01(\tR\vtraceparent\x12'\n" +
+	"\x0forganization_id\x18\x02 \x01(\tR\x0eorganizationId\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x03 \x01(\tR\tprojectId\x12\x1f\n" +
+	"\vworkflow_id\x18\x04 \x01(\tR\n" +
+	"workflowIdJ\x04\b\x05\x10\n" +
+	"\"\xe6\x06\n" +
 	"\x10JobSpecification\x129\n" +
 	"\x05lease\x18\x01 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
 	"\aattempt\x18\x02 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\x12V\n" +
@@ -2969,7 +3083,8 @@ const file_common_proto_rawDesc = "" +
 	"\x1dnormalized_configuration_json\x18\t \x01(\fR\x1bnormalizedConfigurationJson\x12R\n" +
 	"\x13complete_log_upload\x18\n" +
 	" \x01(\v2\".provenance.runner.v1.ObjectUploadR\x11completeLogUpload\x12,\n" +
-	"\x12target_plugin_name\x18\x14 \x01(\tR\x10targetPluginNameJ\x04\b\v\x10\x14\"\xb3\x02\n" +
+	"\x12target_plugin_name\x18\x14 \x01(\tR\x10targetPluginName\x12M\n" +
+	"\x0fjob_correlation\x18\x15 \x01(\v2$.provenance.runner.v1.JobCorrelationR\x0ejobCorrelationJ\x04\b\v\x10\x14\"\xb3\x02\n" +
 	"\rResourceUsage\x124\n" +
 	"\bcpu_time\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\acpuTime\x12*\n" +
 	"\x11peak_memory_bytes\x18\x02 \x01(\x04R\x0fpeakMemoryBytes\x12&\n" +
@@ -3112,11 +3227,12 @@ const file_common_proto_rawDesc = "" +
 	"\x15FAILURE_STAGE_STARTUP\x10\x03\x12\x1b\n" +
 	"\x17FAILURE_STAGE_EXECUTION\x10\x04\x12\x19\n" +
 	"\x15FAILURE_STAGE_CLEANUP\x10\x05\x12\x1f\n" +
-	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\x92\x01\n" +
+	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xbb\x01\n" +
 	"\x0fProtocolFeature\x12 \n" +
 	"\x1cPROTOCOL_FEATURE_UNSPECIFIED\x10\x00\x123\n" +
 	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01\x12(\n" +
-	"$PROTOCOL_FEATURE_CREDENTIAL_ROTATION\x10\x02BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
+	"$PROTOCOL_FEATURE_CREDENTIAL_ROTATION\x10\x02\x12'\n" +
+	"#PROTOCOL_FEATURE_JOB_CORRELATION_V1\x10\x03BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once
@@ -3131,7 +3247,7 @@ func file_common_proto_rawDescGZIP() []byte {
 }
 
 var file_common_proto_enumTypes = make([]protoimpl.EnumInfo, 16)
-var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_common_proto_goTypes = []any{
 	(DigestAlgorithm)(0),          // 0: provenance.runner.v1.DigestAlgorithm
 	(ServerProvider)(0),           // 1: provenance.runner.v1.ServerProvider
@@ -3166,23 +3282,24 @@ var file_common_proto_goTypes = []any{
 	(*ObjectDownload)(nil),        // 30: provenance.runner.v1.ObjectDownload
 	(*ObjectUpload)(nil),          // 31: provenance.runner.v1.ObjectUpload
 	(*DependencyInput)(nil),       // 32: provenance.runner.v1.DependencyInput
-	(*JobSpecification)(nil),      // 33: provenance.runner.v1.JobSpecification
-	(*ResourceUsage)(nil),         // 34: provenance.runner.v1.ResourceUsage
-	(*LogEntry)(nil),              // 35: provenance.runner.v1.LogEntry
-	(*AssertionResult)(nil),       // 36: provenance.runner.v1.AssertionResult
-	(*LifecycleEvent)(nil),        // 37: provenance.runner.v1.LifecycleEvent
-	(*LogObject)(nil),             // 38: provenance.runner.v1.LogObject
-	(*StructuredResult)(nil),      // 39: provenance.runner.v1.StructuredResult
-	(*FailureDetail)(nil),         // 40: provenance.runner.v1.FailureDetail
-	nil,                           // 41: provenance.runner.v1.Capabilities.LabelsEntry
-	nil,                           // 42: provenance.runner.v1.LifecycleEvent.AttributesEntry
-	(*timestamppb.Timestamp)(nil), // 43: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),         // 44: google.protobuf.Empty
-	(*durationpb.Duration)(nil),   // 45: google.protobuf.Duration
+	(*JobCorrelation)(nil),        // 33: provenance.runner.v1.JobCorrelation
+	(*JobSpecification)(nil),      // 34: provenance.runner.v1.JobSpecification
+	(*ResourceUsage)(nil),         // 35: provenance.runner.v1.ResourceUsage
+	(*LogEntry)(nil),              // 36: provenance.runner.v1.LogEntry
+	(*AssertionResult)(nil),       // 37: provenance.runner.v1.AssertionResult
+	(*LifecycleEvent)(nil),        // 38: provenance.runner.v1.LifecycleEvent
+	(*LogObject)(nil),             // 39: provenance.runner.v1.LogObject
+	(*StructuredResult)(nil),      // 40: provenance.runner.v1.StructuredResult
+	(*FailureDetail)(nil),         // 41: provenance.runner.v1.FailureDetail
+	nil,                           // 42: provenance.runner.v1.Capabilities.LabelsEntry
+	nil,                           // 43: provenance.runner.v1.LifecycleEvent.AttributesEntry
+	(*timestamppb.Timestamp)(nil), // 44: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),         // 45: google.protobuf.Empty
+	(*durationpb.Duration)(nil),   // 46: google.protobuf.Duration
 }
 var file_common_proto_depIdxs = []int32{
-	43, // 0: provenance.runner.v1.LeaseIdentity.expires_at:type_name -> google.protobuf.Timestamp
-	44, // 1: provenance.runner.v1.OrganizationScope.platform:type_name -> google.protobuf.Empty
+	44, // 0: provenance.runner.v1.LeaseIdentity.expires_at:type_name -> google.protobuf.Timestamp
+	45, // 1: provenance.runner.v1.OrganizationScope.platform:type_name -> google.protobuf.Empty
 	0,  // 2: provenance.runner.v1.Digest.algorithm:type_name -> provenance.runner.v1.DigestAlgorithm
 	19, // 3: provenance.runner.v1.DependencyDigest.digest:type_name -> provenance.runner.v1.Digest
 	19, // 4: provenance.runner.v1.JobHashes.artifact:type_name -> provenance.runner.v1.Digest
@@ -3200,9 +3317,9 @@ var file_common_proto_depIdxs = []int32{
 	4,  // 16: provenance.runner.v1.EffectivePolicy.sandbox:type_name -> provenance.runner.v1.SandboxKind
 	25, // 17: provenance.runner.v1.EffectivePolicy.network:type_name -> provenance.runner.v1.NetworkPolicy
 	23, // 18: provenance.runner.v1.EffectivePolicy.resources:type_name -> provenance.runner.v1.ResourceLimits
-	45, // 19: provenance.runner.v1.EffectivePolicy.preparation_timeout:type_name -> google.protobuf.Duration
-	45, // 20: provenance.runner.v1.EffectivePolicy.execution_timeout:type_name -> google.protobuf.Duration
-	45, // 21: provenance.runner.v1.EffectivePolicy.graceful_shutdown_timeout:type_name -> google.protobuf.Duration
+	46, // 19: provenance.runner.v1.EffectivePolicy.preparation_timeout:type_name -> google.protobuf.Duration
+	46, // 20: provenance.runner.v1.EffectivePolicy.execution_timeout:type_name -> google.protobuf.Duration
+	46, // 21: provenance.runner.v1.EffectivePolicy.graceful_shutdown_timeout:type_name -> google.protobuf.Duration
 	6,  // 22: provenance.runner.v1.EffectivePolicy.requirement:type_name -> provenance.runner.v1.EnvironmentRequirement
 	4,  // 23: provenance.runner.v1.RunnerPolicy.sandboxes:type_name -> provenance.runner.v1.SandboxKind
 	25, // 24: provenance.runner.v1.RunnerPolicy.maximum_network:type_name -> provenance.runner.v1.NetworkPolicy
@@ -3213,11 +3330,11 @@ var file_common_proto_depIdxs = []int32{
 	1,  // 29: provenance.runner.v1.Capabilities.providers:type_name -> provenance.runner.v1.ServerProvider
 	27, // 30: provenance.runner.v1.Capabilities.capacity:type_name -> provenance.runner.v1.Capacity
 	28, // 31: provenance.runner.v1.Capabilities.policy:type_name -> provenance.runner.v1.RunnerPolicy
-	41, // 32: provenance.runner.v1.Capabilities.labels:type_name -> provenance.runner.v1.Capabilities.LabelsEntry
+	42, // 32: provenance.runner.v1.Capabilities.labels:type_name -> provenance.runner.v1.Capabilities.LabelsEntry
 	15, // 33: provenance.runner.v1.Capabilities.features:type_name -> provenance.runner.v1.ProtocolFeature
 	19, // 34: provenance.runner.v1.ObjectDownload.digest:type_name -> provenance.runner.v1.Digest
-	43, // 35: provenance.runner.v1.ObjectDownload.expires_at:type_name -> google.protobuf.Timestamp
-	43, // 36: provenance.runner.v1.ObjectUpload.expires_at:type_name -> google.protobuf.Timestamp
+	44, // 35: provenance.runner.v1.ObjectDownload.expires_at:type_name -> google.protobuf.Timestamp
+	44, // 36: provenance.runner.v1.ObjectUpload.expires_at:type_name -> google.protobuf.Timestamp
 	30, // 37: provenance.runner.v1.DependencyInput.object:type_name -> provenance.runner.v1.ObjectDownload
 	16, // 38: provenance.runner.v1.JobSpecification.lease:type_name -> provenance.runner.v1.LeaseIdentity
 	17, // 39: provenance.runner.v1.JobSpecification.attempt:type_name -> provenance.runner.v1.AttemptIdentity
@@ -3228,31 +3345,32 @@ var file_common_proto_depIdxs = []int32{
 	30, // 44: provenance.runner.v1.JobSpecification.artifact:type_name -> provenance.runner.v1.ObjectDownload
 	32, // 45: provenance.runner.v1.JobSpecification.dependencies:type_name -> provenance.runner.v1.DependencyInput
 	31, // 46: provenance.runner.v1.JobSpecification.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
-	45, // 47: provenance.runner.v1.ResourceUsage.cpu_time:type_name -> google.protobuf.Duration
-	43, // 48: provenance.runner.v1.LogEntry.observed_at:type_name -> google.protobuf.Timestamp
-	8,  // 49: provenance.runner.v1.LogEntry.stream:type_name -> provenance.runner.v1.LogStream
-	9,  // 50: provenance.runner.v1.AssertionResult.kind:type_name -> provenance.runner.v1.AssertionKind
-	10, // 51: provenance.runner.v1.AssertionResult.outcome:type_name -> provenance.runner.v1.AssertionOutcome
-	43, // 52: provenance.runner.v1.AssertionResult.started_at:type_name -> google.protobuf.Timestamp
-	43, // 53: provenance.runner.v1.AssertionResult.completed_at:type_name -> google.protobuf.Timestamp
-	11, // 54: provenance.runner.v1.LifecycleEvent.kind:type_name -> provenance.runner.v1.LifecycleEventKind
-	43, // 55: provenance.runner.v1.LifecycleEvent.observed_at:type_name -> google.protobuf.Timestamp
-	42, // 56: provenance.runner.v1.LifecycleEvent.attributes:type_name -> provenance.runner.v1.LifecycleEvent.AttributesEntry
-	19, // 57: provenance.runner.v1.LogObject.digest:type_name -> provenance.runner.v1.Digest
-	12, // 58: provenance.runner.v1.StructuredResult.outcome:type_name -> provenance.runner.v1.ResultOutcome
-	36, // 59: provenance.runner.v1.StructuredResult.assertions:type_name -> provenance.runner.v1.AssertionResult
-	37, // 60: provenance.runner.v1.StructuredResult.lifecycle_events:type_name -> provenance.runner.v1.LifecycleEvent
-	34, // 61: provenance.runner.v1.StructuredResult.usage:type_name -> provenance.runner.v1.ResourceUsage
-	43, // 62: provenance.runner.v1.StructuredResult.started_at:type_name -> google.protobuf.Timestamp
-	43, // 63: provenance.runner.v1.StructuredResult.completed_at:type_name -> google.protobuf.Timestamp
-	38, // 64: provenance.runner.v1.StructuredResult.complete_log:type_name -> provenance.runner.v1.LogObject
-	13, // 65: provenance.runner.v1.FailureDetail.category:type_name -> provenance.runner.v1.FailureCategory
-	14, // 66: provenance.runner.v1.FailureDetail.stage:type_name -> provenance.runner.v1.FailureStage
-	67, // [67:67] is the sub-list for method output_type
-	67, // [67:67] is the sub-list for method input_type
-	67, // [67:67] is the sub-list for extension type_name
-	67, // [67:67] is the sub-list for extension extendee
-	0,  // [0:67] is the sub-list for field type_name
+	33, // 47: provenance.runner.v1.JobSpecification.job_correlation:type_name -> provenance.runner.v1.JobCorrelation
+	46, // 48: provenance.runner.v1.ResourceUsage.cpu_time:type_name -> google.protobuf.Duration
+	44, // 49: provenance.runner.v1.LogEntry.observed_at:type_name -> google.protobuf.Timestamp
+	8,  // 50: provenance.runner.v1.LogEntry.stream:type_name -> provenance.runner.v1.LogStream
+	9,  // 51: provenance.runner.v1.AssertionResult.kind:type_name -> provenance.runner.v1.AssertionKind
+	10, // 52: provenance.runner.v1.AssertionResult.outcome:type_name -> provenance.runner.v1.AssertionOutcome
+	44, // 53: provenance.runner.v1.AssertionResult.started_at:type_name -> google.protobuf.Timestamp
+	44, // 54: provenance.runner.v1.AssertionResult.completed_at:type_name -> google.protobuf.Timestamp
+	11, // 55: provenance.runner.v1.LifecycleEvent.kind:type_name -> provenance.runner.v1.LifecycleEventKind
+	44, // 56: provenance.runner.v1.LifecycleEvent.observed_at:type_name -> google.protobuf.Timestamp
+	43, // 57: provenance.runner.v1.LifecycleEvent.attributes:type_name -> provenance.runner.v1.LifecycleEvent.AttributesEntry
+	19, // 58: provenance.runner.v1.LogObject.digest:type_name -> provenance.runner.v1.Digest
+	12, // 59: provenance.runner.v1.StructuredResult.outcome:type_name -> provenance.runner.v1.ResultOutcome
+	37, // 60: provenance.runner.v1.StructuredResult.assertions:type_name -> provenance.runner.v1.AssertionResult
+	38, // 61: provenance.runner.v1.StructuredResult.lifecycle_events:type_name -> provenance.runner.v1.LifecycleEvent
+	35, // 62: provenance.runner.v1.StructuredResult.usage:type_name -> provenance.runner.v1.ResourceUsage
+	44, // 63: provenance.runner.v1.StructuredResult.started_at:type_name -> google.protobuf.Timestamp
+	44, // 64: provenance.runner.v1.StructuredResult.completed_at:type_name -> google.protobuf.Timestamp
+	39, // 65: provenance.runner.v1.StructuredResult.complete_log:type_name -> provenance.runner.v1.LogObject
+	13, // 66: provenance.runner.v1.FailureDetail.category:type_name -> provenance.runner.v1.FailureCategory
+	14, // 67: provenance.runner.v1.FailureDetail.stage:type_name -> provenance.runner.v1.FailureStage
+	68, // [68:68] is the sub-list for method output_type
+	68, // [68:68] is the sub-list for method input_type
+	68, // [68:68] is the sub-list for extension type_name
+	68, // [68:68] is the sub-list for extension extendee
+	0,  // [0:68] is the sub-list for field type_name
 }
 
 func init() { file_common_proto_init() }
@@ -3264,14 +3382,14 @@ func file_common_proto_init() {
 		(*OrganizationScope_Platform)(nil),
 		(*OrganizationScope_OrganizationId)(nil),
 	}
-	file_common_proto_msgTypes[23].OneofWrappers = []any{}
+	file_common_proto_msgTypes[24].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)),
 			NumEnums:      16,
-			NumMessages:   27,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
