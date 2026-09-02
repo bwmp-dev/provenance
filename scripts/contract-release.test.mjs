@@ -8,14 +8,16 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   readdir,
   rm,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { Header } from "tar";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { gzipSync } from "node:zlib";
 
 import {
@@ -26,6 +28,7 @@ import {
 } from "./contract-release.mjs";
 import {
   archiveEntries,
+  projectNodeConsumerLock,
   verifyContractRelease,
 } from "./verify-contract-release.mjs";
 
@@ -203,6 +206,202 @@ function unsafeArchiveCases(root) {
     },
   ];
 }
+
+test("released Node consumers use the exact audited dependency graph offline", async () => {
+  const repositoryRoot = resolve(import.meta.dirname, "..");
+  const rootLockContents = await readFile(
+    resolve(repositoryRoot, "pnpm-lock.yaml"),
+    "utf8",
+  );
+  const packageContents = await readFile(
+    resolve(repositoryRoot, "packages/config-schema/package.json"),
+    "utf8",
+  );
+  const registryNewerFixture = parseYaml(rootLockContents);
+  registryNewerFixture.packages["fast-uri@3.1.7"] = {
+    resolution: structuredClone(
+      registryNewerFixture.packages["fast-uri@3.1.6"].resolution,
+    ),
+  };
+  registryNewerFixture.snapshots["fast-uri@3.1.7"] = {};
+  const inputs = {
+    lockfileContents: stringifyYaml(registryNewerFixture, { lineWidth: 0 }),
+    nodeImporter: "packages/config-schema",
+    packageContents,
+  };
+
+  const firstLock = projectNodeConsumerLock(inputs);
+  const secondLock = projectNodeConsumerLock(inputs);
+  assert.equal(secondLock, firstLock, "consumer lock projection is not stable");
+  const projected = parseYaml(firstLock);
+  assert.equal(
+    projected.snapshots["ajv@8.20.0"].dependencies["fast-uri"],
+    "3.1.6",
+  );
+  assert(projected.packages["fast-uri@3.1.6"]);
+  assert.equal(projected.packages["fast-uri@3.1.7"], undefined);
+  assert.deepEqual(Object.keys(projected.importers), ["."]);
+
+  const consumerDirectory = await mkdtemp(
+    join(tmpdir(), "provenance-locked-consumer-"),
+  );
+  try {
+    await writeFile(
+      resolve(consumerDirectory, "package.json"),
+      packageContents,
+    );
+    await writeFile(resolve(consumerDirectory, "pnpm-lock.yaml"), firstLock);
+    const installation = spawnSync(
+      "pnpm",
+      ["install", "--offline", "--ignore-scripts", "--frozen-lockfile"],
+      {
+        cwd: consumerDirectory,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CI: "true",
+          npm_config_offline: "true",
+          npm_config_registry: "http://127.0.0.1:9/",
+        },
+        shell: false,
+      },
+    );
+    assert.equal(
+      installation.status,
+      0,
+      `locked offline install failed\n${installation.stdout}\n${installation.stderr}`,
+    );
+    const ajvRealPath = await realpath(
+      resolve(consumerDirectory, "node_modules/ajv/package.json"),
+    );
+    const installedFastUri = JSON.parse(
+      await readFile(
+        resolve(dirname(ajvRealPath), "../fast-uri/package.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(installedFastUri.version, "3.1.6");
+  } finally {
+    await rm(consumerDirectory, { force: true, recursive: true });
+  }
+});
+
+test("locked consumer projection rejects missing cache and tampered inputs", async () => {
+  const repositoryRoot = resolve(import.meta.dirname, "..");
+  const rootLockContents = await readFile(
+    resolve(repositoryRoot, "pnpm-lock.yaml"),
+    "utf8",
+  );
+  const packageContents = await readFile(
+    resolve(repositoryRoot, "packages/config-schema/package.json"),
+    "utf8",
+  );
+  const rootLock = parseYaml(rootLockContents);
+
+  const missingSnapshot = structuredClone(rootLock);
+  delete missingSnapshot.snapshots["fast-uri@3.1.6"];
+  assert.throws(
+    () =>
+      projectNodeConsumerLock({
+        lockfileContents: stringifyYaml(missingSnapshot),
+        nodeImporter: "packages/config-schema",
+        packageContents,
+      }),
+    /missing runtime snapshot: fast-uri@3\.1\.6/,
+  );
+
+  const tamperedManifest = JSON.parse(packageContents);
+  tamperedManifest.dependencies.ajv = "8.20.1";
+  assert.throws(
+    () =>
+      projectNodeConsumerLock({
+        lockfileContents: rootLockContents,
+        nodeImporter: "packages/config-schema",
+        packageContents: json(tamperedManifest),
+      }),
+    /dependencies differs from the audited pnpm importer/,
+  );
+  assert.throws(
+    () =>
+      projectNodeConsumerLock({
+        lockfileContents: `${rootLockContents}\nimporters: {}\n`,
+        nodeImporter: "packages/config-schema",
+        packageContents,
+      }),
+    /invalid or ambiguous/,
+  );
+
+  const exactPackage = rootLock.packages["fast-uri@3.1.6"];
+  const missingStoreLock = stringifyYaml({
+    lockfileVersion: "9.0",
+    settings: rootLock.settings,
+    importers: {
+      fixture: {
+        dependencies: {
+          "fast-uri": { specifier: "3.1.6", version: "3.1.6" },
+        },
+      },
+    },
+    packages: { "fast-uri@3.1.6": exactPackage },
+    snapshots: { "fast-uri@3.1.6": {} },
+  });
+  const missingStorePackage = json({
+    name: "locked-missing-store-fixture",
+    version: "1.0.0",
+    dependencies: { "fast-uri": "3.1.6" },
+  });
+  const projectedMissingStoreLock = projectNodeConsumerLock({
+    lockfileContents: missingStoreLock,
+    nodeImporter: "fixture",
+    packageContents: missingStorePackage,
+  });
+  const consumerDirectory = await mkdtemp(
+    join(tmpdir(), "provenance-missing-locked-tarball-"),
+  );
+  const emptyStore = await mkdtemp(
+    join(tmpdir(), "provenance-empty-pnpm-store-"),
+  );
+  try {
+    await writeFile(
+      resolve(consumerDirectory, "package.json"),
+      missingStorePackage,
+    );
+    await writeFile(
+      resolve(consumerDirectory, "pnpm-lock.yaml"),
+      projectedMissingStoreLock,
+    );
+    const installation = spawnSync(
+      "pnpm",
+      [
+        "install",
+        "--offline",
+        "--ignore-scripts",
+        "--frozen-lockfile",
+        "--store-dir",
+        emptyStore,
+      ],
+      {
+        cwd: consumerDirectory,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CI: "true",
+          npm_config_offline: "true",
+          npm_config_registry: "http://127.0.0.1:9/",
+        },
+        shell: false,
+      },
+    );
+    assert.notEqual(installation.status, 0);
+    assert.match(
+      `${installation.stdout}\n${installation.stderr}`,
+      /(?:offline|store|tarball|package).*(?:fast-uri|3\.1\.6)|(?:fast-uri|3\.1\.6).*(?:offline|store|tarball|package)/is,
+    );
+  } finally {
+    await rm(consumerDirectory, { force: true, recursive: true });
+    await rm(emptyStore, { force: true, recursive: true });
+  }
+});
 
 test("contract release is reproducible and its consumers compile", async (t) => {
   const firstDirectory = await mkdtemp(
