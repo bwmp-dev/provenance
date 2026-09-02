@@ -198,6 +198,7 @@ final class ForkPidBombPluginTest {
       assertEquals(0, attack.retainedChildCount());
       assertTrue(children.stream().noneMatch(Process::isAlive));
       assertTrue(children.stream().allMatch(RetainedProcess::reaped));
+      assertTrue(children.stream().allMatch(child -> child.forceCalls == 1));
     } finally {
       Thread.interrupted();
     }
@@ -380,6 +381,7 @@ final class ForkPidBombPluginTest {
   private static class RetainedProcess extends Process {
     protected boolean alive = true;
     protected boolean reaped;
+    protected int forceCalls;
 
     @Override
     public OutputStream getOutputStream() {
@@ -406,6 +408,9 @@ final class ForkPidBombPluginTest {
     @Override
     public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit)
         throws InterruptedException {
+      if (Thread.interrupted()) {
+        throw new InterruptedException("test timed wait interruption");
+      }
       if (!alive) {
         reaped = true;
       }
@@ -420,6 +425,13 @@ final class ForkPidBombPluginTest {
     @Override
     public void destroy() {
       alive = false;
+    }
+
+    @Override
+    public Process destroyForcibly() {
+      forceCalls++;
+      alive = false;
+      return this;
     }
 
     @Override

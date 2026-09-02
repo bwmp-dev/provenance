@@ -52,9 +52,17 @@ if (!build.includes('tasks.register("hostileFixtures")')) {
     "hostile fixtures do not have an explicit opt-in Gradle task",
   );
 }
-const defaultCheck = build.slice(build.indexOf('tasks.named("check")'));
-if (defaultCheck.slice(0, defaultCheck.indexOf("}")).includes("hostile")) {
-  throw new Error("hostile fixtures are part of the default check task");
+const defaultCheck = build.slice(build.lastIndexOf('tasks.named("check")'));
+const defaultCheckBody = defaultCheck.slice(0, defaultCheck.indexOf("}"));
+for (const marker of [
+  '":fixture-fork-pid-bomb:test"',
+  '"verifyHostileFixtureArtifacts"',
+]) {
+  if (!defaultCheckBody.includes(marker)) {
+    throw new Error(
+      `default check is missing bounded hostile guard: ${marker}`,
+    );
+  }
 }
 
 const selected = [

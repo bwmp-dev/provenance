@@ -239,9 +239,11 @@ tasks.register("resolveAndLockAll") {
 
 tasks.named("check") {
     dependsOn(
+        ":fixture-fork-pid-bomb:test",
         ":paper-probe:check",
         ":paper-probe:verifyPaperApiArtifact",
         "verifySafeFixtureArtifacts",
+        "verifyHostileFixtureArtifacts",
     )
 }
 
