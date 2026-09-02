@@ -139,26 +139,39 @@ final class ForkPidBombPluginTest {
   }
 
   @Test
+  void pidDenialClassificationUsesLocaleIndependentLauncherAndErrnoTokens() {
+    assertTrue(
+        ForkPidBombAttack.isPidLimitDenial(
+            new IOException(
+                "Cannot run program \"/usr/bin/sleep\" (in directory \"/\"): error=11, "
+                    + "Ressource temporairement indisponible")));
+    assertTrue(
+        ForkPidBombAttack.isPidLimitDenial(
+            new IOException(
+                "Cannot run program \"/usr/bin/sleep\" (in directory \"/\"): error=12, "
+                    + "Speicher kann nicht zugewiesen werden")));
+  }
+
+  @Test
   void nonPidCreationFailuresAreNotMisreportedAsLimitDenial() {
     assertNotPidDenial("permission denied");
-    assertNotPidDenial("Cannot run program: error=11, Permission denied");
-    assertNotPidDenial("Cannot run program: Resource temporarily unavailable");
-    assertNotPidDenial("Cannot run program: error=12, Java heap space");
-    assertNotPidDenial("Cannot run program: Cannot allocate memory");
-    assertNotPidDenial("error=12, Cannot allocate memory");
+    assertNotPidDenial("Could not run program: error=11, locale text");
+    assertNotPidDenial("Cannot run program error=11, locale text");
+    assertNotPidDenial("Cannot run program: fabricated error=11, locale text");
+    assertNotPidDenial("Cannot run program: error=11 locale text");
+    assertNotPidDenial("Cannot run program: error=111, locale text");
+    assertNotPidDenial("Cannot run program: error=12 locale text");
+    assertNotPidDenial("Cannot run program: error=12x, locale text");
     assertNotPidDenial("Cannot run program: error=13, Permission denied");
+    assertFalse(
+        ForkPidBombAttack.isPidLimitDenial(
+            new IOException(
+                "Cannot run program",
+                new IOException("error=12, localized text"))));
   }
 
   private static void assertNotPidDenial(String message) {
-    ForkPidBombAttack attack =
-        new ForkPidBombAttack(
-            () -> {
-              throw new IOException(message);
-            },
-            () -> {});
-
-    assertThrows(IllegalStateException.class, attack::startOnce);
-    assertEquals(0, attack.retainedChildCount());
+    assertFalse(ForkPidBombAttack.isPidLimitDenial(new IOException(message)));
   }
 
   @Test
@@ -256,7 +269,86 @@ final class ForkPidBombPluginTest {
   }
 
   @Test
-  void productionPressureHoldIsBoundedAboveSamplingWindow() throws InterruptedException {
+  void releaseEscalatesToForceAndReapsOnTheSecondWait() {
+    AtomicInteger starts = new AtomicInteger();
+    RetainedProcess survivor = new RetainedProcess();
+    ForceReapedProcess released = new ForceReapedProcess();
+    ForkPidBombAttack attack =
+        new ForkPidBombAttack(
+            () ->
+                switch (starts.incrementAndGet()) {
+                  case 1 -> survivor;
+                  case 2 -> released;
+                  default -> throw eagainPidLimitDenial();
+                },
+            () -> {});
+
+    assertEquals(1, attack.startOnce());
+    assertEquals(2, released.timedWaits);
+    assertEquals(1, released.forceCalls);
+    assertTrue(released.reaped());
+    assertFalse(released.isAlive());
+    assertTrue(attack.owns(survivor));
+    assertFalse(attack.owns(released));
+  }
+
+  @Test
+  void sleeperAliveAcrossBothReapAttemptsFailsAndRemainsOwned() {
+    AtomicInteger starts = new AtomicInteger();
+    RetainedProcess survivor = new RetainedProcess();
+    StaysAliveProcess unreaped = new StaysAliveProcess();
+    ForkPidBombAttack attack =
+        new ForkPidBombAttack(
+            () ->
+                switch (starts.incrementAndGet()) {
+                  case 1 -> survivor;
+                  case 2 -> unreaped;
+                  default -> throw eagainPidLimitDenial();
+                },
+            () -> {});
+
+    IllegalStateException failure =
+        assertThrows(IllegalStateException.class, attack::startOnce);
+
+    assertEquals("fork/PID fixture could not reap a sleeper", failure.getMessage());
+    assertEquals(4, unreaped.timedWaits);
+    assertEquals(4, unreaped.forceCalls);
+    assertTrue(unreaped.isAlive());
+    assertEquals(1, attack.retainedChildCount());
+    assertTrue(attack.owns(unreaped));
+    assertFalse(attack.owns(survivor));
+  }
+
+  @Test
+  void interruptedTimedWaitForcesReapAndRestoresCallerInterrupt() {
+    AtomicInteger starts = new AtomicInteger();
+    RetainedProcess survivor = new RetainedProcess();
+    InterruptedThenReapedProcess released = new InterruptedThenReapedProcess();
+    ForkPidBombAttack attack =
+        new ForkPidBombAttack(
+            () ->
+                switch (starts.incrementAndGet()) {
+                  case 1 -> survivor;
+                  case 2 -> released;
+                  default -> throw eagainPidLimitDenial();
+                },
+            () -> {});
+
+    try {
+      assertEquals(1, attack.startOnce());
+      assertTrue(Thread.currentThread().isInterrupted());
+      assertEquals(2, released.timedWaits);
+      assertEquals(1, released.forceCalls);
+      assertTrue(released.reaped());
+      assertFalse(released.isAlive());
+      assertTrue(attack.owns(survivor));
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  void productionPressureHoldIsBoundedAtTwoSeconds() throws InterruptedException {
     assertEquals(2_000, SleeperPressureHold.HOLD_MILLIS);
 
     long started = System.nanoTime();
@@ -283,8 +375,8 @@ final class ForkPidBombPluginTest {
   }
 
   private static class RetainedProcess extends Process {
-    private boolean alive = true;
-    private boolean reaped;
+    protected boolean alive = true;
+    protected boolean reaped;
 
     @Override
     public OutputStream getOutputStream() {
@@ -309,7 +401,8 @@ final class ForkPidBombPluginTest {
     }
 
     @Override
-    public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit) {
+    public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit)
+        throws InterruptedException {
       if (!alive) {
         reaped = true;
       }
@@ -340,6 +433,78 @@ final class ForkPidBombPluginTest {
     @Override
     public void destroy() {
       throw new IllegalStateException("test destroy failure");
+    }
+  }
+
+  private static final class ForceReapedProcess extends RetainedProcess {
+    private int timedWaits;
+    private int forceCalls;
+
+    @Override
+    public void destroy() {}
+
+    @Override
+    public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit) {
+      timedWaits++;
+      if (!alive) {
+        reaped = true;
+      }
+      return !alive;
+    }
+
+    @Override
+    public Process destroyForcibly() {
+      forceCalls++;
+      alive = false;
+      return this;
+    }
+  }
+
+  private static final class StaysAliveProcess extends RetainedProcess {
+    private int timedWaits;
+    private int forceCalls;
+
+    @Override
+    public void destroy() {}
+
+    @Override
+    public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit) {
+      timedWaits++;
+      return false;
+    }
+
+    @Override
+    public Process destroyForcibly() {
+      forceCalls++;
+      return this;
+    }
+  }
+
+  private static final class InterruptedThenReapedProcess extends RetainedProcess {
+    private int timedWaits;
+    private int forceCalls;
+
+    @Override
+    public void destroy() {}
+
+    @Override
+    public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit)
+        throws InterruptedException {
+      timedWaits++;
+      if (timedWaits == 1) {
+        throw new InterruptedException("test timed wait interruption");
+      }
+      if (!alive) {
+        reaped = true;
+      }
+      return !alive;
+    }
+
+    @Override
+    public Process destroyForcibly() {
+      forceCalls++;
+      alive = false;
+      return this;
     }
   }
 }

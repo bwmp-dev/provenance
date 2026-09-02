@@ -91,6 +91,10 @@ final class ForkPidBombAttack {
     return retainedChildren.size();
   }
 
+  boolean owns(Process child) {
+    return retainedChildren.contains(child);
+  }
+
   private int sustainPressureAndRelease() {
     try {
       pressureSustainer.sustain();
@@ -174,7 +178,7 @@ final class ForkPidBombAttack {
     }
   }
 
-  private static boolean isPidLimitDenial(IOException exception) {
+  static boolean isPidLimitDenial(IOException exception) {
     for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
       String message = cause.getMessage();
       if (message == null) {
@@ -182,10 +186,10 @@ final class ForkPidBombAttack {
       }
       String normalized = message.toLowerCase(Locale.ROOT);
       // Linux reports pids.max exhaustion as EAGAIN. gVisor can surface the same
-      // process-launch denial as ENOMEM, so require the complete launcher/errno pair.
+      // process-launch denial as ENOMEM. Match only stable ProcessBuilder/errno tokens;
+      // strerror text after the comma is locale-dependent.
       if (normalized.contains("cannot run program")
-          && (normalized.contains("error=11, resource temporarily unavailable")
-              || normalized.contains("error=12, cannot allocate memory"))) {
+          && (normalized.contains(": error=11,") || normalized.contains(": error=12,"))) {
         return true;
       }
     }
