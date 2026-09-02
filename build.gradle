@@ -73,7 +73,7 @@ configure(safeFixtures.collect { project(it) } + hostileFixtures.collect { proje
 
 project(":fixture-fork-pid-bomb") {
     dependencies {
-        testImplementation platform("org.junit:junit-bom:6.0.3")
+        testImplementation platform("org.junit:junit-bom:6.1.3")
         testImplementation "org.junit.jupiter:junit-jupiter"
         testImplementation files(rootProject.project(":paper-api-stubs").sourceSets.main.output)
         testRuntimeOnly "org.junit.platform:junit-platform-launcher"
@@ -129,7 +129,7 @@ project(":paper-probe") {
         add(paperApiArtifact.name, "io.papermc.paper:paper-api:${paperApiVersion}")
         implementation("com.google.re2j:re2j:1.8")
         implementation("org.snakeyaml:snakeyaml-engine:2.10")
-        testImplementation(platform("org.junit:junit-bom:6.0.3"))
+        testImplementation(platform("org.junit:junit-bom:6.1.3"))
         testImplementation("org.junit.jupiter:junit-jupiter")
         testImplementation("org.apache.logging.log4j:log4j-core:2.24.1")
         testRuntimeOnly("org.junit.platform:junit-platform-launcher")
