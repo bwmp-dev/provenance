@@ -968,7 +968,7 @@ paths:
       summary: Create a one-time self-hosted runner registration
       tags: [runners]
       parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/SecretCreationIdempotencyKey"
       requestBody:
         $ref: "#/components/requestBodies/CreateRunnerRegistration"
       responses:
@@ -979,7 +979,72 @@ paths:
               schema:
                 $ref: "#/components/schemas/RunnerRegistration"
         "409":
-          $ref: "#/components/responses/IdempotencyConflict"
+          $ref: "#/components/responses/CredentialIssuanceConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/runners/{runnerId}/registration-redemptions:
+    parameters:
+      - $ref: "#/components/parameters/RunnerId"
+    post:
+      operationId: redeemRunnerRegistration
+      summary: Redeem a one-time registration using an Ed25519 possession proof
+      description: |
+        Atomically validates and consumes the registration token, binds the
+        runner-generated Ed25519 public key, and issues one short-lived
+        organization-scoped connection credential. The token authenticates
+        only its bound runner and organization; it grants no other API access.
+
+        The signed UTF-8 message is exactly the following ASCII template,
+        including field order, lowercase names, LF separators, and the final
+        LF. UUID values use canonical lowercase form, the token hash is the
+        lowercase hexadecimal SHA-256 of the complete registration token, and
+        the public key is unpadded base64url of the exact 32 raw Ed25519 bytes:
+
+        ```text
+        provenance.runner.registration.v1
+        organization_id:{organization_id}
+        runner_id:{runner_id}
+        registration_token_sha256:{registration_token_sha256}
+        public_key_base64url:{public_key_base64url}
+        ```
+
+        Normative vector: organization
+        `00000000-0000-0000-0000-000000000011`, runner
+        `50000000-0000-0000-0000-000000000011`, token
+        `prr_v1_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8`, token
+        SHA-256
+        `227d5c86d147a519fa4caf435bb5cc85acbc20f709b94af9371122eaa6e6bbf9`,
+        public key
+        `11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo`, and signature
+        `gfTLqWihY048vNn-hZvs81xk7pmEdsM2WmCPGimPDrOoU8Gl1YW5BFg5lsh4ZYZiAGlv3XUzoH5oholxRcVDAQ`.
+
+        Token consumption, key binding, credential hash persistence, and the
+        successful idempotency record are one transaction. Invalid tokens and
+        runner/path mismatches return the same response and do not disclose a
+        runner or tenant. The raw token, credential, and private key are never
+        stored by the authority.
+      tags: [runners]
+      security:
+        - RunnerRegistrationToken: []
+      parameters:
+        - $ref: "#/components/parameters/SecretCreationIdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RedeemRunnerRegistration"
+      responses:
+        "201":
+          description: Registration consumed and connection credential issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunnerRegistrationRedemption"
+        "401":
+          $ref: "#/components/responses/RegistrationTokenInvalid"
+        "409":
+          $ref: "#/components/responses/RegistrationRedemptionConflict"
+        "410":
+          $ref: "#/components/responses/RegistrationTokenExpired"
+        "422":
+          $ref: "#/components/responses/RegistrationProofInvalid"
         default:
           $ref: "#/components/responses/Problem"
   /v1/runners/{runnerId}:
@@ -1023,9 +1088,20 @@ paths:
     post:
       operationId: rotateRunnerCredentials
       summary: Rotate short-lived runner connection credentials
+      description: |
+        Issues a new credential for delivery through the feature-gated runner
+        stream. The credential authority stores only its SHA-256 hash and audit
+        identity. A separate delivery queue may retain only an encrypted,
+        access-controlled envelope until acknowledgement, successful reconnect,
+        or the predecessor deadline; it is unavailable to HTTP replay and is
+        then erased. The old credential remains valid only for the bounded
+        overlap returned by the runner protocol; a successful reconnect with
+        the new credential revokes its predecessor immediately.
       tags: [runners]
       parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/SecretCreationIdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RotateRunnerCredential"
       responses:
         "200":
           description: Rotated runner credential.
@@ -1033,6 +1109,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RunnerCredential"
+        "409":
+          $ref: "#/components/responses/CredentialIssuanceConflict"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/runners/{runnerId}/credential-revocations:
+    parameters:
+      - $ref: "#/components/parameters/RunnerId"
+    post:
+      operationId: revokeRunnerCredentials
+      summary: Revoke a self-hosted runner and all of its credentials
+      description: |
+        Atomically revokes current and predecessor credentials, invalidates any
+        unused registration token, terminates active streams, and places the
+        runner in the terminal `revoked` state. Audit identities, credential
+        fingerprints, timestamps, and the operator reason are retained; secret
+        values are not. An unauthorized runner and a nonexistent runner use the
+        same response so tenant membership is not disclosed.
+      tags: [runners]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RevokeRunnerCredentials"
+      responses:
+        "201":
+          description: Runner credential revocation recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunnerCredentialRevocation"
         "409":
           $ref: "#/components/responses/IdempotencyConflict"
         default:
@@ -1073,6 +1178,13 @@ components:
       in: header
       name: X-Hub-Signature-256
       description: GitHub HMAC-SHA256 webhook signature.
+    RunnerRegistrationToken:
+      type: http
+      scheme: bearer
+      bearerFormat: prr_v1
+      description: >-
+        One-time, runner-bound registration token. It authenticates only the
+        registration-redemption operation and is atomically consumed there.
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
@@ -1096,6 +1208,21 @@ components:
         therefore fails closed with HTTP 409 and code
         `credential_not_replayable`; the caller must obtain a new one-time
         exchange token and use a new idempotency key.
+      schema:
+        $ref: "#/components/schemas/IdempotencyKey"
+    SecretCreationIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Caller-generated key scoped to the authenticated identity, HTTP method,
+        and route. Reuse with a different request returns
+        `idempotency_key_conflict`. After a successful response containing a
+        registration token or connection credential, the authority retains
+        only the secret hash and cannot reproduce the plaintext. An identical
+        retry therefore returns HTTP 409 `credential_not_replayable`, never a
+        replacement secret; recovery requires a new authorized request and a
+        new idempotency key.
       schema:
         $ref: "#/components/schemas/IdempotencyKey"
     OptionalIdempotencyKey:
@@ -1458,6 +1585,71 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
+    CredentialIssuanceConflict:
+      description: |
+        Secret issuance encountered an idempotency conflict. Reuse of an
+        idempotency key with a different normalized request returns
+        `idempotency_key_conflict`.
+
+        An identical retry after successful registration-token or connection-
+        credential issuance returns `credential_not_replayable`. Because the
+        authority stores only a SHA-256 secret hash, it never returns the prior
+        plaintext and never mints a replacement credential for that replay.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    RegistrationTokenInvalid:
+      description: >-
+        The registration token is invalid, is bound to another runner, or does
+        not authorize this request. All cases use HTTP 401 and code
+        `registration_token_invalid` without disclosing runner or tenant
+        identity.
+      headers:
+        WWW-Authenticate:
+          description: Registration-token Bearer challenge.
+          schema:
+            type: string
+            const: Bearer realm="runner-registration", error="invalid_token"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    RegistrationTokenExpired:
+      description: >-
+        The authenticated one-time token expired before atomic consumption.
+        Returns HTTP 410 and code `registration_token_expired`; no credential is
+        issued and the runner remains registering.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    RegistrationProofInvalid:
+      description: >-
+        The public key or Ed25519 possession proof is malformed or does not
+        verify over the exact domain-separated message. Returns HTTP 422 and
+        code `registration_proof_invalid`; token consumption and key binding do
+        not occur.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    RegistrationRedemptionConflict:
+      description: |
+        Registration redemption conflicted with durable state. A token already
+        consumed by another request returns `registration_token_consumed`; a
+        runner already bound to different key material returns
+        `runner_key_conflict`; reuse of an idempotency key with a different
+        request returns `idempotency_key_conflict`.
+
+        If the same request committed and its plaintext credential response was
+        lost, an identical retry returns `credential_not_replayable`. The
+        authority stores only its hash and does not mint a replacement. Every
+        conflict is HTTP 409 and leaves the committed binding unchanged.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
     SessionCreationConflict:
       description: |
         Browser session creation encountered an idempotency conflict. Reusing
@@ -1596,12 +1788,30 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/CreateRunnerRegistrationRequest"
+    RedeemRunnerRegistration:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RedeemRunnerRegistrationRequest"
     UpdateRunner:
       required: true
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/UpdateRunnerRequest"
+    RotateRunnerCredential:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RotateRunnerCredentialRequest"
+    RevokeRunnerCredentials:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RevokeRunnerCredentialsRequest"
   schemas:
     StableId:
       type: string
@@ -1659,6 +1869,66 @@ components:
     Sha256Digest:
       type: string
       pattern: ^[a-f0-9]{64}$
+    RunnerRegistrationToken:
+      type: string
+      minLength: 50
+      maxLength: 50
+      pattern: ^prr_v1_[A-Za-z0-9_-]{43}$
+      description: >-
+        Prefix `prr_v1_` followed by the unpadded base64url encoding of exactly
+        32 cryptographically random bytes. The authority stores only SHA-256 of
+        the complete token. Maximum lifetime is 900 seconds and consumption is
+        one-time and atomic.
+    RunnerConnectionCredential:
+      type: string
+      minLength: 50
+      maxLength: 50
+      pattern: ^prc_v1_[A-Za-z0-9_-]{43}$
+      description: >-
+        Prefix `prc_v1_` followed by the unpadded base64url encoding of exactly
+        32 cryptographically random bytes. The authority stores only SHA-256 of
+        the complete credential. It is bound to one runner and organization and
+        expires no more than 3600 seconds after issuance.
+    Ed25519PublicKey:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+      contentEncoding: base64url
+      description: Unpadded base64url encoding of exactly 32 raw Ed25519 public-key bytes.
+    Ed25519Signature:
+      type: string
+      minLength: 86
+      maxLength: 86
+      pattern: ^[A-Za-z0-9_-]{86}$
+      contentEncoding: base64url
+      description: Unpadded base64url encoding of exactly 64 raw Ed25519 signature bytes.
+    PublicKeyFingerprint:
+      type: string
+      minLength: 71
+      maxLength: 71
+      pattern: ^sha256:[a-f0-9]{64}$
+      description: SHA-256 of the exact 32 raw public-key bytes, lowercase hexadecimal.
+    RegistrationTokenTtlSeconds:
+      type: integer
+      minimum: 60
+      maximum: 900
+      default: 900
+      description: Requested one-time registration-token lifetime in seconds.
+    RunnerCredentialTtlSeconds:
+      type: integer
+      minimum: 300
+      maximum: 3600
+      default: 900
+      description: Requested connection-credential lifetime in seconds.
+    RunnerCredentialOverlapSeconds:
+      type: integer
+      minimum: 30
+      maximum: 300
+      default: 120
+      description: >-
+        Requested predecessor overlap in seconds. It must be shorter than the
+        requested credential lifetime.
     PageInfo:
       type: object
       additionalProperties: false
@@ -1894,7 +2164,14 @@ components:
       enum: [active, disabled, error]
     RunnerState:
       type: string
-      enum: [offline, idle, busy, draining]
+      enum: [registering, offline, idle, busy, draining, quarantined, revoked]
+      description: >-
+        `registering` has an unconsumed enrollment token and no credential;
+        `offline` is enrolled without a live connection; `idle` and `busy` are
+        connected; `draining` accepts no new work; `quarantined` rejects every
+        credential and job until authorized recovery; `revoked` is terminal and
+        rejects registration tokens, current/predecessor credentials, and
+        streams while retaining audit identity.
     Session:
       type: object
       additionalProperties: false
@@ -2922,6 +3199,15 @@ components:
         trust:
           type: string
           const: self_hosted
+        publicKeyFingerprint:
+          allOf:
+            - $ref: "#/components/schemas/PublicKeyFingerprint"
+          description: >-
+            Present only after successful redemption. Raw public keys and
+            credential hashes are not exposed by runner list/read operations.
+        credentialExpiresAt:
+          $ref: "#/components/schemas/Timestamp"
+          description: Expiry of the currently accepted connection credential, when one exists.
         createdAt:
           $ref: "#/components/schemas/Timestamp"
         updatedAt:
@@ -2946,19 +3232,73 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+        tokenTtlSeconds:
+          $ref: "#/components/schemas/RegistrationTokenTtlSeconds"
     RunnerRegistration:
       type: object
       additionalProperties: false
-      required: [runnerId, registrationToken, expiresAt]
+      description: >-
+        Secret-producing response. Token plaintext is returned exactly once;
+        only its SHA-256 hash and audit identity are retained. An identical
+        request replay after response loss returns `credential_not_replayable`.
+      required:
+        [runnerId, organizationId, registrationToken, createdAt, expiresAt]
       properties:
         runnerId:
           $ref: "#/components/schemas/StableId"
+        organizationId:
+          $ref: "#/components/schemas/StableId"
         registrationToken:
-          type: string
-          minLength: 1
-          description: One-time runner registration token.
+          $ref: "#/components/schemas/RunnerRegistrationToken"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
         expiresAt:
           $ref: "#/components/schemas/Timestamp"
+          description: >-
+            No later than 900 seconds after createdAt. Expiry is an exclusive
+            redemption boundary.
+    RedeemRunnerRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [publicKey, possessionProof, credentialTtlSeconds]
+      properties:
+        publicKey:
+          $ref: "#/components/schemas/Ed25519PublicKey"
+        possessionProof:
+          $ref: "#/components/schemas/Ed25519Signature"
+        credentialTtlSeconds:
+          $ref: "#/components/schemas/RunnerCredentialTtlSeconds"
+    RunnerRegistrationRedemption:
+      type: object
+      additionalProperties: false
+      description: >-
+        Atomic one-time redemption result. Credential plaintext is returned
+        exactly once and only its hash is retained; response-loss replay is
+        `credential_not_replayable` rather than plaintext recovery.
+      required:
+        - runnerId
+        - organizationId
+        - credentialId
+        - credential
+        - issuedAt
+        - expiresAt
+        - publicKeyFingerprint
+      properties:
+        runnerId:
+          $ref: "#/components/schemas/StableId"
+        organizationId:
+          $ref: "#/components/schemas/StableId"
+        credentialId:
+          $ref: "#/components/schemas/StableId"
+        credential:
+          $ref: "#/components/schemas/RunnerConnectionCredential"
+        issuedAt:
+          $ref: "#/components/schemas/Timestamp"
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+          description: No later than 3600 seconds after issuedAt; expiry is exclusive.
+        publicKeyFingerprint:
+          $ref: "#/components/schemas/PublicKeyFingerprint"
     UpdateRunnerRequest:
       type: object
       additionalProperties: false
@@ -2970,17 +3310,98 @@ components:
           maxLength: 128
         draining:
           type: boolean
+        quarantined:
+          type: boolean
+          description: >-
+            When true, rejects new and existing credentials and jobs until an
+            authorized update clears quarantine. It does not erase audit state.
+    RotateRunnerCredentialRequest:
+      type: object
+      additionalProperties: false
+      required: [rotationId, credentialTtlSeconds, overlapSeconds]
+      properties:
+        rotationId:
+          allOf:
+            - $ref: "#/components/schemas/StableId"
+          description: >-
+            Canonical lowercase UUID used unchanged as runner protocol
+            RotateCredential.rotation_id. Reuse with different parameters is a
+            conflict; exact duplicate delivery is replay-safe.
+        credentialTtlSeconds:
+          $ref: "#/components/schemas/RunnerCredentialTtlSeconds"
+        overlapSeconds:
+          $ref: "#/components/schemas/RunnerCredentialOverlapSeconds"
+    RevokeRunnerCredentialsRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 512
     RunnerCredential:
       type: object
       additionalProperties: false
-      required: [credential, expiresAt]
+      description: >-
+        Secret-producing rotation response. Credential plaintext is returned
+        exactly once while the credential authority stores only its SHA-256
+        hash and stable audit identity. A bounded encrypted protocol-delivery
+        envelope is not an HTTP replay capability and is erased after
+        acknowledgement, successful reconnect, or the predecessor deadline.
+        Identical response-loss replay returns `credential_not_replayable`; no
+        replacement secret is minted.
+      required:
+        - runnerId
+        - organizationId
+        - credentialId
+        - rotationId
+        - credential
+        - issuedAt
+        - expiresAt
+        - predecessorExpiresAt
       properties:
+        runnerId:
+          $ref: "#/components/schemas/StableId"
+        organizationId:
+          $ref: "#/components/schemas/StableId"
+        credentialId:
+          $ref: "#/components/schemas/StableId"
+        rotationId:
+          $ref: "#/components/schemas/StableId"
         credential:
-          type: string
-          minLength: 1
-          description: Short-lived organization-scoped runner credential.
+          $ref: "#/components/schemas/RunnerConnectionCredential"
+        issuedAt:
+          $ref: "#/components/schemas/Timestamp"
         expiresAt:
           $ref: "#/components/schemas/Timestamp"
+          description: No later than 3600 seconds after issuedAt; expiry is exclusive.
+        predecessorExpiresAt:
+          $ref: "#/components/schemas/Timestamp"
+          description: >-
+            Exclusive predecessor-credential deadline and the exact
+            RotateCredential.reconnect_before value. It is after issuedAt,
+            before expiresAt, and at most 300 seconds after issuedAt.
+    RunnerCredentialRevocation:
+      type: object
+      additionalProperties: false
+      required: [id, runnerId, organizationId, reason, revokedAt, state]
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        runnerId:
+          $ref: "#/components/schemas/StableId"
+        organizationId:
+          $ref: "#/components/schemas/StableId"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 512
+        revokedAt:
+          $ref: "#/components/schemas/Timestamp"
+        state:
+          type: string
+          const: revoked
     Usage:
       type: object
       additionalProperties: false

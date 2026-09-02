@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "860dcf088c616a2c79d5e32db692c67c67d2ce583de2f4c9884ec4f02d7398ff",
+  "descriptorSha256": "14d7b53c4eaec50bce7bf77db0a4ce7407d556312db68db1b8974d785e8351f9",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -21,7 +21,8 @@
     "19": "usage",
     "20": "completed",
     "21": "failed",
-    "22": "cancelled"
+    "22": "cancelled",
+    "30": "credential_rotation_acknowledgement"
   },
   "gatewayPayload": {
     "10": "authenticated",
@@ -42,6 +43,7 @@
     "CancelJob",
     "Capabilities",
     "Capacity",
+    "CredentialRotationAcknowledgement",
     "DependencyDigest",
     "DependencyInput",
     "Digest",
@@ -110,7 +112,8 @@
   "criticalEnums": {
     "ProtocolFeature": {
       "0": "PROTOCOL_FEATURE_UNSPECIFIED",
-      "1": "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS"
+      "1": "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
+      "2": "PROTOCOL_FEATURE_CREDENTIAL_ROTATION"
     },
     "RunnerMessageDisposition": {
       "0": "RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED",
@@ -198,6 +201,19 @@
       "2": "sequence",
       "3": "reconciliations",
       "4": "committed_at"
+    },
+    "RotateCredential": {
+      "1": "rotation_id",
+      "2": "connection_credential",
+      "3": "expires_at",
+      "4": "reconnect_before",
+      "10": "issued_at",
+      "11": "credential_fingerprint"
+    },
+    "CredentialRotationAcknowledgement": {
+      "1": "rotation_id",
+      "2": "credential_fingerprint",
+      "3": "persisted_at"
     },
     "StructuredResult": {
       "1": "outcome",

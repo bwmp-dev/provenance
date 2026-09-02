@@ -659,6 +659,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runners/{runnerId}/registration-redemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runnerId: components["parameters"]["RunnerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeem a one-time registration using an Ed25519 possession proof
+         * @description Atomically validates and consumes the registration token, binds the
+         *     runner-generated Ed25519 public key, and issues one short-lived
+         *     organization-scoped connection credential. The token authenticates
+         *     only its bound runner and organization; it grants no other API access.
+         *
+         *     The signed UTF-8 message is exactly the following ASCII template,
+         *     including field order, lowercase names, LF separators, and the final
+         *     LF. UUID values use canonical lowercase form, the token hash is the
+         *     lowercase hexadecimal SHA-256 of the complete registration token, and
+         *     the public key is unpadded base64url of the exact 32 raw Ed25519 bytes:
+         *
+         *     ```text
+         *     provenance.runner.registration.v1
+         *     organization_id:{organization_id}
+         *     runner_id:{runner_id}
+         *     registration_token_sha256:{registration_token_sha256}
+         *     public_key_base64url:{public_key_base64url}
+         *     ```
+         *
+         *     Normative vector: organization
+         *     `00000000-0000-0000-0000-000000000011`, runner
+         *     `50000000-0000-0000-0000-000000000011`, token
+         *     `prr_v1_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8`, token
+         *     SHA-256
+         *     `227d5c86d147a519fa4caf435bb5cc85acbc20f709b94af9371122eaa6e6bbf9`,
+         *     public key
+         *     `11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo`, and signature
+         *     `gfTLqWihY048vNn-hZvs81xk7pmEdsM2WmCPGimPDrOoU8Gl1YW5BFg5lsh4ZYZiAGlv3XUzoH5oholxRcVDAQ`.
+         *
+         *     Token consumption, key binding, credential hash persistence, and the
+         *     successful idempotency record are one transaction. Invalid tokens and
+         *     runner/path mismatches return the same response and do not disclose a
+         *     runner or tenant. The raw token, credential, and private key are never
+         *     stored by the authority.
+         */
+        post: operations["redeemRunnerRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runners/{runnerId}": {
         parameters: {
             query?: never;
@@ -690,8 +745,45 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rotate short-lived runner connection credentials */
+        /**
+         * Rotate short-lived runner connection credentials
+         * @description Issues a new credential for delivery through the feature-gated runner
+         *     stream. The credential authority stores only its SHA-256 hash and audit
+         *     identity. A separate delivery queue may retain only an encrypted,
+         *     access-controlled envelope until acknowledgement, successful reconnect,
+         *     or the predecessor deadline; it is unavailable to HTTP replay and is
+         *     then erased. The old credential remains valid only for the bounded
+         *     overlap returned by the runner protocol; a successful reconnect with
+         *     the new credential revokes its predecessor immediately.
+         */
         post: operations["rotateRunnerCredentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runners/{runnerId}/credential-revocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runnerId: components["parameters"]["RunnerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a self-hosted runner and all of its credentials
+         * @description Atomically revokes current and predecessor credentials, invalidates any
+         *     unused registration token, terminates active streams, and places the
+         *     runner in the terminal `revoked` state. Audit identities, credential
+         *     fingerprints, timestamps, and the operator reason are retained; secret
+         *     values are not. An unauthorized runner and a nonexistent runner use the
+         *     same response so tenant membership is not disclosed.
+         */
+        post: operations["revokeRunnerCredentials"];
         delete?: never;
         options?: never;
         head?: never;
@@ -752,6 +844,31 @@ export interface components {
         DroppedLogCount: string;
         IdempotencyKey: string;
         Sha256Digest: string;
+        /** @description Prefix `prr_v1_` followed by the unpadded base64url encoding of exactly 32 cryptographically random bytes. The authority stores only SHA-256 of the complete token. Maximum lifetime is 900 seconds and consumption is one-time and atomic. */
+        RunnerRegistrationToken: string;
+        /** @description Prefix `prc_v1_` followed by the unpadded base64url encoding of exactly 32 cryptographically random bytes. The authority stores only SHA-256 of the complete credential. It is bound to one runner and organization and expires no more than 3600 seconds after issuance. */
+        RunnerConnectionCredential: string;
+        /** @description Unpadded base64url encoding of exactly 32 raw Ed25519 public-key bytes. */
+        Ed25519PublicKey: string;
+        /** @description Unpadded base64url encoding of exactly 64 raw Ed25519 signature bytes. */
+        Ed25519Signature: string;
+        /** @description SHA-256 of the exact 32 raw public-key bytes, lowercase hexadecimal. */
+        PublicKeyFingerprint: string;
+        /**
+         * @description Requested one-time registration-token lifetime in seconds.
+         * @default 900
+         */
+        RegistrationTokenTtlSeconds: number;
+        /**
+         * @description Requested connection-credential lifetime in seconds.
+         * @default 900
+         */
+        RunnerCredentialTtlSeconds: number;
+        /**
+         * @description Requested predecessor overlap in seconds. It must be shorter than the requested credential lifetime.
+         * @default 120
+         */
+        RunnerCredentialOverlapSeconds: number;
         PageInfo: {
             hasMore: boolean;
             nextCursor?: string | null;
@@ -850,8 +967,11 @@ export interface components {
         VerificationState: "pending" | "verified" | "failed";
         /** @enum {string} */
         IntegrationState: "active" | "disabled" | "error";
-        /** @enum {string} */
-        RunnerState: "offline" | "idle" | "busy" | "draining";
+        /**
+         * @description `registering` has an unconsumed enrollment token and no credential; `offline` is enrolled without a live connection; `idle` and `busy` are connected; `draining` accepts no new work; `quarantined` rejects every credential and job until authorized recovery; `revoked` is terminal and rejects registration tokens, current/predecessor credentials, and streams while retaining audit identity.
+         * @enum {string}
+         */
+        RunnerState: "registering" | "offline" | "idle" | "busy" | "draining" | "quarantined" | "revoked";
         Session: {
             id: components["schemas"]["StableId"];
             userId: components["schemas"]["StableId"];
@@ -1259,6 +1379,10 @@ export interface components {
             state: components["schemas"]["RunnerState"];
             /** @constant */
             trust: "self_hosted";
+            /** @description Present only after successful redemption. Raw public keys and credential hashes are not exposed by runner list/read operations. */
+            publicKeyFingerprint?: components["schemas"]["PublicKeyFingerprint"];
+            /** @description Expiry of the currently accepted connection credential, when one exists. */
+            credentialExpiresAt?: components["schemas"]["Timestamp"];
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
         };
@@ -1268,21 +1392,69 @@ export interface components {
         };
         CreateRunnerRegistrationRequest: {
             name: string;
+            tokenTtlSeconds?: components["schemas"]["RegistrationTokenTtlSeconds"];
         };
+        /** @description Secret-producing response. Token plaintext is returned exactly once; only its SHA-256 hash and audit identity are retained. An identical request replay after response loss returns `credential_not_replayable`. */
         RunnerRegistration: {
             runnerId: components["schemas"]["StableId"];
-            /** @description One-time runner registration token. */
-            registrationToken: string;
+            organizationId: components["schemas"]["StableId"];
+            registrationToken: components["schemas"]["RunnerRegistrationToken"];
+            createdAt: components["schemas"]["Timestamp"];
+            /** @description No later than 900 seconds after createdAt. Expiry is an exclusive redemption boundary. */
             expiresAt: components["schemas"]["Timestamp"];
+        };
+        RedeemRunnerRegistrationRequest: {
+            publicKey: components["schemas"]["Ed25519PublicKey"];
+            possessionProof: components["schemas"]["Ed25519Signature"];
+            credentialTtlSeconds: components["schemas"]["RunnerCredentialTtlSeconds"];
+        };
+        /** @description Atomic one-time redemption result. Credential plaintext is returned exactly once and only its hash is retained; response-loss replay is `credential_not_replayable` rather than plaintext recovery. */
+        RunnerRegistrationRedemption: {
+            runnerId: components["schemas"]["StableId"];
+            organizationId: components["schemas"]["StableId"];
+            credentialId: components["schemas"]["StableId"];
+            credential: components["schemas"]["RunnerConnectionCredential"];
+            issuedAt: components["schemas"]["Timestamp"];
+            /** @description No later than 3600 seconds after issuedAt; expiry is exclusive. */
+            expiresAt: components["schemas"]["Timestamp"];
+            publicKeyFingerprint: components["schemas"]["PublicKeyFingerprint"];
         };
         UpdateRunnerRequest: {
             name?: string;
             draining?: boolean;
+            /** @description When true, rejects new and existing credentials and jobs until an authorized update clears quarantine. It does not erase audit state. */
+            quarantined?: boolean;
         };
+        RotateRunnerCredentialRequest: {
+            /** @description Canonical lowercase UUID used unchanged as runner protocol RotateCredential.rotation_id. Reuse with different parameters is a conflict; exact duplicate delivery is replay-safe. */
+            rotationId: components["schemas"]["StableId"];
+            credentialTtlSeconds: components["schemas"]["RunnerCredentialTtlSeconds"];
+            overlapSeconds: components["schemas"]["RunnerCredentialOverlapSeconds"];
+        };
+        RevokeRunnerCredentialsRequest: {
+            reason: string;
+        };
+        /** @description Secret-producing rotation response. Credential plaintext is returned exactly once while the credential authority stores only its SHA-256 hash and stable audit identity. A bounded encrypted protocol-delivery envelope is not an HTTP replay capability and is erased after acknowledgement, successful reconnect, or the predecessor deadline. Identical response-loss replay returns `credential_not_replayable`; no replacement secret is minted. */
         RunnerCredential: {
-            /** @description Short-lived organization-scoped runner credential. */
-            credential: string;
+            runnerId: components["schemas"]["StableId"];
+            organizationId: components["schemas"]["StableId"];
+            credentialId: components["schemas"]["StableId"];
+            rotationId: components["schemas"]["StableId"];
+            credential: components["schemas"]["RunnerConnectionCredential"];
+            issuedAt: components["schemas"]["Timestamp"];
+            /** @description No later than 3600 seconds after issuedAt; expiry is exclusive. */
             expiresAt: components["schemas"]["Timestamp"];
+            /** @description Exclusive predecessor-credential deadline and the exact RotateCredential.reconnect_before value. It is after issuedAt, before expiresAt, and at most 300 seconds after issuedAt. */
+            predecessorExpiresAt: components["schemas"]["Timestamp"];
+        };
+        RunnerCredentialRevocation: {
+            id: components["schemas"]["StableId"];
+            runnerId: components["schemas"]["StableId"];
+            organizationId: components["schemas"]["StableId"];
+            reason: string;
+            revokedAt: components["schemas"]["Timestamp"];
+            /** @constant */
+            state: "revoked";
         };
         Usage: {
             organizationId: components["schemas"]["StableId"];
@@ -1644,6 +1816,73 @@ export interface components {
             };
         };
         /**
+         * @description Secret issuance encountered an idempotency conflict. Reuse of an
+         *     idempotency key with a different normalized request returns
+         *     `idempotency_key_conflict`.
+         *
+         *     An identical retry after successful registration-token or connection-
+         *     credential issuance returns `credential_not_replayable`. Because the
+         *     authority stores only a SHA-256 secret hash, it never returns the prior
+         *     plaintext and never mints a replacement credential for that replay.
+         */
+        CredentialIssuanceConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description The registration token is invalid, is bound to another runner, or does not authorize this request. All cases use HTTP 401 and code `registration_token_invalid` without disclosing runner or tenant identity. */
+        RegistrationTokenInvalid: {
+            headers: {
+                /** @description Registration-token Bearer challenge. */
+                "WWW-Authenticate"?: "Bearer realm=\"runner-registration\", error=\"invalid_token\"";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description The authenticated one-time token expired before atomic consumption. Returns HTTP 410 and code `registration_token_expired`; no credential is issued and the runner remains registering. */
+        RegistrationTokenExpired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description The public key or Ed25519 possession proof is malformed or does not verify over the exact domain-separated message. Returns HTTP 422 and code `registration_proof_invalid`; token consumption and key binding do not occur. */
+        RegistrationProofInvalid: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /**
+         * @description Registration redemption conflicted with durable state. A token already
+         *     consumed by another request returns `registration_token_consumed`; a
+         *     runner already bound to different key material returns
+         *     `runner_key_conflict`; reuse of an idempotency key with a different
+         *     request returns `idempotency_key_conflict`.
+         *
+         *     If the same request committed and its plaintext credential response was
+         *     lost, an identical retry returns `credential_not_replayable`. The
+         *     authority stores only its hash and does not mint a replacement. Every
+         *     conflict is HTTP 409 and leaves the committed binding unchanged.
+         */
+        RegistrationRedemptionConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /**
          * @description Browser session creation encountered an idempotency conflict. Reusing
          *     the key with a different request returns code
          *     `idempotency_key_conflict`.
@@ -1691,6 +1930,8 @@ export interface components {
         IdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Caller-generated key scoped to browser session creation. Reusing the key with a different request conflicts. After a request succeeds, the platform retains only a hash of the issued credential and cannot reproduce the original Set-Cookie value. Replaying that same request therefore fails closed with HTTP 409 and code `credential_not_replayable`; the caller must obtain a new one-time exchange token and use a new idempotency key. */
         SessionCreationIdempotencyKey: components["schemas"]["IdempotencyKey"];
+        /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Reuse with a different request returns `idempotency_key_conflict`. After a successful response containing a registration token or connection credential, the authority retains only the secret hash and cannot reproduce the plaintext. An identical retry therefore returns HTTP 409 `credential_not_replayable`, never a replacement secret; recovery requires a new authorized request and a new idempotency key. */
+        SecretCreationIdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Optional caller key. GitHub webhook delivery identity remains anchored by the required X-GitHub-Delivery header. */
         OptionalIdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Opaque continuation cursor returned by the preceding page. */
@@ -1809,9 +2050,24 @@ export interface components {
                 "application/json": components["schemas"]["CreateRunnerRegistrationRequest"];
             };
         };
+        RedeemRunnerRegistration: {
+            content: {
+                "application/json": components["schemas"]["RedeemRunnerRegistrationRequest"];
+            };
+        };
         UpdateRunner: {
             content: {
                 "application/json": components["schemas"]["UpdateRunnerRequest"];
+            };
+        };
+        RotateRunnerCredential: {
+            content: {
+                "application/json": components["schemas"]["RotateRunnerCredentialRequest"];
+            };
+        };
+        RevokeRunnerCredentials: {
+            content: {
+                "application/json": components["schemas"]["RevokeRunnerCredentialsRequest"];
             };
         };
     };
@@ -2921,8 +3177,8 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Reuse with a different request returns `idempotency_key_conflict`. After a successful response containing a registration token or connection credential, the authority retains only the secret hash and cannot reproduce the plaintext. An identical retry therefore returns HTTP 409 `credential_not_replayable`, never a replacement secret; recovery requires a new authorized request and a new idempotency key. */
+                "Idempotency-Key": components["parameters"]["SecretCreationIdempotencyKey"];
             };
             path: {
                 organizationId: components["parameters"]["OrganizationId"];
@@ -2940,7 +3196,37 @@ export interface operations {
                     "application/json": components["schemas"]["RunnerRegistration"];
                 };
             };
-            409: components["responses"]["IdempotencyConflict"];
+            409: components["responses"]["CredentialIssuanceConflict"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    redeemRunnerRegistration: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Reuse with a different request returns `idempotency_key_conflict`. After a successful response containing a registration token or connection credential, the authority retains only the secret hash and cannot reproduce the plaintext. An identical retry therefore returns HTTP 409 `credential_not_replayable`, never a replacement secret; recovery requires a new authorized request and a new idempotency key. */
+                "Idempotency-Key": components["parameters"]["SecretCreationIdempotencyKey"];
+            };
+            path: {
+                runnerId: components["parameters"]["RunnerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RedeemRunnerRegistration"];
+        responses: {
+            /** @description Registration consumed and connection credential issued. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunnerRegistrationRedemption"];
+                };
+            };
+            401: components["responses"]["RegistrationTokenInvalid"];
+            409: components["responses"]["RegistrationRedemptionConflict"];
+            410: components["responses"]["RegistrationTokenExpired"];
+            422: components["responses"]["RegistrationProofInvalid"];
             default: components["responses"]["Problem"];
         };
     };
@@ -2998,15 +3284,15 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Reuse with a different request returns `idempotency_key_conflict`. After a successful response containing a registration token or connection credential, the authority retains only the secret hash and cannot reproduce the plaintext. An identical retry therefore returns HTTP 409 `credential_not_replayable`, never a replacement secret; recovery requires a new authorized request and a new idempotency key. */
+                "Idempotency-Key": components["parameters"]["SecretCreationIdempotencyKey"];
             };
             path: {
                 runnerId: components["parameters"]["RunnerId"];
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: components["requestBodies"]["RotateRunnerCredential"];
         responses: {
             /** @description Rotated runner credential. */
             200: {
@@ -3015,6 +3301,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunnerCredential"];
+                };
+            };
+            409: components["responses"]["CredentialIssuanceConflict"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    revokeRunnerCredentials: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                runnerId: components["parameters"]["RunnerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevokeRunnerCredentials"];
+        responses: {
+            /** @description Runner credential revocation recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunnerCredentialRevocation"];
                 };
             };
             409: components["responses"]["IdempotencyConflict"];

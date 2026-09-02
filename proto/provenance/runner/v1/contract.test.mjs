@@ -12,6 +12,10 @@ const gatewaySource = readFileSync(
   join(contractDirectory, "runner_gateway.proto"),
   "utf8",
 );
+const commonSource = readFileSync(
+  join(contractDirectory, "common.proto"),
+  "utf8",
+);
 const snapshot = JSON.parse(
   readFileSync(join(contractDirectory, "contract.snapshot.json"), "utf8"),
 );
@@ -345,6 +349,59 @@ test("durable acknowledgement semantics remain normative", () => {
     gatewaySource,
     /sequence with another ID, is a transport conflict/,
   );
+});
+
+test("credential rotation remains protocol-v1, feature-gated, and replay-safe", () => {
+  assert.match(
+    commonSource,
+    /PROTOCOL_FEATURE_CREDENTIAL_ROTATION\s*=\s*2\s*;/,
+  );
+  assert.match(gatewaySource, /keeps protocol_version equal to literal "1"/);
+  assert.match(
+    gatewaySource,
+    /MUST send RotateCredential only after the runner advertises CREDENTIAL_ROTATION/,
+  );
+  assert.match(
+    gatewaySource,
+    /non-advertising or mixed-version runner never receives rotation/,
+  );
+  assert.match(gatewaySource, /while the\s*\/\/\s*runner is offline/);
+  assert.match(
+    gatewaySource,
+    /atomically persist the new[\s\S]*before[\s\S]{0,20}acknowledgement/,
+  );
+  assert.match(gatewaySource, /exact duplicate[\s\S]*acknowledged again/);
+  assert.match(gatewaySource, /conflicting duplicate terminates[\s\S]*stream/);
+  assert.match(
+    gatewaySource,
+    /crash before persistence yields no acknowledgement/i,
+  );
+  assert.match(
+    gatewaySource,
+    /crash after persistence but before[\s\S]{0,20}acknowledgement/i,
+  );
+  assert.match(
+    gatewaySource,
+    /does not terminate the active predecessor-authenticated stream/,
+  );
+  assert.match(gatewaySource, /reconnects[\s\S]*before reconnect_before/);
+  assert.match(gatewaySource, /revokes[\s\S]*predecessor immediately/);
+  assert.match(
+    gatewaySource,
+    /predecessor is revoked at[\s\S]*reconnect_before/,
+  );
+  assert.match(
+    gatewaySource,
+    /does not by itself[\s\S]*revoke the predecessor/,
+  );
+  assert.match(gatewaySource, /exactly 50 ASCII bytes/);
+  assert.match(gatewaySource, /fingerprint is exactly 32 SHA-256 bytes/);
+
+  const rotationBlock = gatewaySource.slice(
+    gatewaySource.indexOf("message RotateCredential"),
+    gatewaySource.indexOf("message ShutdownRunner"),
+  );
+  assert.doesNotMatch(rotationBlock, /private_key|storage_credential/);
 });
 
 test(

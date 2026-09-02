@@ -201,6 +201,12 @@ func (LeaseStatus) EnumDescriptor() ([]byte, []int) {
 // LeaseRejected, LeaseRenewal, JobPreparing, JobStarted, JobCompleted, JobFailed, and JobCancelled
 // with RunnerEventAcknowledgement. Authenticate, Capabilities, LogBatch, and UsageReport do not
 // receive durability acknowledgements.
+//
+// CREDENTIAL_ROTATION is independent and keeps protocol_version equal to literal "1". A gateway
+// MUST send RotateCredential only after the runner advertises CREDENTIAL_ROTATION in Capabilities.
+// A non-advertising or mixed-version runner never receives rotation and continues authenticating
+// with the released protocol-v1 credential behavior. Disabling rollout stops new rotations but
+// does not reinterpret already issued credentials or protocol fields.
 type RunnerMessage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	MessageId string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
@@ -220,6 +226,7 @@ type RunnerMessage struct {
 	//	*RunnerMessage_Completed
 	//	*RunnerMessage_Failed
 	//	*RunnerMessage_Cancelled
+	//	*RunnerMessage_CredentialRotationAcknowledgement
 	Payload       isRunnerMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -393,6 +400,15 @@ func (x *RunnerMessage) GetCancelled() *JobCancelled {
 	return nil
 }
 
+func (x *RunnerMessage) GetCredentialRotationAcknowledgement() *CredentialRotationAcknowledgement {
+	if x != nil {
+		if x, ok := x.Payload.(*RunnerMessage_CredentialRotationAcknowledgement); ok {
+			return x.CredentialRotationAcknowledgement
+		}
+	}
+	return nil
+}
+
 type isRunnerMessage_Payload interface {
 	isRunnerMessage_Payload()
 }
@@ -449,6 +465,10 @@ type RunnerMessage_Cancelled struct {
 	Cancelled *JobCancelled `protobuf:"bytes,22,opt,name=cancelled,proto3,oneof"`
 }
 
+type RunnerMessage_CredentialRotationAcknowledgement struct {
+	CredentialRotationAcknowledgement *CredentialRotationAcknowledgement `protobuf:"bytes,30,opt,name=credential_rotation_acknowledgement,json=credentialRotationAcknowledgement,proto3,oneof"`
+}
+
 func (*RunnerMessage_Authenticate) isRunnerMessage_Payload() {}
 
 func (*RunnerMessage_Capabilities) isRunnerMessage_Payload() {}
@@ -474,6 +494,8 @@ func (*RunnerMessage_Completed) isRunnerMessage_Payload() {}
 func (*RunnerMessage_Failed) isRunnerMessage_Payload() {}
 
 func (*RunnerMessage_Cancelled) isRunnerMessage_Payload() {}
+
+func (*RunnerMessage_CredentialRotationAcknowledgement) isRunnerMessage_Payload() {}
 
 type GatewayMessage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
@@ -1947,14 +1969,39 @@ func (x *PolicyUpdate) GetEffectiveAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// RotateCredential is sent only when CREDENTIAL_ROTATION was advertised. rotation_id is a
+// canonical lowercase UUID and is the immutable idempotency identity. connection_credential is
+// exactly 50 ASCII bytes matching ^prc_v1_[A-Za-z0-9_-]{43}$; expires_at is exclusive and no more
+// than 3600 seconds after issued_at. credential_fingerprint is SHA-256 of those exact 50 bytes.
+// reconnect_before is the exclusive predecessor-credential deadline, after issued_at, before
+// expires_at, and no more than 300 seconds after issued_at.
+//
+// The gateway durably creates one rotation before delivery and retries the exact payload while the
+// runner is offline or acknowledgement is absent. The credential authority retains only a hash; a
+// bounded encrypted delivery envelope may retain the payload until acknowledgement, successful
+// reconnect, or reconnect_before, is unavailable to HTTP response replay, and is then erased. Reusing
+// rotation_id with different bytes, timestamps, or fingerprint is a protocol conflict. The runner
+// MUST atomically persist the new credential, complete payload identity, and rotation_id before
+// acknowledgement. An exact duplicate is acknowledged again without issuing or overwriting a secret;
+// a conflicting duplicate terminates the stream. A crash before persistence yields no acknowledgement
+// and the predecessor remains valid during overlap. A crash after persistence but before
+// acknowledgement re-acknowledges the exact replay after restart.
+//
+// Delivery does not terminate the active predecessor-authenticated stream. The runner reconnects
+// with the new credential before reconnect_before. Successful new-credential authentication revokes
+// the predecessor immediately and closes its older stream; otherwise the predecessor is revoked at
+// reconnect_before. The new credential remains subject to expires_at, quarantine, and administrative
+// revocation. Neither message contains private keys or storage credentials.
 type RotateCredential struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	RotationId           string                 `protobuf:"bytes,1,opt,name=rotation_id,json=rotationId,proto3" json:"rotation_id,omitempty"`
-	ConnectionCredential []byte                 `protobuf:"bytes,2,opt,name=connection_credential,json=connectionCredential,proto3" json:"connection_credential,omitempty"`
-	ExpiresAt            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	ReconnectBefore      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=reconnect_before,json=reconnectBefore,proto3" json:"reconnect_before,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	RotationId            string                 `protobuf:"bytes,1,opt,name=rotation_id,json=rotationId,proto3" json:"rotation_id,omitempty"`
+	ConnectionCredential  []byte                 `protobuf:"bytes,2,opt,name=connection_credential,json=connectionCredential,proto3" json:"connection_credential,omitempty"`
+	ExpiresAt             *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	ReconnectBefore       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=reconnect_before,json=reconnectBefore,proto3" json:"reconnect_before,omitempty"`
+	IssuedAt              *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=issued_at,json=issuedAt,proto3" json:"issued_at,omitempty"`
+	CredentialFingerprint []byte                 `protobuf:"bytes,11,opt,name=credential_fingerprint,json=credentialFingerprint,proto3" json:"credential_fingerprint,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *RotateCredential) Reset() {
@@ -2015,6 +2062,86 @@ func (x *RotateCredential) GetReconnectBefore() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *RotateCredential) GetIssuedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.IssuedAt
+	}
+	return nil
+}
+
+func (x *RotateCredential) GetCredentialFingerprint() []byte {
+	if x != nil {
+		return x.CredentialFingerprint
+	}
+	return nil
+}
+
+// Sent only after the runner has durably persisted the exact RotateCredential payload. The
+// fingerprint is exactly 32 SHA-256 bytes and must equal the delivered credential_fingerprint.
+// An exact duplicate delivery after acknowledgement or restart produces the same acknowledgement;
+// the gateway treats a conflicting rotation_id/fingerprint pair as a protocol conflict. This
+// acknowledgement proves persistence, not successful reconnect, and therefore does not by itself
+// revoke the predecessor before reconnect_before.
+type CredentialRotationAcknowledgement struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	RotationId            string                 `protobuf:"bytes,1,opt,name=rotation_id,json=rotationId,proto3" json:"rotation_id,omitempty"`
+	CredentialFingerprint []byte                 `protobuf:"bytes,2,opt,name=credential_fingerprint,json=credentialFingerprint,proto3" json:"credential_fingerprint,omitempty"`
+	PersistedAt           *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=persisted_at,json=persistedAt,proto3" json:"persisted_at,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *CredentialRotationAcknowledgement) Reset() {
+	*x = CredentialRotationAcknowledgement{}
+	mi := &file_runner_gateway_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CredentialRotationAcknowledgement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CredentialRotationAcknowledgement) ProtoMessage() {}
+
+func (x *CredentialRotationAcknowledgement) ProtoReflect() protoreflect.Message {
+	mi := &file_runner_gateway_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CredentialRotationAcknowledgement.ProtoReflect.Descriptor instead.
+func (*CredentialRotationAcknowledgement) Descriptor() ([]byte, []int) {
+	return file_runner_gateway_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *CredentialRotationAcknowledgement) GetRotationId() string {
+	if x != nil {
+		return x.RotationId
+	}
+	return ""
+}
+
+func (x *CredentialRotationAcknowledgement) GetCredentialFingerprint() []byte {
+	if x != nil {
+		return x.CredentialFingerprint
+	}
+	return nil
+}
+
+func (x *CredentialRotationAcknowledgement) GetPersistedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PersistedAt
+	}
+	return nil
+}
+
 type ShutdownRunner struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	ShutdownId     string                 `protobuf:"bytes,1,opt,name=shutdown_id,json=shutdownId,proto3" json:"shutdown_id,omitempty"`
@@ -2027,7 +2154,7 @@ type ShutdownRunner struct {
 
 func (x *ShutdownRunner) Reset() {
 	*x = ShutdownRunner{}
-	mi := &file_runner_gateway_proto_msgTypes[21]
+	mi := &file_runner_gateway_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2039,7 +2166,7 @@ func (x *ShutdownRunner) String() string {
 func (*ShutdownRunner) ProtoMessage() {}
 
 func (x *ShutdownRunner) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[21]
+	mi := &file_runner_gateway_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2052,7 +2179,7 @@ func (x *ShutdownRunner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShutdownRunner.ProtoReflect.Descriptor instead.
 func (*ShutdownRunner) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{21}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ShutdownRunner) GetShutdownId() string {
@@ -2099,7 +2226,7 @@ type LeaseReconciliation struct {
 
 func (x *LeaseReconciliation) Reset() {
 	*x = LeaseReconciliation{}
-	mi := &file_runner_gateway_proto_msgTypes[22]
+	mi := &file_runner_gateway_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2111,7 +2238,7 @@ func (x *LeaseReconciliation) String() string {
 func (*LeaseReconciliation) ProtoMessage() {}
 
 func (x *LeaseReconciliation) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[22]
+	mi := &file_runner_gateway_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2124,7 +2251,7 @@ func (x *LeaseReconciliation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeaseReconciliation.ProtoReflect.Descriptor instead.
 func (*LeaseReconciliation) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{22}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *LeaseReconciliation) GetLease() *LeaseIdentity {
@@ -2190,7 +2317,7 @@ type RunnerEventAcknowledgement struct {
 
 func (x *RunnerEventAcknowledgement) Reset() {
 	*x = RunnerEventAcknowledgement{}
-	mi := &file_runner_gateway_proto_msgTypes[23]
+	mi := &file_runner_gateway_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2202,7 +2329,7 @@ func (x *RunnerEventAcknowledgement) String() string {
 func (*RunnerEventAcknowledgement) ProtoMessage() {}
 
 func (x *RunnerEventAcknowledgement) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[23]
+	mi := &file_runner_gateway_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2215,7 +2342,7 @@ func (x *RunnerEventAcknowledgement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunnerEventAcknowledgement.ProtoReflect.Descriptor instead.
 func (*RunnerEventAcknowledgement) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{23}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RunnerEventAcknowledgement) GetRunnerMessageId() string {
@@ -2255,7 +2382,7 @@ type HeartbeatAcknowledgement struct {
 
 func (x *HeartbeatAcknowledgement) Reset() {
 	*x = HeartbeatAcknowledgement{}
-	mi := &file_runner_gateway_proto_msgTypes[24]
+	mi := &file_runner_gateway_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2267,7 +2394,7 @@ func (x *HeartbeatAcknowledgement) String() string {
 func (*HeartbeatAcknowledgement) ProtoMessage() {}
 
 func (x *HeartbeatAcknowledgement) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[24]
+	mi := &file_runner_gateway_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2280,7 +2407,7 @@ func (x *HeartbeatAcknowledgement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatAcknowledgement.ProtoReflect.Descriptor instead.
 func (*HeartbeatAcknowledgement) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{24}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *HeartbeatAcknowledgement) GetRunnerMessageId() string {
@@ -2315,7 +2442,7 @@ var File_runner_gateway_proto protoreflect.FileDescriptor
 
 const file_runner_gateway_proto_rawDesc = "" +
 	"\n" +
-	"\x14runner_gateway.proto\x12\x14provenance.runner.v1\x1a\fcommon.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x83\b\n" +
+	"\x14runner_gateway.proto\x12\x14provenance.runner.v1\x1a\fcommon.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8f\t\n" +
 	"\rRunnerMessage\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x123\n" +
@@ -2334,7 +2461,8 @@ const file_runner_gateway_proto_rawDesc = "" +
 	"\x05usage\x18\x13 \x01(\v2!.provenance.runner.v1.UsageReportH\x00R\x05usage\x12B\n" +
 	"\tcompleted\x18\x14 \x01(\v2\".provenance.runner.v1.JobCompletedH\x00R\tcompleted\x129\n" +
 	"\x06failed\x18\x15 \x01(\v2\x1f.provenance.runner.v1.JobFailedH\x00R\x06failed\x12B\n" +
-	"\tcancelled\x18\x16 \x01(\v2\".provenance.runner.v1.JobCancelledH\x00R\tcancelledB\t\n" +
+	"\tcancelled\x18\x16 \x01(\v2\".provenance.runner.v1.JobCancelledH\x00R\tcancelled\x12\x89\x01\n" +
+	"#credential_rotation_acknowledgement\x18\x1e \x01(\v27.provenance.runner.v1.CredentialRotationAcknowledgementH\x00R!credentialRotationAcknowledgementB\t\n" +
 	"\apayloadJ\x04\b\x03\x10\n" +
 	"J\x04\b\x17\x10\x1e\"\xba\x06\n" +
 	"\x0eGatewayMessage\x12\x1d\n" +
@@ -2475,15 +2603,24 @@ const file_runner_gateway_proto_rawDesc = "" +
 	"\rpolicy_digest\x18\x02 \x01(\v2\x1c.provenance.runner.v1.DigestR\fpolicyDigest\x12:\n" +
 	"\x06policy\x18\x03 \x01(\v2\".provenance.runner.v1.RunnerPolicyR\x06policy\x12=\n" +
 	"\feffective_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\veffectiveAtJ\x04\b\x05\x10\n" +
-	"\"\x84\x02\n" +
+	"\"\xfa\x02\n" +
 	"\x10RotateCredential\x12\x1f\n" +
 	"\vrotation_id\x18\x01 \x01(\tR\n" +
 	"rotationId\x123\n" +
 	"\x15connection_credential\x18\x02 \x01(\fR\x14connectionCredential\x129\n" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12E\n" +
-	"\x10reconnect_before\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x0freconnectBeforeJ\x04\b\x05\x10\n" +
-	"R\x12registration_token\"\xb0\x01\n" +
+	"\x10reconnect_before\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x0freconnectBefore\x127\n" +
+	"\tissued_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\bissuedAt\x125\n" +
+	"\x16credential_fingerprint\x18\v \x01(\fR\x15credentialFingerprintJ\x04\b\x05\x10\n" +
+	"J\x04\b\f\x10\x10R\x12registration_token\"\xc0\x01\n" +
+	"!CredentialRotationAcknowledgement\x12\x1f\n" +
+	"\vrotation_id\x18\x01 \x01(\tR\n" +
+	"rotationId\x125\n" +
+	"\x16credential_fingerprint\x18\x02 \x01(\fR\x15credentialFingerprint\x12=\n" +
+	"\fpersisted_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vpersistedAtJ\x04\b\x04\x10\n" +
+	"\"\xb0\x01\n" +
 	"\x0eShutdownRunner\x12\x1f\n" +
 	"\vshutdown_id\x18\x01 \x01(\tR\n" +
 	"shutdownId\x12\x16\n" +
@@ -2547,57 +2684,58 @@ func file_runner_gateway_proto_rawDescGZIP() []byte {
 }
 
 var file_runner_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_runner_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_runner_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_runner_gateway_proto_goTypes = []any{
-	(LeaseRejectionReason)(0),          // 0: provenance.runner.v1.LeaseRejectionReason
-	(RunnerMessageDisposition)(0),      // 1: provenance.runner.v1.RunnerMessageDisposition
-	(LeaseStatus)(0),                   // 2: provenance.runner.v1.LeaseStatus
-	(*RunnerMessage)(nil),              // 3: provenance.runner.v1.RunnerMessage
-	(*GatewayMessage)(nil),             // 4: provenance.runner.v1.GatewayMessage
-	(*Authenticate)(nil),               // 5: provenance.runner.v1.Authenticate
-	(*Authenticated)(nil),              // 6: provenance.runner.v1.Authenticated
-	(*HeartbeatLease)(nil),             // 7: provenance.runner.v1.HeartbeatLease
-	(*Heartbeat)(nil),                  // 8: provenance.runner.v1.Heartbeat
-	(*LeaseOffer)(nil),                 // 9: provenance.runner.v1.LeaseOffer
-	(*LeaseAccepted)(nil),              // 10: provenance.runner.v1.LeaseAccepted
-	(*LeaseRejected)(nil),              // 11: provenance.runner.v1.LeaseRejected
-	(*LeaseRenewal)(nil),               // 12: provenance.runner.v1.LeaseRenewal
-	(*JobPreparing)(nil),               // 13: provenance.runner.v1.JobPreparing
-	(*JobStarted)(nil),                 // 14: provenance.runner.v1.JobStarted
-	(*LogBatch)(nil),                   // 15: provenance.runner.v1.LogBatch
-	(*UsageReport)(nil),                // 16: provenance.runner.v1.UsageReport
-	(*JobCompleted)(nil),               // 17: provenance.runner.v1.JobCompleted
-	(*JobFailed)(nil),                  // 18: provenance.runner.v1.JobFailed
-	(*JobCancelled)(nil),               // 19: provenance.runner.v1.JobCancelled
-	(*CancelJob)(nil),                  // 20: provenance.runner.v1.CancelJob
-	(*DrainRunner)(nil),                // 21: provenance.runner.v1.DrainRunner
-	(*PolicyUpdate)(nil),               // 22: provenance.runner.v1.PolicyUpdate
-	(*RotateCredential)(nil),           // 23: provenance.runner.v1.RotateCredential
-	(*ShutdownRunner)(nil),             // 24: provenance.runner.v1.ShutdownRunner
-	(*LeaseReconciliation)(nil),        // 25: provenance.runner.v1.LeaseReconciliation
-	(*RunnerEventAcknowledgement)(nil), // 26: provenance.runner.v1.RunnerEventAcknowledgement
-	(*HeartbeatAcknowledgement)(nil),   // 27: provenance.runner.v1.HeartbeatAcknowledgement
-	(*timestamppb.Timestamp)(nil),      // 28: google.protobuf.Timestamp
-	(*Capabilities)(nil),               // 29: provenance.runner.v1.Capabilities
-	(*OrganizationScope)(nil),          // 30: provenance.runner.v1.OrganizationScope
-	(*durationpb.Duration)(nil),        // 31: google.protobuf.Duration
-	(*LeaseIdentity)(nil),              // 32: provenance.runner.v1.LeaseIdentity
-	(*AttemptIdentity)(nil),            // 33: provenance.runner.v1.AttemptIdentity
-	(JobPhase)(0),                      // 34: provenance.runner.v1.JobPhase
-	(*Capacity)(nil),                   // 35: provenance.runner.v1.Capacity
-	(*JobSpecification)(nil),           // 36: provenance.runner.v1.JobSpecification
-	(*LogEntry)(nil),                   // 37: provenance.runner.v1.LogEntry
-	(*ResourceUsage)(nil),              // 38: provenance.runner.v1.ResourceUsage
-	(*StructuredResult)(nil),           // 39: provenance.runner.v1.StructuredResult
-	(*FailureDetail)(nil),              // 40: provenance.runner.v1.FailureDetail
-	(*LogObject)(nil),                  // 41: provenance.runner.v1.LogObject
-	(*Digest)(nil),                     // 42: provenance.runner.v1.Digest
-	(*RunnerPolicy)(nil),               // 43: provenance.runner.v1.RunnerPolicy
+	(LeaseRejectionReason)(0),                 // 0: provenance.runner.v1.LeaseRejectionReason
+	(RunnerMessageDisposition)(0),             // 1: provenance.runner.v1.RunnerMessageDisposition
+	(LeaseStatus)(0),                          // 2: provenance.runner.v1.LeaseStatus
+	(*RunnerMessage)(nil),                     // 3: provenance.runner.v1.RunnerMessage
+	(*GatewayMessage)(nil),                    // 4: provenance.runner.v1.GatewayMessage
+	(*Authenticate)(nil),                      // 5: provenance.runner.v1.Authenticate
+	(*Authenticated)(nil),                     // 6: provenance.runner.v1.Authenticated
+	(*HeartbeatLease)(nil),                    // 7: provenance.runner.v1.HeartbeatLease
+	(*Heartbeat)(nil),                         // 8: provenance.runner.v1.Heartbeat
+	(*LeaseOffer)(nil),                        // 9: provenance.runner.v1.LeaseOffer
+	(*LeaseAccepted)(nil),                     // 10: provenance.runner.v1.LeaseAccepted
+	(*LeaseRejected)(nil),                     // 11: provenance.runner.v1.LeaseRejected
+	(*LeaseRenewal)(nil),                      // 12: provenance.runner.v1.LeaseRenewal
+	(*JobPreparing)(nil),                      // 13: provenance.runner.v1.JobPreparing
+	(*JobStarted)(nil),                        // 14: provenance.runner.v1.JobStarted
+	(*LogBatch)(nil),                          // 15: provenance.runner.v1.LogBatch
+	(*UsageReport)(nil),                       // 16: provenance.runner.v1.UsageReport
+	(*JobCompleted)(nil),                      // 17: provenance.runner.v1.JobCompleted
+	(*JobFailed)(nil),                         // 18: provenance.runner.v1.JobFailed
+	(*JobCancelled)(nil),                      // 19: provenance.runner.v1.JobCancelled
+	(*CancelJob)(nil),                         // 20: provenance.runner.v1.CancelJob
+	(*DrainRunner)(nil),                       // 21: provenance.runner.v1.DrainRunner
+	(*PolicyUpdate)(nil),                      // 22: provenance.runner.v1.PolicyUpdate
+	(*RotateCredential)(nil),                  // 23: provenance.runner.v1.RotateCredential
+	(*CredentialRotationAcknowledgement)(nil), // 24: provenance.runner.v1.CredentialRotationAcknowledgement
+	(*ShutdownRunner)(nil),                    // 25: provenance.runner.v1.ShutdownRunner
+	(*LeaseReconciliation)(nil),               // 26: provenance.runner.v1.LeaseReconciliation
+	(*RunnerEventAcknowledgement)(nil),        // 27: provenance.runner.v1.RunnerEventAcknowledgement
+	(*HeartbeatAcknowledgement)(nil),          // 28: provenance.runner.v1.HeartbeatAcknowledgement
+	(*timestamppb.Timestamp)(nil),             // 29: google.protobuf.Timestamp
+	(*Capabilities)(nil),                      // 30: provenance.runner.v1.Capabilities
+	(*OrganizationScope)(nil),                 // 31: provenance.runner.v1.OrganizationScope
+	(*durationpb.Duration)(nil),               // 32: google.protobuf.Duration
+	(*LeaseIdentity)(nil),                     // 33: provenance.runner.v1.LeaseIdentity
+	(*AttemptIdentity)(nil),                   // 34: provenance.runner.v1.AttemptIdentity
+	(JobPhase)(0),                             // 35: provenance.runner.v1.JobPhase
+	(*Capacity)(nil),                          // 36: provenance.runner.v1.Capacity
+	(*JobSpecification)(nil),                  // 37: provenance.runner.v1.JobSpecification
+	(*LogEntry)(nil),                          // 38: provenance.runner.v1.LogEntry
+	(*ResourceUsage)(nil),                     // 39: provenance.runner.v1.ResourceUsage
+	(*StructuredResult)(nil),                  // 40: provenance.runner.v1.StructuredResult
+	(*FailureDetail)(nil),                     // 41: provenance.runner.v1.FailureDetail
+	(*LogObject)(nil),                         // 42: provenance.runner.v1.LogObject
+	(*Digest)(nil),                            // 43: provenance.runner.v1.Digest
+	(*RunnerPolicy)(nil),                      // 44: provenance.runner.v1.RunnerPolicy
 }
 var file_runner_gateway_proto_depIdxs = []int32{
-	28, // 0: provenance.runner.v1.RunnerMessage.sent_at:type_name -> google.protobuf.Timestamp
+	29, // 0: provenance.runner.v1.RunnerMessage.sent_at:type_name -> google.protobuf.Timestamp
 	5,  // 1: provenance.runner.v1.RunnerMessage.authenticate:type_name -> provenance.runner.v1.Authenticate
-	29, // 2: provenance.runner.v1.RunnerMessage.capabilities:type_name -> provenance.runner.v1.Capabilities
+	30, // 2: provenance.runner.v1.RunnerMessage.capabilities:type_name -> provenance.runner.v1.Capabilities
 	8,  // 3: provenance.runner.v1.RunnerMessage.heartbeat:type_name -> provenance.runner.v1.Heartbeat
 	10, // 4: provenance.runner.v1.RunnerMessage.lease_accepted:type_name -> provenance.runner.v1.LeaseAccepted
 	11, // 5: provenance.runner.v1.RunnerMessage.lease_rejected:type_name -> provenance.runner.v1.LeaseRejected
@@ -2609,91 +2747,94 @@ var file_runner_gateway_proto_depIdxs = []int32{
 	17, // 11: provenance.runner.v1.RunnerMessage.completed:type_name -> provenance.runner.v1.JobCompleted
 	18, // 12: provenance.runner.v1.RunnerMessage.failed:type_name -> provenance.runner.v1.JobFailed
 	19, // 13: provenance.runner.v1.RunnerMessage.cancelled:type_name -> provenance.runner.v1.JobCancelled
-	28, // 14: provenance.runner.v1.GatewayMessage.sent_at:type_name -> google.protobuf.Timestamp
-	6,  // 15: provenance.runner.v1.GatewayMessage.authenticated:type_name -> provenance.runner.v1.Authenticated
-	9,  // 16: provenance.runner.v1.GatewayMessage.offer:type_name -> provenance.runner.v1.LeaseOffer
-	20, // 17: provenance.runner.v1.GatewayMessage.cancel:type_name -> provenance.runner.v1.CancelJob
-	21, // 18: provenance.runner.v1.GatewayMessage.drain:type_name -> provenance.runner.v1.DrainRunner
-	22, // 19: provenance.runner.v1.GatewayMessage.policy_update:type_name -> provenance.runner.v1.PolicyUpdate
-	23, // 20: provenance.runner.v1.GatewayMessage.credential_rotation:type_name -> provenance.runner.v1.RotateCredential
-	24, // 21: provenance.runner.v1.GatewayMessage.shutdown:type_name -> provenance.runner.v1.ShutdownRunner
-	26, // 22: provenance.runner.v1.GatewayMessage.event_acknowledgement:type_name -> provenance.runner.v1.RunnerEventAcknowledgement
-	27, // 23: provenance.runner.v1.GatewayMessage.heartbeat_acknowledgement:type_name -> provenance.runner.v1.HeartbeatAcknowledgement
-	30, // 24: provenance.runner.v1.Authenticated.organization_scope:type_name -> provenance.runner.v1.OrganizationScope
-	28, // 25: provenance.runner.v1.Authenticated.credential_expires_at:type_name -> google.protobuf.Timestamp
-	31, // 26: provenance.runner.v1.Authenticated.heartbeat_interval:type_name -> google.protobuf.Duration
-	31, // 27: provenance.runner.v1.Authenticated.lease_duration:type_name -> google.protobuf.Duration
-	28, // 28: provenance.runner.v1.Authenticated.server_time:type_name -> google.protobuf.Timestamp
-	32, // 29: provenance.runner.v1.HeartbeatLease.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 30: provenance.runner.v1.HeartbeatLease.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	34, // 31: provenance.runner.v1.HeartbeatLease.phase:type_name -> provenance.runner.v1.JobPhase
-	35, // 32: provenance.runner.v1.Heartbeat.capacity:type_name -> provenance.runner.v1.Capacity
-	7,  // 33: provenance.runner.v1.Heartbeat.active_leases:type_name -> provenance.runner.v1.HeartbeatLease
-	28, // 34: provenance.runner.v1.Heartbeat.observed_at:type_name -> google.protobuf.Timestamp
-	36, // 35: provenance.runner.v1.LeaseOffer.job:type_name -> provenance.runner.v1.JobSpecification
-	28, // 36: provenance.runner.v1.LeaseOffer.offer_expires_at:type_name -> google.protobuf.Timestamp
-	32, // 37: provenance.runner.v1.LeaseAccepted.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 38: provenance.runner.v1.LeaseAccepted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	28, // 39: provenance.runner.v1.LeaseAccepted.accepted_at:type_name -> google.protobuf.Timestamp
-	32, // 40: provenance.runner.v1.LeaseRejected.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 41: provenance.runner.v1.LeaseRejected.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	0,  // 42: provenance.runner.v1.LeaseRejected.reason:type_name -> provenance.runner.v1.LeaseRejectionReason
-	32, // 43: provenance.runner.v1.LeaseRenewal.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 44: provenance.runner.v1.LeaseRenewal.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	31, // 45: provenance.runner.v1.LeaseRenewal.requested_extension:type_name -> google.protobuf.Duration
-	28, // 46: provenance.runner.v1.LeaseRenewal.observed_at:type_name -> google.protobuf.Timestamp
-	32, // 47: provenance.runner.v1.JobPreparing.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 48: provenance.runner.v1.JobPreparing.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	28, // 49: provenance.runner.v1.JobPreparing.started_at:type_name -> google.protobuf.Timestamp
-	32, // 50: provenance.runner.v1.JobStarted.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 51: provenance.runner.v1.JobStarted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	28, // 52: provenance.runner.v1.JobStarted.started_at:type_name -> google.protobuf.Timestamp
-	32, // 53: provenance.runner.v1.LogBatch.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 54: provenance.runner.v1.LogBatch.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	37, // 55: provenance.runner.v1.LogBatch.entries:type_name -> provenance.runner.v1.LogEntry
-	32, // 56: provenance.runner.v1.UsageReport.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 57: provenance.runner.v1.UsageReport.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	28, // 58: provenance.runner.v1.UsageReport.observed_at:type_name -> google.protobuf.Timestamp
-	38, // 59: provenance.runner.v1.UsageReport.cumulative:type_name -> provenance.runner.v1.ResourceUsage
-	32, // 60: provenance.runner.v1.JobCompleted.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 61: provenance.runner.v1.JobCompleted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	39, // 62: provenance.runner.v1.JobCompleted.result:type_name -> provenance.runner.v1.StructuredResult
-	32, // 63: provenance.runner.v1.JobFailed.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 64: provenance.runner.v1.JobFailed.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	40, // 65: provenance.runner.v1.JobFailed.failure:type_name -> provenance.runner.v1.FailureDetail
-	38, // 66: provenance.runner.v1.JobFailed.usage:type_name -> provenance.runner.v1.ResourceUsage
-	41, // 67: provenance.runner.v1.JobFailed.complete_log:type_name -> provenance.runner.v1.LogObject
-	28, // 68: provenance.runner.v1.JobFailed.failed_at:type_name -> google.protobuf.Timestamp
-	32, // 69: provenance.runner.v1.JobCancelled.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 70: provenance.runner.v1.JobCancelled.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	28, // 71: provenance.runner.v1.JobCancelled.cancelled_at:type_name -> google.protobuf.Timestamp
-	40, // 72: provenance.runner.v1.JobCancelled.cleanup_failure:type_name -> provenance.runner.v1.FailureDetail
-	32, // 73: provenance.runner.v1.CancelJob.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 74: provenance.runner.v1.CancelJob.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	28, // 75: provenance.runner.v1.CancelJob.deadline:type_name -> google.protobuf.Timestamp
-	28, // 76: provenance.runner.v1.DrainRunner.deadline:type_name -> google.protobuf.Timestamp
-	42, // 77: provenance.runner.v1.PolicyUpdate.policy_digest:type_name -> provenance.runner.v1.Digest
-	43, // 78: provenance.runner.v1.PolicyUpdate.policy:type_name -> provenance.runner.v1.RunnerPolicy
-	28, // 79: provenance.runner.v1.PolicyUpdate.effective_at:type_name -> google.protobuf.Timestamp
-	28, // 80: provenance.runner.v1.RotateCredential.expires_at:type_name -> google.protobuf.Timestamp
-	28, // 81: provenance.runner.v1.RotateCredential.reconnect_before:type_name -> google.protobuf.Timestamp
-	28, // 82: provenance.runner.v1.ShutdownRunner.deadline:type_name -> google.protobuf.Timestamp
-	32, // 83: provenance.runner.v1.LeaseReconciliation.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	33, // 84: provenance.runner.v1.LeaseReconciliation.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	1,  // 85: provenance.runner.v1.LeaseReconciliation.disposition:type_name -> provenance.runner.v1.RunnerMessageDisposition
-	2,  // 86: provenance.runner.v1.LeaseReconciliation.status:type_name -> provenance.runner.v1.LeaseStatus
-	34, // 87: provenance.runner.v1.LeaseReconciliation.phase:type_name -> provenance.runner.v1.JobPhase
-	25, // 88: provenance.runner.v1.RunnerEventAcknowledgement.reconciliation:type_name -> provenance.runner.v1.LeaseReconciliation
-	28, // 89: provenance.runner.v1.RunnerEventAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
-	25, // 90: provenance.runner.v1.HeartbeatAcknowledgement.reconciliations:type_name -> provenance.runner.v1.LeaseReconciliation
-	28, // 91: provenance.runner.v1.HeartbeatAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
-	3,  // 92: provenance.runner.v1.RunnerGateway.Connect:input_type -> provenance.runner.v1.RunnerMessage
-	4,  // 93: provenance.runner.v1.RunnerGateway.Connect:output_type -> provenance.runner.v1.GatewayMessage
-	93, // [93:94] is the sub-list for method output_type
-	92, // [92:93] is the sub-list for method input_type
-	92, // [92:92] is the sub-list for extension type_name
-	92, // [92:92] is the sub-list for extension extendee
-	0,  // [0:92] is the sub-list for field type_name
+	24, // 14: provenance.runner.v1.RunnerMessage.credential_rotation_acknowledgement:type_name -> provenance.runner.v1.CredentialRotationAcknowledgement
+	29, // 15: provenance.runner.v1.GatewayMessage.sent_at:type_name -> google.protobuf.Timestamp
+	6,  // 16: provenance.runner.v1.GatewayMessage.authenticated:type_name -> provenance.runner.v1.Authenticated
+	9,  // 17: provenance.runner.v1.GatewayMessage.offer:type_name -> provenance.runner.v1.LeaseOffer
+	20, // 18: provenance.runner.v1.GatewayMessage.cancel:type_name -> provenance.runner.v1.CancelJob
+	21, // 19: provenance.runner.v1.GatewayMessage.drain:type_name -> provenance.runner.v1.DrainRunner
+	22, // 20: provenance.runner.v1.GatewayMessage.policy_update:type_name -> provenance.runner.v1.PolicyUpdate
+	23, // 21: provenance.runner.v1.GatewayMessage.credential_rotation:type_name -> provenance.runner.v1.RotateCredential
+	25, // 22: provenance.runner.v1.GatewayMessage.shutdown:type_name -> provenance.runner.v1.ShutdownRunner
+	27, // 23: provenance.runner.v1.GatewayMessage.event_acknowledgement:type_name -> provenance.runner.v1.RunnerEventAcknowledgement
+	28, // 24: provenance.runner.v1.GatewayMessage.heartbeat_acknowledgement:type_name -> provenance.runner.v1.HeartbeatAcknowledgement
+	31, // 25: provenance.runner.v1.Authenticated.organization_scope:type_name -> provenance.runner.v1.OrganizationScope
+	29, // 26: provenance.runner.v1.Authenticated.credential_expires_at:type_name -> google.protobuf.Timestamp
+	32, // 27: provenance.runner.v1.Authenticated.heartbeat_interval:type_name -> google.protobuf.Duration
+	32, // 28: provenance.runner.v1.Authenticated.lease_duration:type_name -> google.protobuf.Duration
+	29, // 29: provenance.runner.v1.Authenticated.server_time:type_name -> google.protobuf.Timestamp
+	33, // 30: provenance.runner.v1.HeartbeatLease.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 31: provenance.runner.v1.HeartbeatLease.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	35, // 32: provenance.runner.v1.HeartbeatLease.phase:type_name -> provenance.runner.v1.JobPhase
+	36, // 33: provenance.runner.v1.Heartbeat.capacity:type_name -> provenance.runner.v1.Capacity
+	7,  // 34: provenance.runner.v1.Heartbeat.active_leases:type_name -> provenance.runner.v1.HeartbeatLease
+	29, // 35: provenance.runner.v1.Heartbeat.observed_at:type_name -> google.protobuf.Timestamp
+	37, // 36: provenance.runner.v1.LeaseOffer.job:type_name -> provenance.runner.v1.JobSpecification
+	29, // 37: provenance.runner.v1.LeaseOffer.offer_expires_at:type_name -> google.protobuf.Timestamp
+	33, // 38: provenance.runner.v1.LeaseAccepted.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 39: provenance.runner.v1.LeaseAccepted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	29, // 40: provenance.runner.v1.LeaseAccepted.accepted_at:type_name -> google.protobuf.Timestamp
+	33, // 41: provenance.runner.v1.LeaseRejected.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 42: provenance.runner.v1.LeaseRejected.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	0,  // 43: provenance.runner.v1.LeaseRejected.reason:type_name -> provenance.runner.v1.LeaseRejectionReason
+	33, // 44: provenance.runner.v1.LeaseRenewal.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 45: provenance.runner.v1.LeaseRenewal.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	32, // 46: provenance.runner.v1.LeaseRenewal.requested_extension:type_name -> google.protobuf.Duration
+	29, // 47: provenance.runner.v1.LeaseRenewal.observed_at:type_name -> google.protobuf.Timestamp
+	33, // 48: provenance.runner.v1.JobPreparing.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 49: provenance.runner.v1.JobPreparing.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	29, // 50: provenance.runner.v1.JobPreparing.started_at:type_name -> google.protobuf.Timestamp
+	33, // 51: provenance.runner.v1.JobStarted.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 52: provenance.runner.v1.JobStarted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	29, // 53: provenance.runner.v1.JobStarted.started_at:type_name -> google.protobuf.Timestamp
+	33, // 54: provenance.runner.v1.LogBatch.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 55: provenance.runner.v1.LogBatch.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	38, // 56: provenance.runner.v1.LogBatch.entries:type_name -> provenance.runner.v1.LogEntry
+	33, // 57: provenance.runner.v1.UsageReport.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 58: provenance.runner.v1.UsageReport.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	29, // 59: provenance.runner.v1.UsageReport.observed_at:type_name -> google.protobuf.Timestamp
+	39, // 60: provenance.runner.v1.UsageReport.cumulative:type_name -> provenance.runner.v1.ResourceUsage
+	33, // 61: provenance.runner.v1.JobCompleted.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 62: provenance.runner.v1.JobCompleted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	40, // 63: provenance.runner.v1.JobCompleted.result:type_name -> provenance.runner.v1.StructuredResult
+	33, // 64: provenance.runner.v1.JobFailed.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 65: provenance.runner.v1.JobFailed.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	41, // 66: provenance.runner.v1.JobFailed.failure:type_name -> provenance.runner.v1.FailureDetail
+	39, // 67: provenance.runner.v1.JobFailed.usage:type_name -> provenance.runner.v1.ResourceUsage
+	42, // 68: provenance.runner.v1.JobFailed.complete_log:type_name -> provenance.runner.v1.LogObject
+	29, // 69: provenance.runner.v1.JobFailed.failed_at:type_name -> google.protobuf.Timestamp
+	33, // 70: provenance.runner.v1.JobCancelled.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 71: provenance.runner.v1.JobCancelled.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	29, // 72: provenance.runner.v1.JobCancelled.cancelled_at:type_name -> google.protobuf.Timestamp
+	41, // 73: provenance.runner.v1.JobCancelled.cleanup_failure:type_name -> provenance.runner.v1.FailureDetail
+	33, // 74: provenance.runner.v1.CancelJob.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 75: provenance.runner.v1.CancelJob.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	29, // 76: provenance.runner.v1.CancelJob.deadline:type_name -> google.protobuf.Timestamp
+	29, // 77: provenance.runner.v1.DrainRunner.deadline:type_name -> google.protobuf.Timestamp
+	43, // 78: provenance.runner.v1.PolicyUpdate.policy_digest:type_name -> provenance.runner.v1.Digest
+	44, // 79: provenance.runner.v1.PolicyUpdate.policy:type_name -> provenance.runner.v1.RunnerPolicy
+	29, // 80: provenance.runner.v1.PolicyUpdate.effective_at:type_name -> google.protobuf.Timestamp
+	29, // 81: provenance.runner.v1.RotateCredential.expires_at:type_name -> google.protobuf.Timestamp
+	29, // 82: provenance.runner.v1.RotateCredential.reconnect_before:type_name -> google.protobuf.Timestamp
+	29, // 83: provenance.runner.v1.RotateCredential.issued_at:type_name -> google.protobuf.Timestamp
+	29, // 84: provenance.runner.v1.CredentialRotationAcknowledgement.persisted_at:type_name -> google.protobuf.Timestamp
+	29, // 85: provenance.runner.v1.ShutdownRunner.deadline:type_name -> google.protobuf.Timestamp
+	33, // 86: provenance.runner.v1.LeaseReconciliation.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 87: provenance.runner.v1.LeaseReconciliation.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	1,  // 88: provenance.runner.v1.LeaseReconciliation.disposition:type_name -> provenance.runner.v1.RunnerMessageDisposition
+	2,  // 89: provenance.runner.v1.LeaseReconciliation.status:type_name -> provenance.runner.v1.LeaseStatus
+	35, // 90: provenance.runner.v1.LeaseReconciliation.phase:type_name -> provenance.runner.v1.JobPhase
+	26, // 91: provenance.runner.v1.RunnerEventAcknowledgement.reconciliation:type_name -> provenance.runner.v1.LeaseReconciliation
+	29, // 92: provenance.runner.v1.RunnerEventAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
+	26, // 93: provenance.runner.v1.HeartbeatAcknowledgement.reconciliations:type_name -> provenance.runner.v1.LeaseReconciliation
+	29, // 94: provenance.runner.v1.HeartbeatAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
+	3,  // 95: provenance.runner.v1.RunnerGateway.Connect:input_type -> provenance.runner.v1.RunnerMessage
+	4,  // 96: provenance.runner.v1.RunnerGateway.Connect:output_type -> provenance.runner.v1.GatewayMessage
+	96, // [96:97] is the sub-list for method output_type
+	95, // [95:96] is the sub-list for method input_type
+	95, // [95:95] is the sub-list for extension type_name
+	95, // [95:95] is the sub-list for extension extendee
+	0,  // [0:95] is the sub-list for field type_name
 }
 
 func init() { file_runner_gateway_proto_init() }
@@ -2716,6 +2857,7 @@ func file_runner_gateway_proto_init() {
 		(*RunnerMessage_Completed)(nil),
 		(*RunnerMessage_Failed)(nil),
 		(*RunnerMessage_Cancelled)(nil),
+		(*RunnerMessage_CredentialRotationAcknowledgement)(nil),
 	}
 	file_runner_gateway_proto_msgTypes[1].OneofWrappers = []any{
 		(*GatewayMessage_Authenticated)(nil),
@@ -2734,7 +2876,7 @@ func file_runner_gateway_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_runner_gateway_proto_rawDesc), len(file_runner_gateway_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   25,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

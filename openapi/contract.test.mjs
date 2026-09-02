@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash, createPublicKey, verify } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -10,6 +11,9 @@ const document = parse(
 );
 const inventory = JSON.parse(
   await readFile(new URL("operation-inventory.json", root), "utf8"),
+);
+const alpha5Compatibility = JSON.parse(
+  await readFile(new URL("alpha5-compat.snapshot.json", root), "utf8"),
 );
 const generatedClient = await readFile(
   new URL("../packages/api-client/src/gen/schema.d.ts", root),
@@ -284,6 +288,7 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
   assert.deepEqual(Object.keys(document.components.securitySchemes).sort(), [
     "BearerAuth",
     "GitHubWebhookSignature",
+    "RunnerRegistrationToken",
     "SessionCookie",
   ]);
   assert.deepEqual(document.security, [
@@ -339,7 +344,15 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
         "publishing",
         "published",
       ],
-      RunnerState: ["offline", "idle", "busy", "draining"],
+      RunnerState: [
+        "registering",
+        "offline",
+        "idle",
+        "busy",
+        "draining",
+        "quarantined",
+        "revoked",
+      ],
       SessionState: ["active", "expired", "revoked"],
       VerificationState: ["pending", "verified", "failed"],
     },
@@ -358,6 +371,330 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
       }
     }
   }
+});
+
+test("IFC-011 defines bounded hash-only enrollment and credential lifecycle", () => {
+  const schemas = document.components.schemas;
+  const create = operation("createRunnerRegistration");
+  const redeem = operation("redeemRunnerRegistration");
+  const rotate = operation("rotateRunnerCredentials");
+  const revoke = operation("revokeRunnerCredentials");
+
+  for (const secretOperation of [create, redeem, rotate]) {
+    const parameter = secretOperation.parameters
+      .map(resolveParameter)
+      .find(({ name }) => name === "Idempotency-Key");
+    assert.match(parameter.description, /stores only|retains only/i);
+    assert.match(parameter.description, /credential_not_replayable/);
+    assert.match(parameter.description, /idempotency_key_conflict/);
+    assert.match(
+      resolveResponse(secretOperation.responses["409"]).description,
+      /credential_not_replayable/,
+    );
+  }
+
+  assert.deepEqual(redeem.security, [{ RunnerRegistrationToken: [] }]);
+  assert.equal(
+    document.components.securitySchemes.RunnerRegistrationToken.bearerFormat,
+    "prr_v1",
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ["401", "409", "410", "422"].map((status) => [
+        status,
+        redeem.responses[status].$ref,
+      ]),
+    ),
+    {
+      401: "#/components/responses/RegistrationTokenInvalid",
+      409: "#/components/responses/RegistrationRedemptionConflict",
+      410: "#/components/responses/RegistrationTokenExpired",
+      422: "#/components/responses/RegistrationProofInvalid",
+    },
+  );
+  for (const [response, code] of [
+    ["RegistrationTokenInvalid", "registration_token_invalid"],
+    ["RegistrationTokenExpired", "registration_token_expired"],
+    ["RegistrationProofInvalid", "registration_proof_invalid"],
+    ["RegistrationRedemptionConflict", "registration_token_consumed"],
+  ]) {
+    assert.match(
+      document.components.responses[response].description,
+      new RegExp(code),
+    );
+  }
+  assert.match(
+    document.components.responses.RegistrationTokenInvalid.description,
+    /without disclosing runner or tenant identity/,
+  );
+
+  assert.deepEqual(
+    [
+      ["RunnerRegistrationToken", 50, "^prr_v1_[A-Za-z0-9_-]{43}$"],
+      ["RunnerConnectionCredential", 50, "^prc_v1_[A-Za-z0-9_-]{43}$"],
+      ["Ed25519PublicKey", 43, "^[A-Za-z0-9_-]{43}$"],
+      ["Ed25519Signature", 86, "^[A-Za-z0-9_-]{86}$"],
+      ["PublicKeyFingerprint", 71, "^sha256:[a-f0-9]{64}$"],
+    ].map(([name, length, pattern]) => ({
+      length: [schemas[name].minLength, schemas[name].maxLength],
+      name,
+      pattern: schemas[name].pattern,
+    })),
+    [
+      {
+        length: [50, 50],
+        name: "RunnerRegistrationToken",
+        pattern: "^prr_v1_[A-Za-z0-9_-]{43}$",
+      },
+      {
+        length: [50, 50],
+        name: "RunnerConnectionCredential",
+        pattern: "^prc_v1_[A-Za-z0-9_-]{43}$",
+      },
+      {
+        length: [43, 43],
+        name: "Ed25519PublicKey",
+        pattern: "^[A-Za-z0-9_-]{43}$",
+      },
+      {
+        length: [86, 86],
+        name: "Ed25519Signature",
+        pattern: "^[A-Za-z0-9_-]{86}$",
+      },
+      {
+        length: [71, 71],
+        name: "PublicKeyFingerprint",
+        pattern: "^sha256:[a-f0-9]{64}$",
+      },
+    ],
+  );
+  assert.deepEqual(
+    [
+      schemas.RegistrationTokenTtlSeconds.minimum,
+      schemas.RegistrationTokenTtlSeconds.maximum,
+      schemas.RunnerCredentialTtlSeconds.minimum,
+      schemas.RunnerCredentialTtlSeconds.maximum,
+      schemas.RunnerCredentialOverlapSeconds.minimum,
+      schemas.RunnerCredentialOverlapSeconds.maximum,
+    ],
+    [60, 900, 300, 3600, 30, 300],
+  );
+
+  for (const name of [
+    "CreateRunnerRegistrationRequest",
+    "RunnerRegistration",
+    "RedeemRunnerRegistrationRequest",
+    "RunnerRegistrationRedemption",
+    "UpdateRunnerRequest",
+    "RotateRunnerCredentialRequest",
+    "RevokeRunnerCredentialsRequest",
+    "RunnerCredential",
+    "RunnerCredentialRevocation",
+  ]) {
+    assert.equal(schemas[name].additionalProperties, false, name);
+  }
+  assert.deepEqual(schemas.RedeemRunnerRegistrationRequest.required, [
+    "publicKey",
+    "possessionProof",
+    "credentialTtlSeconds",
+  ]);
+  assert.ok(!("publicKey" in schemas.Runner.properties));
+  assert.ok(!("credential" in schemas.Runner.properties));
+  assert.equal(
+    schemas.Runner.properties.publicKeyFingerprint.allOf[0].$ref,
+    "#/components/schemas/PublicKeyFingerprint",
+  );
+  assert.equal(
+    schemas.UpdateRunnerRequest.properties.quarantined.type,
+    "boolean",
+  );
+  assert.equal(
+    schemas.RunnerCredentialRevocation.properties.state.const,
+    "revoked",
+  );
+  assert.match(revoke.description, /terminates active streams/);
+  assert.match(revoke.description, /Audit identities/);
+  assert.match(rotate.description, /feature-gated runner\s+stream/);
+  assert.match(
+    schemas.RunnerCredential.description,
+    /stores only its SHA-256\s+hash/,
+  );
+  assert.match(
+    schemas.RunnerCredential.description,
+    /encrypted protocol-delivery\s+envelope/,
+  );
+  assert.match(schemas.RunnerRegistration.description, /returned exactly once/);
+  assert.match(schemas.RunnerState.description, /`registering`/);
+  assert.match(schemas.RunnerState.description, /`revoked` is terminal/);
+
+  const organizationId = "00000000-0000-0000-0000-000000000011";
+  const runnerId = "50000000-0000-0000-0000-000000000011";
+  const token = "prr_v1_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
+  const tokenHash =
+    "227d5c86d147a519fa4caf435bb5cc85acbc20f709b94af9371122eaa6e6bbf9";
+  const publicKey = "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo";
+  const signature =
+    "gfTLqWihY048vNn-hZvs81xk7pmEdsM2WmCPGimPDrOoU8Gl1YW5BFg5lsh4ZYZiAGlv3XUzoH5oholxRcVDAQ";
+  assert.equal(
+    Buffer.from(token.slice("prr_v1_".length), "base64url").length,
+    32,
+  );
+  assert.equal(Buffer.from(publicKey, "base64url").length, 32);
+  assert.equal(Buffer.from(signature, "base64url").length, 64);
+  assert.equal(createHash("sha256").update(token).digest("hex"), tokenHash);
+  for (const [name, valid] of [
+    ["RunnerRegistrationToken", token],
+    ["RunnerConnectionCredential", `prc_v1_${"A".repeat(43)}`],
+    ["Ed25519PublicKey", publicKey],
+    ["Ed25519Signature", signature],
+    ["PublicKeyFingerprint", `sha256:${"a".repeat(64)}`],
+  ]) {
+    const schema = schemas[name];
+    const pattern = new RegExp(schema.pattern);
+    assert.equal(pattern.test(valid), true, name);
+    assert.equal(pattern.test(`${valid}A`), false, `${name} upper boundary`);
+    assert.equal(
+      pattern.test(valid.slice(0, -1)),
+      false,
+      `${name} lower boundary`,
+    );
+  }
+  const proofMessage =
+    `provenance.runner.registration.v1\n` +
+    `organization_id:${organizationId}\n` +
+    `runner_id:${runnerId}\n` +
+    `registration_token_sha256:${tokenHash}\n` +
+    `public_key_base64url:${publicKey}\n`;
+  const spkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
+  const verifier = createPublicKey({
+    format: "der",
+    key: Buffer.concat([spkiPrefix, Buffer.from(publicKey, "base64url")]),
+    type: "spki",
+  });
+  assert.equal(
+    verify(
+      null,
+      Buffer.from(proofMessage),
+      verifier,
+      Buffer.from(signature, "base64url"),
+    ),
+    true,
+  );
+  for (const value of [
+    organizationId,
+    runnerId,
+    token,
+    tokenHash,
+    publicKey,
+    signature,
+  ]) {
+    assert.match(redeem.description, new RegExp(value.replaceAll("-", "\\-")));
+  }
+
+  for (const operationId of [
+    "createRunnerRegistration",
+    "redeemRunnerRegistration",
+    "rotateRunnerCredentials",
+    "revokeRunnerCredentials",
+  ]) {
+    assert.match(generatedClient, new RegExp(operationId));
+  }
+});
+
+test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
+  assert.equal(
+    alpha5Compatibility.sourceCommit,
+    "5e17ca9299f354b55a5cb82c6c9d06d1382549d9",
+  );
+  assert.equal(
+    compatibilityHash(
+      [
+        "openapi",
+        "info",
+        "jsonSchemaDialect",
+        "servers",
+        "security",
+        "tags",
+      ].map((name) => [name, document[name]]),
+    ),
+    alpha5Compatibility.topLevelSha256,
+  );
+
+  const operationById = new Map(
+    operations.map(({ method, operation: candidate, path }) => [
+      candidate.operationId,
+      { method, operation: candidate, path },
+    ]),
+  );
+  assert.equal(
+    compatibilityHash(
+      alpha5Compatibility.operations.names.map((name) => [
+        name,
+        operationById.get(name),
+      ]),
+    ),
+    alpha5Compatibility.operations.sha256,
+  );
+  for (const [category, snapshot] of Object.entries(
+    alpha5Compatibility.components,
+  )) {
+    assert.equal(
+      compatibilityHash(
+        snapshot.names.map((name) => [
+          name,
+          document.components[category][name],
+        ]),
+      ),
+      snapshot.sha256,
+      category,
+    );
+  }
+
+  const schemas = document.components.schemas;
+  for (const releasedState of ["offline", "idle", "busy", "draining"]) {
+    assert.ok(schemas.RunnerState.enum.includes(releasedState));
+  }
+  assert.deepEqual(schemas.Runner.required, [
+    "id",
+    "organizationId",
+    "name",
+    "state",
+    "trust",
+    "createdAt",
+    "updatedAt",
+  ]);
+  for (const property of [
+    "id",
+    "organizationId",
+    "name",
+    "state",
+    "trust",
+    "createdAt",
+    "updatedAt",
+  ]) {
+    assert.ok(schemas.Runner.properties[property], property);
+  }
+  assert.deepEqual(schemas.CreateRunnerRegistrationRequest.required, ["name"]);
+  assert.equal(
+    schemas.CreateRunnerRegistrationRequest.properties.name.maxLength,
+    128,
+  );
+  for (const property of ["runnerId", "registrationToken", "expiresAt"]) {
+    assert.ok(schemas.RunnerRegistration.required.includes(property), property);
+  }
+  assert.equal(schemas.UpdateRunnerRequest.properties.name.maxLength, 128);
+  assert.equal(schemas.UpdateRunnerRequest.properties.draining.type, "boolean");
+  for (const property of ["credential", "expiresAt"]) {
+    assert.ok(schemas.RunnerCredential.required.includes(property), property);
+  }
+  assert.equal(
+    createPath(operation("createRunnerRegistration")),
+    "/v1/organizations/{organizationId}/runners",
+  );
+  assert.equal(
+    createPath(operation("rotateRunnerCredentials")),
+    "/v1/runners/{runnerId}/credentials/rotate",
+  );
 });
 
 test("IFC-010 exposes only bounded candidate execution log operations", () => {
@@ -858,4 +1195,27 @@ function compareInventory(left, right) {
     left.method.localeCompare(right.method) ||
     left.operationId.localeCompare(right.operationId)
   );
+}
+
+function compatibilityHash(value) {
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalize(value)))
+    .digest("hex");
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalize(value[key])]),
+    );
+  }
+  return value;
+}
+
+function createPath(candidate) {
+  return operations.find(({ operation: current }) => current === candidate)
+    .path;
 }

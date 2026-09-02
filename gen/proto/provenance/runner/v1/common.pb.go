@@ -818,6 +818,7 @@ type ProtocolFeature int32
 const (
 	ProtocolFeature_PROTOCOL_FEATURE_UNSPECIFIED                    ProtocolFeature = 0
 	ProtocolFeature_PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS ProtocolFeature = 1
+	ProtocolFeature_PROTOCOL_FEATURE_CREDENTIAL_ROTATION            ProtocolFeature = 2
 )
 
 // Enum value maps for ProtocolFeature.
@@ -825,10 +826,12 @@ var (
 	ProtocolFeature_name = map[int32]string{
 		0: "PROTOCOL_FEATURE_UNSPECIFIED",
 		1: "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
+		2: "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
 	}
 	ProtocolFeature_value = map[string]int32{
 		"PROTOCOL_FEATURE_UNSPECIFIED":                    0,
 		"PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS": 1,
+		"PROTOCOL_FEATURE_CREDENTIAL_ROTATION":            2,
 	}
 )
 
@@ -3109,10 +3112,11 @@ const file_common_proto_rawDesc = "" +
 	"\x15FAILURE_STAGE_STARTUP\x10\x03\x12\x1b\n" +
 	"\x17FAILURE_STAGE_EXECUTION\x10\x04\x12\x19\n" +
 	"\x15FAILURE_STAGE_CLEANUP\x10\x05\x12\x1f\n" +
-	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*h\n" +
+	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\x92\x01\n" +
 	"\x0fProtocolFeature\x12 \n" +
 	"\x1cPROTOCOL_FEATURE_UNSPECIFIED\x10\x00\x123\n" +
-	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
+	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01\x12(\n" +
+	"$PROTOCOL_FEATURE_CREDENTIAL_ROTATION\x10\x02BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once

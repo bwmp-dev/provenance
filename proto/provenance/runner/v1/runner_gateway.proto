@@ -16,6 +16,12 @@ service RunnerGateway {
 // LeaseRejected, LeaseRenewal, JobPreparing, JobStarted, JobCompleted, JobFailed, and JobCancelled
 // with RunnerEventAcknowledgement. Authenticate, Capabilities, LogBatch, and UsageReport do not
 // receive durability acknowledgements.
+//
+// CREDENTIAL_ROTATION is independent and keeps protocol_version equal to literal "1". A gateway
+// MUST send RotateCredential only after the runner advertises CREDENTIAL_ROTATION in Capabilities.
+// A non-advertising or mixed-version runner never receives rotation and continues authenticating
+// with the released protocol-v1 credential behavior. Disabling rollout stops new rotations but
+// does not reinterpret already issued credentials or protocol fields.
 message RunnerMessage {
   string message_id = 1;
   google.protobuf.Timestamp sent_at = 2;
@@ -34,6 +40,7 @@ message RunnerMessage {
     JobCompleted completed = 20;
     JobFailed failed = 21;
     JobCancelled cancelled = 22;
+    CredentialRotationAcknowledgement credential_rotation_acknowledgement = 30;
   }
 
   reserved 3 to 9;
@@ -242,14 +249,54 @@ message PolicyUpdate {
   reserved 5 to 9;
 }
 
+// RotateCredential is sent only when CREDENTIAL_ROTATION was advertised. rotation_id is a
+// canonical lowercase UUID and is the immutable idempotency identity. connection_credential is
+// exactly 50 ASCII bytes matching ^prc_v1_[A-Za-z0-9_-]{43}$; expires_at is exclusive and no more
+// than 3600 seconds after issued_at. credential_fingerprint is SHA-256 of those exact 50 bytes.
+// reconnect_before is the exclusive predecessor-credential deadline, after issued_at, before
+// expires_at, and no more than 300 seconds after issued_at.
+//
+// The gateway durably creates one rotation before delivery and retries the exact payload while the
+// runner is offline or acknowledgement is absent. The credential authority retains only a hash; a
+// bounded encrypted delivery envelope may retain the payload until acknowledgement, successful
+// reconnect, or reconnect_before, is unavailable to HTTP response replay, and is then erased. Reusing
+// rotation_id with different bytes, timestamps, or fingerprint is a protocol conflict. The runner
+// MUST atomically persist the new credential, complete payload identity, and rotation_id before
+// acknowledgement. An exact duplicate is acknowledged again without issuing or overwriting a secret;
+// a conflicting duplicate terminates the stream. A crash before persistence yields no acknowledgement
+// and the predecessor remains valid during overlap. A crash after persistence but before
+// acknowledgement re-acknowledges the exact replay after restart.
+//
+// Delivery does not terminate the active predecessor-authenticated stream. The runner reconnects
+// with the new credential before reconnect_before. Successful new-credential authentication revokes
+// the predecessor immediately and closes its older stream; otherwise the predecessor is revoked at
+// reconnect_before. The new credential remains subject to expires_at, quarantine, and administrative
+// revocation. Neither message contains private keys or storage credentials.
 message RotateCredential {
   string rotation_id = 1;
   bytes connection_credential = 2;
   google.protobuf.Timestamp expires_at = 3;
   google.protobuf.Timestamp reconnect_before = 4;
+  google.protobuf.Timestamp issued_at = 10;
+  bytes credential_fingerprint = 11;
 
   reserved 5 to 9;
+  reserved 12 to 15;
   reserved "registration_token";
+}
+
+// Sent only after the runner has durably persisted the exact RotateCredential payload. The
+// fingerprint is exactly 32 SHA-256 bytes and must equal the delivered credential_fingerprint.
+// An exact duplicate delivery after acknowledgement or restart produces the same acknowledgement;
+// the gateway treats a conflicting rotation_id/fingerprint pair as a protocol conflict. This
+// acknowledgement proves persistence, not successful reconnect, and therefore does not by itself
+// revoke the predecessor before reconnect_before.
+message CredentialRotationAcknowledgement {
+  string rotation_id = 1;
+  bytes credential_fingerprint = 2;
+  google.protobuf.Timestamp persisted_at = 3;
+
+  reserved 4 to 9;
 }
 
 message ShutdownRunner {
