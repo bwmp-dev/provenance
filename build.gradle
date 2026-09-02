@@ -68,6 +68,15 @@ configure(safeFixtures.collect { project(it) } + hostileFixtures.collect { proje
     }
 }
 
+project(":fixture-fork-pid-bomb") {
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:6.0.3")
+        testImplementation "org.junit.jupiter:junit-jupiter"
+        testImplementation files(rootProject.project(":paper-api-stubs").sourceSets.main.output)
+        testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    }
+}
+
 project(":paper-api-stubs") {
     tasks.named("jar") {
         enabled = false
@@ -202,7 +211,7 @@ tasks.register("verifySafeFixtureArtifacts", Exec) {
 
 tasks.register("verifyHostileFixtureArtifacts", Exec) {
     group = "verification"
-    dependsOn("hostileFixtures")
+    dependsOn("safeFixtures", "hostileFixtures")
     commandLine(
         "node",
         "packages/test-fixtures/scripts/verify-fixtures.mjs",

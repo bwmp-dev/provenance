@@ -43,6 +43,9 @@ for (const name of hostile) {
   ) {
     throw new Error(`${name} does not contain the runtime opt-in guard`);
   }
+  if (name === "fork-pid-bomb") {
+    verifyDeterministicForkPidFixture(source);
+  }
 }
 if (!build.includes('tasks.register("hostileFixtures")')) {
   throw new Error(
@@ -113,4 +116,44 @@ function findJavaSource(directory) {
     }
   }
   throw new Error(`no Java source under ${directory}`);
+}
+
+function verifyDeterministicForkPidFixture(source) {
+  const onEnable = source.match(
+    /public void onEnable\(\) \{(?<body>[\s\S]*?)\n  \}/,
+  )?.groups?.body;
+  if (
+    !onEnable ||
+    /ProcessBuilder|startOnce|childStarter\.start/.test(onEnable)
+  ) {
+    throw new Error("fork-pid-bomb must not create children during onEnable");
+  }
+
+  const required = [
+    "@EventHandler(priority = EventPriority.MONITOR)",
+    "ServerLoadEvent",
+    "AtomicBoolean",
+    "compareAndSet(false, true)",
+    "retainedChildren.add",
+    "error=11",
+    'Path.of("/usr/bin/sleep")',
+    'Path.of("/bin/sleep")',
+    "builder.environment().clear()",
+  ];
+  for (const marker of required) {
+    if (!source.includes(marker)) {
+      throw new Error(
+        `fork-pid-bomb is missing deterministic guard: ${marker}`,
+      );
+    }
+  }
+
+  const forbidden = ["ForkPidBombProcess", "java.home", "spawnChildren"];
+  for (const marker of forbidden) {
+    if (source.includes(marker)) {
+      throw new Error(
+        `fork-pid-bomb contains recursive child behavior: ${marker}`,
+      );
+    }
+  }
 }
