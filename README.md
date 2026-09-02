@@ -34,11 +34,12 @@ must never be edited directly.
 with a frozen install in CI; general-purpose formatters do not rewrite it.
 
 Paper fixtures and the trusted lifecycle probe use the checked-in Gradle wrapper.
-`pnpm check` compiles and tests the probe, builds only the bounded fixture set,
-and verifies fixture and Paper API artifact hashes. The Paper API dependency
-graph is locked, and its mutable upstream snapshot is additionally pinned by
-content hash. Hostile fixture builds require an explicit Gradle task and hostile
-payload execution requires a separate JVM property.
+`pnpm check` compiles and tests the probe, builds and hash-verifies all 14 benign
+and hostile fixture JARs, and runs the focused `fork-pid-bomb` unit suite. These
+checks never execute hostile payloads. The Paper API dependency graph is locked,
+and its mutable upstream snapshot is additionally pinned by content hash. Actual
+hostile execution requires `-Dprovenance.fixture.hostile.enabled=true` inside a
+disposable, resource-limited Plan 03 runner.
 
 ## Contract releases
 
