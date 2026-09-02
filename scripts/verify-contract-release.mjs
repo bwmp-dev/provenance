@@ -13,7 +13,11 @@ import { isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { extract as extractTar, list as listTar } from "tar";
-import { parse as parseYaml } from "yaml";
+import {
+  parse as parseYaml,
+  parseDocument as parseYamlDocument,
+  stringify as stringifyYaml,
+} from "yaml";
 
 import {
   archiveName,
@@ -531,6 +535,145 @@ function exactObject(actual, expected, message) {
   );
 }
 
+const nodeDependencySections = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+];
+
+function dependencyReference(dependency, description) {
+  const reference = dependency?.version ?? dependency;
+  invariant(
+    typeof reference === "string" && reference.length > 0,
+    `audited pnpm lockfile has an invalid ${description} reference`,
+  );
+  invariant(
+    !/^(?:file|link|workspace):/.test(reference),
+    `released consumer dependency is not registry-locked: ${description}`,
+  );
+  return reference;
+}
+
+function sortedObject(entries) {
+  return Object.fromEntries(
+    [...entries].sort(([left], [right]) => compareText(left, right)),
+  );
+}
+
+export function projectNodeConsumerLock({
+  lockfileContents,
+  nodeImporter,
+  packageContents,
+}) {
+  const document = parseYamlDocument(lockfileContents, {
+    strict: true,
+    uniqueKeys: true,
+  });
+  invariant(
+    document.errors.length === 0 && document.warnings.length === 0,
+    "audited pnpm lockfile is invalid or ambiguous",
+  );
+  let lockfile;
+  try {
+    lockfile = document.toJS({ maxAliasCount: 0 });
+  } catch {
+    throw new Error("audited pnpm lockfile is invalid or ambiguous");
+  }
+  invariant(
+    lockfile?.lockfileVersion === "9.0" &&
+      lockfile.settings &&
+      typeof lockfile.settings === "object" &&
+      lockfile.importers &&
+      typeof lockfile.importers === "object" &&
+      lockfile.packages &&
+      typeof lockfile.packages === "object" &&
+      lockfile.snapshots &&
+      typeof lockfile.snapshots === "object",
+    "audited pnpm lockfile structure is unsupported",
+  );
+  const importer = lockfile.importers[nodeImporter];
+  invariant(importer, `pnpm lockfile is missing importer: ${nodeImporter}`);
+
+  let packageDocument;
+  try {
+    packageDocument = JSON.parse(packageContents);
+  } catch {
+    throw new Error("released consumer package manifest is not valid JSON");
+  }
+  for (const section of nodeDependencySections) {
+    const manifestDependencies = packageDocument[section] ?? {};
+    const lockedDependencies = importer[section] ?? {};
+    invariant(
+      manifestDependencies &&
+        typeof manifestDependencies === "object" &&
+        !Array.isArray(manifestDependencies),
+      `released consumer package has an invalid ${section} declaration`,
+    );
+    invariant(
+      lockedDependencies &&
+        typeof lockedDependencies === "object" &&
+        !Array.isArray(lockedDependencies),
+      `audited pnpm importer has an invalid ${section} declaration`,
+    );
+    exactObject(
+      sortedObject(
+        Object.entries(lockedDependencies).map(([name, dependency]) => [
+          name,
+          dependency?.specifier,
+        ]),
+      ),
+      sortedObject(Object.entries(manifestDependencies)),
+      `released consumer ${section} differs from the audited pnpm importer`,
+    );
+  }
+
+  const snapshotEntries = new Map();
+  const packageEntries = new Map();
+  const queue = nodeDependencySections.flatMap((section) =>
+    Object.entries(importer[section] ?? {}),
+  );
+  while (queue.length > 0) {
+    const [name, dependency] = queue.shift();
+    const reference = dependencyReference(dependency, name);
+    const snapshotKey = `${name}@${reference}`;
+    if (snapshotEntries.has(snapshotKey)) {
+      continue;
+    }
+    const snapshot = lockfile.snapshots[snapshotKey];
+    invariant(
+      snapshot && typeof snapshot === "object",
+      `audited pnpm lockfile is missing runtime snapshot: ${snapshotKey}`,
+    );
+    const version = reference.replace(/\(.+$/, "");
+    const packageKey = `${name}@${version}`;
+    const metadata = lockfile.packages[packageKey];
+    invariant(
+      metadata?.resolution?.integrity,
+      `audited pnpm lockfile is missing integrity evidence: ${packageKey}`,
+    );
+    checksumFromIntegrity(metadata.resolution.integrity);
+    snapshotEntries.set(snapshotKey, snapshot);
+    packageEntries.set(packageKey, metadata);
+    for (const child of Object.entries({
+      ...(snapshot.dependencies ?? {}),
+      ...(snapshot.optionalDependencies ?? {}),
+    })) {
+      queue.push(child);
+    }
+  }
+
+  return stringifyYaml(
+    {
+      lockfileVersion: lockfile.lockfileVersion,
+      settings: lockfile.settings,
+      importers: { ".": importer },
+      packages: sortedObject(packageEntries),
+      snapshots: sortedObject(snapshotEntries),
+    },
+    { lineWidth: 0 },
+  );
+}
+
 async function verifySpdxSemantics({
   artifacts,
   bundleContents,
@@ -781,7 +924,26 @@ function run(
   );
 }
 
-function installNodeConsumer(packageDirectory, description) {
+async function installNodeConsumer(
+  packageDirectory,
+  nodeImporter,
+  description,
+) {
+  const consumerLock = projectNodeConsumerLock({
+    lockfileContents: await readFile(
+      resolve(repositoryDirectory, "pnpm-lock.yaml"),
+      "utf8",
+    ),
+    nodeImporter,
+    packageContents: await readFile(
+      resolve(packageDirectory, "package.json"),
+      "utf8",
+    ),
+  });
+  await writeFile(resolve(packageDirectory, "pnpm-lock.yaml"), consumerLock, {
+    flag: "wx",
+    mode: 0o400,
+  });
   const windows = process.platform === "win32";
   run(
     windows ? (process.env.ComSpec ?? "cmd.exe") : "pnpm",
@@ -790,9 +952,9 @@ function installNodeConsumer(packageDirectory, description) {
           "/d",
           "/s",
           "/c",
-          "pnpm install --offline --ignore-scripts --frozen-lockfile=false",
+          "pnpm install --offline --ignore-scripts --frozen-lockfile",
         ]
-      : ["install", "--offline", "--ignore-scripts", "--frozen-lockfile=false"],
+      : ["install", "--offline", "--ignore-scripts", "--frozen-lockfile"],
     packageDirectory,
     description,
     {
@@ -945,8 +1107,9 @@ async function verifyConsumers(bundleRoots, version) {
 
   {
     const root = rootFor("config-schema");
-    installNodeConsumer(
+    await installNodeConsumer(
       resolve(root, "package"),
+      "packages/config-schema",
       "released configuration dependency installation",
     );
     const configuration = await import(
@@ -972,8 +1135,9 @@ async function verifyConsumers(bundleRoots, version) {
 
   {
     const root = rootFor("attestation-schema");
-    installNodeConsumer(
+    await installNodeConsumer(
       resolve(root, "package"),
+      "packages/verification",
       "released attestation dependency installation",
     );
     const verification = await import(
@@ -999,8 +1163,9 @@ async function verifyConsumers(bundleRoots, version) {
 
   {
     const root = rootFor("runner-protocol");
-    installNodeConsumer(
+    await installNodeConsumer(
       resolve(root, "typescript"),
+      "packages/runner-protocol",
       "released runner TypeScript dependency installation",
     );
     const protocol = await import(
@@ -1114,8 +1279,9 @@ async function verifyConsumers(bundleRoots, version) {
 
   {
     const root = rootFor("typescript-client");
-    installNodeConsumer(
+    await installNodeConsumer(
       resolve(root, "package"),
+      "packages/api-client",
       "released API client dependency installation",
     );
     const clientModule = await import(
