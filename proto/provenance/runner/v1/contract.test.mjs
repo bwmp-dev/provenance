@@ -365,13 +365,43 @@ test("credential rotation remains protocol-v1, feature-gated, and replay-safe", 
     gatewaySource,
     /non-advertising or mixed-version runner never receives rotation/,
   );
-  assert.match(gatewaySource, /while the\s*\/\/\s*runner is offline/);
   assert.match(
     gatewaySource,
-    /atomically persist the new[\s\S]*before[\s\S]{0,20}acknowledgement/,
+    /durably queue one rotation while the runner is offline/,
   );
-  assert.match(gatewaySource, /exact duplicate[\s\S]*acknowledged again/);
-  assert.match(gatewaySource, /conflicting duplicate terminates[\s\S]*stream/);
+  assert.match(
+    gatewaySource,
+    /MUST NOT attempt[\s\S]*current stream advertises CREDENTIAL_ROTATION/,
+  );
+  assert.match(
+    gatewaySource,
+    /Immediately before writing any[\s\S]*durably records delivery_attempted/,
+  );
+  assert.match(
+    gatewaySource,
+    /no delivery attempt[\s\S]*abandons the rotation[\s\S]*leaves the predecessor[\s\S]*unchanged/,
+  );
+  assert.match(gatewaySource, /mixed-version outcome/);
+  assert.match(
+    gatewaySource,
+    /Disabling rollout stops new rotations[\s\S]*attempt[\s\S]*abandonment rules/,
+  );
+  assert.match(
+    gatewaySource,
+    /After delivery_attempted, receipt is potentially ambiguous/,
+  );
+  assert.match(
+    gatewaySource,
+    /atomically persist the[\s\S]{0,20}new[\s\S]*before[\s\S]{0,20}acknowledgement/,
+  );
+  assert.match(
+    gatewaySource,
+    /exact[\s\S]{0,20}duplicate[\s\S]{0,30}acknowledged again/,
+  );
+  assert.match(
+    gatewaySource,
+    /conflicting[\s\S]{0,20}duplicate[\s\S]{0,30}terminates the stream/,
+  );
   assert.match(
     gatewaySource,
     /crash before persistence yields no acknowledgement/i,
@@ -388,13 +418,26 @@ test("credential rotation remains protocol-v1, feature-gated, and replay-safe", 
   assert.match(gatewaySource, /revokes[\s\S]*predecessor immediately/);
   assert.match(
     gatewaySource,
-    /predecessor is revoked at[\s\S]*reconnect_before/,
+    /revokes the predecessor at[\s\S]*reconnect_before/,
+  );
+  assert.match(
+    gatewaySource,
+    /unattempted[\s\S]{0,20}abandoned rotation never revokes it/,
+  );
+  assert.match(
+    gatewaySource,
+    /Explicit administrative revocation overrides every[\s\S]*rotation/,
   );
   assert.match(
     gatewaySource,
     /does not by itself[\s\S]*revoke the predecessor/,
   );
-  assert.match(gatewaySource, /exactly 50 ASCII bytes/);
+  assert.match(gatewaySource, /exactly 50 canonical ASCII bytes/);
+  assert.match(
+    gatewaySource,
+    /\^prc_v1_\[A-Za-z0-9_-\]\{42\}\[AEIMQUYcgkosw048\]\$/,
+  );
+  assert.match(gatewaySource, /re-encode byte-for-byte/);
   assert.match(gatewaySource, /fingerprint is exactly 32 SHA-256 bytes/);
 
   const rotationBlock = gatewaySource.slice(

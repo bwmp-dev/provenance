@@ -651,7 +651,10 @@ export interface paths {
         /** List self-hosted runners in an organization */
         get: operations["listRunners"];
         put?: never;
-        /** Create a one-time self-hosted runner registration */
+        /**
+         * Create a one-time self-hosted runner registration
+         * @description Creates a runner and returns its one-time token exactly once. The authority retains only the token hash. Reuse of an Idempotency-Key with different normalized input returns `idempotency_key_conflict`; an identical committed retry after response loss returns `credential_not_replayable` and never returns or mints another token.
+         */
         post: operations["createRunnerRegistration"];
         delete?: never;
         options?: never;
@@ -706,6 +709,23 @@ export interface paths {
          *     runner/path mismatches return the same response and do not disclose a
          *     runner or tenant. The raw token, credential, and private key are never
          *     stored by the authority.
+         *
+         *     The server evaluates redemption in this total order. First, a malformed
+         *     or unknown token, or a token whose runner or organization binding does
+         *     not match the path and resolved tenant, returns
+         *     `registration_token_invalid`; no idempotency lookup is disclosed.
+         *     Second, for a valid in-scope token, an existing record for this
+         *     Idempotency-Key returns `idempotency_key_conflict` when its normalized
+         *     request differs and `credential_not_replayable` when the same request
+         *     already committed, even if the token has since expired or was consumed.
+         *     Third, an unconsumed expired token returns
+         *     `registration_token_expired`. Fourth, a token consumed by another
+         *     idempotency key returns `registration_token_consumed`. Fifth, malformed,
+         *     non-canonical, or invalid key/proof material returns
+         *     `registration_proof_invalid`. Sixth, a valid proof that conflicts with
+         *     an existing different runner key binding returns `runner_key_conflict`.
+         *     Only after these checks does the transaction consume the token, bind
+         *     the key, persist the credential hash, and commit the idempotency result.
          */
         post: operations["redeemRunnerRegistration"];
         delete?: never;
@@ -755,6 +775,34 @@ export interface paths {
          *     then erased. The old credential remains valid only for the bounded
          *     overlap returned by the runner protocol; a successful reconnect with
          *     the new credential revokes its predecessor immediately.
+         *
+         *     The request body is optional for compatibility with the released v1
+         *     operation. An absent body and `{}` normalize to a server-generated
+         *     canonical lowercase rotationId, credentialTtlSeconds `900`, and
+         *     overlapSeconds `120`. Omitted individual fields use the same defaults.
+         *     The normalized overlap must be shorter than the credential lifetime.
+         *
+         *     Rotation conflicts use a total order after authorization and tenant
+         *     scoping. Reuse of an Idempotency-Key with different normalized input is
+         *     `idempotency_key_conflict`; an exact committed retry is
+         *     `credential_not_replayable`. Next, reuse of an explicit rotationId with
+         *     different normalized TTL or overlap is `rotation_id_conflict`; exact
+         *     reuse under any other Idempotency-Key is
+         *     `credential_not_replayable`, because plaintext is never replayed. A
+         *     different rotationId while another rotation is pending delivery,
+         *     acknowledgement, or reconnect returns `rotation_pending`. Only then may
+         *     the server issue a new secret and durable delivery envelope.
+         *
+         *     A queued rotation does not endanger an offline or mixed-version runner.
+         *     The gateway records a delivery attempt durably immediately before
+         *     writing any payload bytes and only on a current stream that advertised
+         *     credential rotation. If no attempt occurs before predecessorExpiresAt,
+         *     it abandons the new credential, erases the undelivered envelope, retains
+         *     non-secret audit evidence, and leaves the predecessor unchanged. After
+         *     an attempt, receipt may be ambiguous and the bounded predecessor
+         *     deadline applies while exact payload retries, durable acknowledgement,
+         *     restart replay, and successful reconnect remain available. Explicit
+         *     revocation immediately overrides every rotation state.
          */
         post: operations["rotateRunnerCredentials"];
         delete?: never;
@@ -819,6 +867,11 @@ export interface components {
          */
         StableId: string;
         /**
+         * Format: uuid
+         * @description Canonical lowercase UUID resource identifier.
+         */
+        CanonicalStableId: string;
+        /**
          * Format: date-time
          * @description RFC 3339 timestamp with an explicit UTC offset.
          */
@@ -844,13 +897,13 @@ export interface components {
         DroppedLogCount: string;
         IdempotencyKey: string;
         Sha256Digest: string;
-        /** @description Prefix `prr_v1_` followed by the unpadded base64url encoding of exactly 32 cryptographically random bytes. The authority stores only SHA-256 of the complete token. Maximum lifetime is 900 seconds and consumption is one-time and atomic. */
+        /** @description Prefix `prr_v1_` followed by the unpadded base64url encoding of exactly 32 cryptographically random bytes. The final character constrains the unused pad bits to zero; decoders must reject any value that does not decode and re-encode byte-for-byte to the submitted spelling. The authority stores only SHA-256 of the complete token. Maximum lifetime is 900 seconds and consumption is one-time and atomic. */
         RunnerRegistrationToken: string;
-        /** @description Prefix `prc_v1_` followed by the unpadded base64url encoding of exactly 32 cryptographically random bytes. The authority stores only SHA-256 of the complete credential. It is bound to one runner and organization and expires no more than 3600 seconds after issuance. */
+        /** @description Prefix `prc_v1_` followed by the unpadded base64url encoding of exactly 32 cryptographically random bytes with canonical zero pad bits. A decoder must reject any value whose decode-and-unpadded-base64url- re-encode differs from the submitted spelling. The authority stores only SHA-256 of the complete credential. It is bound to one runner and organization and expires no more than 3600 seconds after issuance. */
         RunnerConnectionCredential: string;
-        /** @description Unpadded base64url encoding of exactly 32 raw Ed25519 public-key bytes. */
+        /** @description Canonical unpadded base64url encoding of exactly 32 raw Ed25519 public-key bytes. The final character has zero pad bits. The server must reject an encoding unless decoding and canonical re-encoding reproduces the submitted text exactly. */
         Ed25519PublicKey: string;
-        /** @description Unpadded base64url encoding of exactly 64 raw Ed25519 signature bytes. */
+        /** @description Canonical unpadded base64url encoding of exactly 64 raw Ed25519 signature bytes. The final character has zero pad bits. The server must reject an encoding unless decoding and canonical re-encoding reproduces the submitted text exactly. */
         Ed25519Signature: string;
         /** @description SHA-256 of the exact 32 raw public-key bytes, lowercase hexadecimal. */
         PublicKeyFingerprint: string;
@@ -957,6 +1010,22 @@ export interface components {
             /** @constant */
             code: "complete_log_expired";
         };
+        RegistrationTokenInvalidProblem: components["schemas"]["ProblemDetails"] & {
+            /** @constant */
+            code: "registration_token_invalid";
+        };
+        RegistrationTokenExpiredProblem: components["schemas"]["ProblemDetails"] & {
+            /** @constant */
+            code: "registration_token_expired";
+        };
+        RegistrationProofInvalidProblem: components["schemas"]["ProblemDetails"] & {
+            /** @constant */
+            code: "registration_proof_invalid";
+        };
+        RegistrationRedemptionConflictProblem: components["schemas"]["ProblemDetails"] & {
+            /** @enum {string} */
+            code: "idempotency_key_conflict" | "credential_not_replayable" | "registration_token_consumed" | "runner_key_conflict";
+        };
         /** @enum {string} */
         SessionState: "active" | "expired" | "revoked";
         /** @enum {string} */
@@ -968,10 +1037,15 @@ export interface components {
         /** @enum {string} */
         IntegrationState: "active" | "disabled" | "error";
         /**
-         * @description `registering` has an unconsumed enrollment token and no credential; `offline` is enrolled without a live connection; `idle` and `busy` are connected; `draining` accepts no new work; `quarantined` rejects every credential and job until authorized recovery; `revoked` is terminal and rejects registration tokens, current/predecessor credentials, and streams while retaining audit identity.
+         * @description Released connectivity and scheduling state. Credential lifecycle is represented separately so this closed alpha.5 response enum remains wire-compatible.
          * @enum {string}
          */
-        RunnerState: "registering" | "offline" | "idle" | "busy" | "draining" | "quarantined" | "revoked";
+        RunnerState: "offline" | "idle" | "busy" | "draining";
+        /**
+         * @description `registering` has an unconsumed enrollment token and no credential; `active` has a current credential and may be offline, idle, busy, or draining; `quarantined` rejects every credential and job until an authorized recovery clears quarantine; `revoked` is terminal and rejects registration tokens, current/predecessor credentials, and streams while retaining audit identity. A registering, quarantined, or revoked runner reports released RunnerState `offline` alongside this field so alpha.5 clients never receive a new RunnerState value.
+         * @enum {string}
+         */
+        RunnerCredentialLifecycleState: "registering" | "active" | "quarantined" | "revoked";
         Session: {
             id: components["schemas"]["StableId"];
             userId: components["schemas"]["StableId"];
@@ -1379,6 +1453,8 @@ export interface components {
             state: components["schemas"]["RunnerState"];
             /** @constant */
             trust: "self_hosted";
+            /** @description Present when credential lifecycle state is known. This field is independent of the released connectivity and scheduling state. */
+            credentialLifecycleState?: components["schemas"]["RunnerCredentialLifecycleState"];
             /** @description Present only after successful redemption. Raw public keys and credential hashes are not exposed by runner list/read operations. */
             publicKeyFingerprint?: components["schemas"]["PublicKeyFingerprint"];
             /** @description Expiry of the currently accepted connection credential, when one exists. */
@@ -1426,10 +1502,12 @@ export interface components {
             quarantined?: boolean;
         };
         RotateRunnerCredentialRequest: {
-            /** @description Canonical lowercase UUID used unchanged as runner protocol RotateCredential.rotation_id. Reuse with different parameters is a conflict; exact duplicate delivery is replay-safe. */
-            rotationId: components["schemas"]["StableId"];
-            credentialTtlSeconds: components["schemas"]["RunnerCredentialTtlSeconds"];
-            overlapSeconds: components["schemas"]["RunnerCredentialOverlapSeconds"];
+            /** @description Canonical lowercase UUID used unchanged as runner protocol RotateCredential.rotation_id. If omitted, the server generates one. Reuse with different normalized parameters returns `rotation_id_conflict`; exact reuse cannot replay plaintext and returns `credential_not_replayable`. */
+            rotationId?: components["schemas"]["CanonicalStableId"];
+            /** @description Defaults to 900 when omitted. */
+            credentialTtlSeconds?: components["schemas"]["RunnerCredentialTtlSeconds"];
+            /** @description Defaults to 120 when omitted and must be shorter than the normalized credentialTtlSeconds. */
+            overlapSeconds?: components["schemas"]["RunnerCredentialOverlapSeconds"];
         };
         RevokeRunnerCredentialsRequest: {
             reason: string;
@@ -1444,7 +1522,7 @@ export interface components {
             issuedAt: components["schemas"]["Timestamp"];
             /** @description No later than 3600 seconds after issuedAt; expiry is exclusive. */
             expiresAt: components["schemas"]["Timestamp"];
-            /** @description Exclusive predecessor-credential deadline and the exact RotateCredential.reconnect_before value. It is after issuedAt, before expiresAt, and at most 300 seconds after issuedAt. */
+            /** @description Exact RotateCredential.reconnect_before value. It is after issuedAt, before expiresAt, and at most 300 seconds after issuedAt. It becomes the exclusive predecessor-credential deadline only after a durable delivery attempt; an unattempted rotation is abandoned at this time with the predecessor unchanged. */
             predecessorExpiresAt: components["schemas"]["Timestamp"];
         };
         RunnerCredentialRevocation: {
@@ -1815,24 +1893,6 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
-        /**
-         * @description Secret issuance encountered an idempotency conflict. Reuse of an
-         *     idempotency key with a different normalized request returns
-         *     `idempotency_key_conflict`.
-         *
-         *     An identical retry after successful registration-token or connection-
-         *     credential issuance returns `credential_not_replayable`. Because the
-         *     authority stores only a SHA-256 secret hash, it never returns the prior
-         *     plaintext and never mints a replacement credential for that replay.
-         */
-        CredentialIssuanceConflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
-            };
-        };
         /** @description The registration token is invalid, is bound to another runner, or does not authorize this request. All cases use HTTP 401 and code `registration_token_invalid` without disclosing runner or tenant identity. */
         RegistrationTokenInvalid: {
             headers: {
@@ -1841,7 +1901,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["RegistrationTokenInvalidProblem"];
             };
         };
         /** @description The authenticated one-time token expired before atomic consumption. Returns HTTP 410 and code `registration_token_expired`; no credential is issued and the runner remains registering. */
@@ -1850,7 +1910,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["RegistrationTokenExpiredProblem"];
             };
         };
         /** @description The public key or Ed25519 possession proof is malformed or does not verify over the exact domain-separated message. Returns HTTP 422 and code `registration_proof_invalid`; token consumption and key binding do not occur. */
@@ -1859,7 +1919,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["RegistrationProofInvalidProblem"];
             };
         };
         /**
@@ -1879,7 +1939,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": components["schemas"]["ProblemDetails"];
+                "application/problem+json": components["schemas"]["RegistrationRedemptionConflictProblem"];
             };
         };
         /**
@@ -2060,7 +2120,7 @@ export interface components {
                 "application/json": components["schemas"]["UpdateRunnerRequest"];
             };
         };
-        RotateRunnerCredential: {
+        OptionalRotateRunnerCredential: {
             content: {
                 "application/json": components["schemas"]["RotateRunnerCredentialRequest"];
             };
@@ -3196,7 +3256,7 @@ export interface operations {
                     "application/json": components["schemas"]["RunnerRegistration"];
                 };
             };
-            409: components["responses"]["CredentialIssuanceConflict"];
+            409: components["responses"]["IdempotencyConflict"];
             default: components["responses"]["Problem"];
         };
     };
@@ -3292,7 +3352,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["RotateRunnerCredential"];
+        requestBody?: components["requestBodies"]["OptionalRotateRunnerCredential"];
         responses: {
             /** @description Rotated runner credential. */
             200: {
@@ -3303,7 +3363,7 @@ export interface operations {
                     "application/json": components["schemas"]["RunnerCredential"];
                 };
             };
-            409: components["responses"]["CredentialIssuanceConflict"];
+            409: components["responses"]["IdempotencyConflict"];
             default: components["responses"]["Problem"];
         };
     };

@@ -117,7 +117,7 @@ test("every mutation has deterministic idempotency semantics", () => {
       document.components.responses[conflictReference.split("/").at(-1)];
     assert.match(conflict.description, /idempotency/i, operation.operationId);
     assert.equal(
-      conflict.content["application/problem+json"].schema.$ref,
+      problemBaseSchema(conflict),
       "#/components/schemas/ProblemDetails",
       operation.operationId,
     );
@@ -319,6 +319,7 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
         "ArtifactState",
         "IntegrationState",
         "ReleaseCandidateState",
+        "RunnerCredentialLifecycleState",
         "RunnerState",
         "SessionState",
         "VerificationState",
@@ -344,15 +345,13 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
         "publishing",
         "published",
       ],
-      RunnerState: [
+      RunnerCredentialLifecycleState: [
         "registering",
-        "offline",
-        "idle",
-        "busy",
-        "draining",
+        "active",
         "quarantined",
         "revoked",
       ],
+      RunnerState: ["offline", "idle", "busy", "draining"],
       SessionState: ["active", "expired", "revoked"],
       VerificationState: ["pending", "verified", "failed"],
     },
@@ -387,10 +386,7 @@ test("IFC-011 defines bounded hash-only enrollment and credential lifecycle", ()
     assert.match(parameter.description, /stores only|retains only/i);
     assert.match(parameter.description, /credential_not_replayable/);
     assert.match(parameter.description, /idempotency_key_conflict/);
-    assert.match(
-      resolveResponse(secretOperation.responses["409"]).description,
-      /credential_not_replayable/,
-    );
+    assert.match(secretOperation.description, /credential_not_replayable/);
   }
 
   assert.deepEqual(redeem.security, [{ RunnerRegistrationToken: [] }]);
@@ -428,12 +424,61 @@ test("IFC-011 defines bounded hash-only enrollment and credential lifecycle", ()
     /without disclosing runner or tenant identity/,
   );
 
+  const redemptionOrder = [
+    "registration_token_invalid",
+    "idempotency_key_conflict",
+    "credential_not_replayable",
+    "registration_token_expired",
+    "registration_token_consumed",
+    "registration_proof_invalid",
+    "runner_key_conflict",
+  ].map((code) => redeem.description.indexOf(`\`${code}\``));
+  assert.ok(redemptionOrder.every((index) => index >= 0));
+  assert.deepEqual(
+    redemptionOrder,
+    [...redemptionOrder].sort((a, b) => a - b),
+  );
+
+  assert.deepEqual(
+    document.components.schemas.RegistrationRedemptionConflictProblem.allOf[1]
+      .properties.code.enum,
+    [
+      "idempotency_key_conflict",
+      "credential_not_replayable",
+      "registration_token_consumed",
+      "runner_key_conflict",
+    ],
+  );
+  assert.equal(
+    document.components.schemas.RegistrationTokenInvalidProblem.allOf[1]
+      .properties.code.const,
+    "registration_token_invalid",
+  );
+  assert.equal(
+    document.components.schemas.RegistrationTokenExpiredProblem.allOf[1]
+      .properties.code.const,
+    "registration_token_expired",
+  );
+  assert.equal(
+    document.components.schemas.RegistrationProofInvalidProblem.allOf[1]
+      .properties.code.const,
+    "registration_proof_invalid",
+  );
+
   assert.deepEqual(
     [
-      ["RunnerRegistrationToken", 50, "^prr_v1_[A-Za-z0-9_-]{43}$"],
-      ["RunnerConnectionCredential", 50, "^prc_v1_[A-Za-z0-9_-]{43}$"],
-      ["Ed25519PublicKey", 43, "^[A-Za-z0-9_-]{43}$"],
-      ["Ed25519Signature", 86, "^[A-Za-z0-9_-]{86}$"],
+      [
+        "RunnerRegistrationToken",
+        50,
+        "^prr_v1_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$",
+      ],
+      [
+        "RunnerConnectionCredential",
+        50,
+        "^prc_v1_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$",
+      ],
+      ["Ed25519PublicKey", 43, "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"],
+      ["Ed25519Signature", 86, "^[A-Za-z0-9_-]{85}[AQgw]$"],
       ["PublicKeyFingerprint", 71, "^sha256:[a-f0-9]{64}$"],
     ].map(([name, length, pattern]) => ({
       length: [schemas[name].minLength, schemas[name].maxLength],
@@ -444,22 +489,22 @@ test("IFC-011 defines bounded hash-only enrollment and credential lifecycle", ()
       {
         length: [50, 50],
         name: "RunnerRegistrationToken",
-        pattern: "^prr_v1_[A-Za-z0-9_-]{43}$",
+        pattern: "^prr_v1_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$",
       },
       {
         length: [50, 50],
         name: "RunnerConnectionCredential",
-        pattern: "^prc_v1_[A-Za-z0-9_-]{43}$",
+        pattern: "^prc_v1_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$",
       },
       {
         length: [43, 43],
         name: "Ed25519PublicKey",
-        pattern: "^[A-Za-z0-9_-]{43}$",
+        pattern: "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$",
       },
       {
         length: [86, 86],
         name: "Ed25519Signature",
-        pattern: "^[A-Za-z0-9_-]{86}$",
+        pattern: "^[A-Za-z0-9_-]{85}[AQgw]$",
       },
       {
         length: [71, 71],
@@ -524,8 +569,62 @@ test("IFC-011 defines bounded hash-only enrollment and credential lifecycle", ()
     /encrypted protocol-delivery\s+envelope/,
   );
   assert.match(schemas.RunnerRegistration.description, /returned exactly once/);
-  assert.match(schemas.RunnerState.description, /`registering`/);
-  assert.match(schemas.RunnerState.description, /`revoked` is terminal/);
+  assert.deepEqual(schemas.RunnerState.enum, [
+    "offline",
+    "idle",
+    "busy",
+    "draining",
+  ]);
+  assert.match(schemas.RunnerState.description, /alpha\.5/);
+  assert.match(
+    schemas.RunnerCredentialLifecycleState.description,
+    /`registering`/,
+  );
+  assert.match(
+    schemas.RunnerCredentialLifecycleState.description,
+    /`revoked` is terminal/,
+  );
+  assert.equal(
+    schemas.Runner.properties.credentialLifecycleState.$ref,
+    "#/components/schemas/RunnerCredentialLifecycleState",
+  );
+
+  const rotateBody =
+    document.components.requestBodies[
+      rotate.requestBody.$ref.split("/").at(-1)
+    ];
+  assert.equal(rotateBody.required, false);
+  assert.equal(schemas.RotateRunnerCredentialRequest.required, undefined);
+  assert.equal(schemas.RunnerCredentialTtlSeconds.default, 900);
+  assert.equal(schemas.RunnerCredentialOverlapSeconds.default, 120);
+  assert.match(rotate.description, /absent body and `\{\}`/);
+  assert.match(rotate.description, /leaves the predecessor unchanged/);
+  assert.match(rotate.description, /delivery attempt durably/);
+  const rotationCodes = [
+    "idempotency_key_conflict",
+    "credential_not_replayable",
+    "rotation_id_conflict",
+    "rotation_pending",
+  ];
+  assert.deepEqual(rotationCodes, [
+    "idempotency_key_conflict",
+    "credential_not_replayable",
+    "rotation_id_conflict",
+    "rotation_pending",
+  ]);
+  assert.deepEqual(rotate["x-provenance-conflict-codes"], rotationCodes);
+  assert.deepEqual(create["x-provenance-conflict-codes"], [
+    "idempotency_key_conflict",
+    "credential_not_replayable",
+  ]);
+  const rotationOrder = rotationCodes.map((code) =>
+    rotate.description.indexOf(`\`${code}\``),
+  );
+  assert.ok(rotationOrder.every((index) => index >= 0));
+  assert.deepEqual(
+    rotationOrder,
+    [...rotationOrder].sort((a, b) => a - b),
+  );
 
   const organizationId = "00000000-0000-0000-0000-000000000011";
   const runnerId = "50000000-0000-0000-0000-000000000011";
@@ -557,6 +656,33 @@ test("IFC-011 defines bounded hash-only enrollment and credential lifecycle", ()
       pattern.test(valid.slice(0, -1)),
       false,
       `${name} lower boundary`,
+    );
+  }
+  for (const [name, canonical, alias, prefixLength] of [
+    ["RunnerRegistrationToken", token, `${token.slice(0, -1)}9`, 7],
+    [
+      "RunnerConnectionCredential",
+      `prc_v1_${"A".repeat(43)}`,
+      `prc_v1_${"A".repeat(42)}B`,
+      7,
+    ],
+    ["Ed25519PublicKey", publicKey, `${publicKey.slice(0, -1)}p`, 0],
+    ["Ed25519Signature", signature, `${signature.slice(0, -1)}R`, 0],
+  ]) {
+    const pattern = new RegExp(schemas[name].pattern);
+    assert.equal(pattern.test(alias), false, `${name} rejects pad-bit alias`);
+    assert.ok(
+      Buffer.from(canonical.slice(prefixLength), "base64url").equals(
+        Buffer.from(alias.slice(prefixLength), "base64url"),
+      ),
+      `${name} adversarial vector must decode to the same bytes`,
+    );
+    assert.equal(
+      Buffer.from(canonical.slice(prefixLength), "base64url").toString(
+        "base64url",
+      ),
+      canonical.slice(prefixLength),
+      `${name} round trip`,
     );
   }
   const proofMessage =
@@ -607,6 +733,10 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
     "5e17ca9299f354b55a5cb82c6c9d06d1382549d9",
   );
   assert.equal(
+    compatibilityHash(alpha5Compatibility.modified),
+    alpha5Compatibility.modifiedSha256,
+  );
+  assert.equal(
     compatibilityHash(
       [
         "openapi",
@@ -647,6 +777,33 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
       ),
       snapshot.sha256,
       category,
+    );
+  }
+
+  assert.deepEqual(
+    Object.keys(alpha5Compatibility.modified.operations).sort(),
+    ["createRunnerRegistration", "rotateRunnerCredentials"],
+  );
+  for (const [name, released] of Object.entries(
+    alpha5Compatibility.modified.operations,
+  )) {
+    assertAlpha5OperationCompatible(name, released, operationById.get(name));
+  }
+  assert.deepEqual(Object.keys(alpha5Compatibility.modified.schemas).sort(), [
+    "CreateRunnerRegistrationRequest",
+    "Runner",
+    "RunnerCredential",
+    "RunnerRegistration",
+    "RunnerState",
+    "UpdateRunnerRequest",
+  ]);
+  for (const [name, released] of Object.entries(
+    alpha5Compatibility.modified.schemas,
+  )) {
+    assertAlpha5SchemaCompatible(
+      name,
+      released,
+      document.components.schemas[name],
     );
   }
 
@@ -1218,4 +1375,136 @@ function canonicalize(value) {
 function createPath(candidate) {
   return operations.find(({ operation: current }) => current === candidate)
     .path;
+}
+
+function assertAlpha5OperationCompatible(name, released, current) {
+  assert.ok(current, name);
+  assert.equal(current.path, released.path, name);
+  assert.equal(current.method, released.method, name);
+  assert.equal(current.operation.operationId, released.operation.operationId);
+  assert.equal(current.operation.summary, released.operation.summary);
+  assert.deepEqual(current.operation.tags, released.operation.tags);
+
+  for (const releasedParameter of released.operation.parameters ?? []) {
+    const releasedName = releasedParameter.$ref.split("/").at(-1);
+    const releasedShape = document.components.parameters[releasedName];
+    const currentShape = current.operation.parameters
+      .map(resolveParameter)
+      .find((candidate) => candidate.name === releasedShape.name);
+    assert.ok(currentShape, `${name}.${releasedShape.name}`);
+    for (const property of ["name", "in", "required", "schema"]) {
+      assert.deepEqual(
+        currentShape[property],
+        releasedShape[property],
+        `${name}.${releasedShape.name}.${property}`,
+      );
+    }
+  }
+
+  if (released.operation.requestBody) {
+    assert.deepEqual(
+      current.operation.requestBody,
+      released.operation.requestBody,
+      `${name}.requestBody`,
+    );
+  } else if (current.operation.requestBody) {
+    const requestBodyName = current.operation.requestBody.$ref
+      .split("/")
+      .at(-1);
+    assert.notEqual(
+      document.components.requestBodies[requestBodyName].required,
+      true,
+      `${name}.requestBody must remain optional`,
+    );
+  }
+
+  for (const [status, releasedResponse] of Object.entries(
+    released.operation.responses,
+  )) {
+    const currentResponse = current.operation.responses[status];
+    assert.ok(currentResponse, `${name}.${status}`);
+    if (!releasedResponse.$ref) {
+      assert.equal(currentResponse.description, releasedResponse.description);
+      assert.deepEqual(
+        currentResponse.content,
+        releasedResponse.content,
+        `${name}.${status}.content`,
+      );
+      continue;
+    }
+    const releasedResolved = resolveResponse(releasedResponse);
+    const currentResolved = resolveResponse(currentResponse);
+    assert.equal(
+      problemBaseSchema(currentResolved),
+      problemBaseSchema(releasedResolved),
+      `${name}.${status}.problem base`,
+    );
+  }
+}
+
+function assertAlpha5SchemaCompatible(name, released, current) {
+  assert.ok(current, name);
+  assert.equal(current.type, released.type, `${name}.type`);
+  assert.equal(
+    current.additionalProperties,
+    released.additionalProperties,
+    `${name}.additionalProperties`,
+  );
+  if (name === "RunnerState") {
+    assert.deepEqual(current.enum, released.enum, `${name}.enum`);
+    return;
+  }
+
+  for (const required of released.required ?? []) {
+    assert.ok(current.required?.includes(required), `${name}.${required}`);
+  }
+  if (["Runner", "CreateRunnerRegistrationRequest"].includes(name)) {
+    assert.deepEqual(current.required, released.required, `${name}.required`);
+  }
+  if (name === "UpdateRunnerRequest") {
+    assert.equal(current.required, undefined, `${name}.required`);
+  }
+
+  for (const [property, releasedProperty] of Object.entries(
+    released.properties ?? {},
+  )) {
+    const currentProperty = current.properties[property];
+    assert.ok(currentProperty, `${name}.${property}`);
+    if (releasedProperty.$ref) {
+      assert.equal(
+        currentProperty.$ref,
+        releasedProperty.$ref,
+        `${name}.${property}`,
+      );
+      continue;
+    }
+    const resolvedCurrent = currentProperty.$ref
+      ? document.components.schemas[currentProperty.$ref.split("/").at(-1)]
+      : currentProperty;
+    for (const key of ["type", "format", "const", "maxLength"]) {
+      if (releasedProperty[key] !== undefined) {
+        assert.deepEqual(
+          resolvedCurrent[key],
+          releasedProperty[key],
+          `${name}.${property}.${key}`,
+        );
+      }
+    }
+    if (releasedProperty.minLength !== undefined) {
+      assert.ok(
+        resolvedCurrent.minLength >= releasedProperty.minLength,
+        `${name}.${property}.minLength`,
+      );
+    }
+  }
+}
+
+function problemBaseSchema(response) {
+  const schema = response.content["application/problem+json"].schema;
+  if (schema.$ref) {
+    const referenced =
+      document.components.schemas[schema.$ref.split("/").at(-1)];
+    return referenced?.allOf?.[0]?.$ref ?? schema.$ref;
+  }
+  return schema.allOf?.[0]?.$ref;
 }

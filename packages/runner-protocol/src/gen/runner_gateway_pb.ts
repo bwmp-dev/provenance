@@ -827,27 +827,41 @@ export const PolicyUpdateSchema: GenMessage<PolicyUpdate> = /*@__PURE__*/
 /**
  * RotateCredential is sent only when CREDENTIAL_ROTATION was advertised. rotation_id is a
  * canonical lowercase UUID and is the immutable idempotency identity. connection_credential is
- * exactly 50 ASCII bytes matching ^prc_v1_[A-Za-z0-9_-]{43}$; expires_at is exclusive and no more
- * than 3600 seconds after issued_at. credential_fingerprint is SHA-256 of those exact 50 bytes.
- * reconnect_before is the exclusive predecessor-credential deadline, after issued_at, before
- * expires_at, and no more than 300 seconds after issued_at.
+ * exactly 50 canonical ASCII bytes matching
+ * ^prc_v1_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$; decoders reject any spelling that does not
+ * decode and unpadded-base64url-re-encode byte-for-byte. expires_at is exclusive and no more than
+ * 3600 seconds after issued_at. credential_fingerprint is SHA-256 of those exact 50 bytes.
+ * reconnect_before is after issued_at, before expires_at, and no more than 300 seconds after
+ * issued_at. It becomes the predecessor-credential deadline only after a delivery attempt.
  *
- * The gateway durably creates one rotation before delivery and retries the exact payload while the
- * runner is offline or acknowledgement is absent. The credential authority retains only a hash; a
- * bounded encrypted delivery envelope may retain the payload until acknowledgement, successful
- * reconnect, or reconnect_before, is unavailable to HTTP response replay, and is then erased. Reusing
- * rotation_id with different bytes, timestamps, or fingerprint is a protocol conflict. The runner
- * MUST atomically persist the new credential, complete payload identity, and rotation_id before
- * acknowledgement. An exact duplicate is acknowledged again without issuing or overwriting a secret;
- * a conflicting duplicate terminates the stream. A crash before persistence yields no acknowledgement
- * and the predecessor remains valid during overlap. A crash after persistence but before
- * acknowledgement re-acknowledges the exact replay after restart.
+ * The gateway may durably queue one rotation while the runner is offline, but MUST NOT attempt
+ * delivery until a current stream advertises CREDENTIAL_ROTATION. Immediately before writing any
+ * payload bytes it durably records delivery_attempted. If no delivery attempt is recorded before
+ * reconnect_before, the gateway abandons the rotation, invalidates the undelivered new credential,
+ * erases its envelope, retains only non-secret audit identity/fingerprint, and leaves the predecessor
+ * unchanged. This is also the mixed-version outcome when the runner reconnects without the feature.
+ * Disabling rollout stops new rotations; already queued rotations still follow these exact attempt
+ * or abandonment rules.
+ *
+ * After delivery_attempted, receipt is potentially ambiguous. The gateway retries the exact payload
+ * while the envelope exists and acknowledgement is absent. The credential authority retains only a
+ * hash; the bounded encrypted envelope is unavailable to HTTP response replay and is erased after
+ * acknowledgement, successful reconnect, or reconnect_before. Reusing rotation_id with different
+ * bytes, timestamps, or fingerprint is a protocol conflict. The runner MUST atomically persist the
+ * new credential, complete payload identity, and rotation_id before acknowledgement. An exact
+ * duplicate is acknowledged again without issuing or overwriting a secret; a conflicting duplicate
+ * terminates the stream. A crash before persistence yields no acknowledgement and the gateway retries
+ * during the attempted-delivery overlap. A crash after persistence but before acknowledgement
+ * re-acknowledges the exact replay after restart.
  *
  * Delivery does not terminate the active predecessor-authenticated stream. The runner reconnects
  * with the new credential before reconnect_before. Successful new-credential authentication revokes
- * the predecessor immediately and closes its older stream; otherwise the predecessor is revoked at
- * reconnect_before. The new credential remains subject to expires_at, quarantine, and administrative
- * revocation. Neither message contains private keys or storage credentials.
+ * the predecessor immediately and closes its older stream. After an attempted delivery, failure to
+ * reconnect with the new credential revokes the predecessor at reconnect_before; an unattempted
+ * abandoned rotation never revokes it.
+ * Explicit administrative revocation overrides every queued, attempted, acknowledged, or connected
+ * rotation and immediately revokes all credentials and streams. The new credential remains subject
+ * to expires_at and quarantine. Neither message contains private keys or storage credentials.
  *
  * @generated from message provenance.runner.v1.RotateCredential
  */
