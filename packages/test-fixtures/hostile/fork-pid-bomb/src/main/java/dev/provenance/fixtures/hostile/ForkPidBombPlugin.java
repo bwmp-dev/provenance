@@ -109,7 +109,7 @@ final class ForkPidBombAttack {
     }
 
     try {
-      releaseAllButOne();
+      releaseAll();
       return retainedChildren.size();
     } catch (RuntimeException exception) {
       throw cleanupAfterFailure(exception);
@@ -118,20 +118,11 @@ final class ForkPidBombAttack {
     }
   }
 
-  private void releaseAllButOne() {
-    Process survivor = null;
+  private void releaseAll() {
     for (Process child : retainedChildren) {
-      if (survivor == null && child.isAlive()) {
-        survivor = child;
-        continue;
-      }
       terminateAndReap(child);
     }
-    if (survivor == null) {
-      throw new IllegalStateException("fork/PID fixture did not retain a live sleeper");
-    }
     retainedChildren.clear();
-    retainedChildren.add(survivor);
   }
 
   private <T extends Throwable> T cleanupAfterFailure(T failure) {

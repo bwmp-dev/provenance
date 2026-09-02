@@ -140,9 +140,10 @@ function verifyDeterministicForkPidFixture(source) {
     "SleeperPressureHold::sustain",
     "HOLD_MILLIS = 2_000",
     "Thread.sleep(HOLD_MILLIS)",
-    "releaseAllButOne",
+    "releaseAll",
     "terminateAndReap",
     "child.waitFor",
+    "retainedChildren.clear()",
     'Path.of("/usr/bin/sleep")',
     'Path.of("/bin/sleep")',
     "builder.environment().clear()",
@@ -155,7 +156,13 @@ function verifyDeterministicForkPidFixture(source) {
     }
   }
 
-  const forbidden = ["ForkPidBombProcess", "java.home", "spawnChildren"];
+  const forbidden = [
+    "ForkPidBombProcess",
+    "java.home",
+    "spawnChildren",
+    "releaseAllButOne",
+    "Process survivor",
+  ];
   for (const marker of forbidden) {
     if (source.includes(marker)) {
       throw new Error(

@@ -80,7 +80,7 @@ final class ForkPidBombPluginTest {
   }
 
   @Test
-  void stopsAtFirstEagainPidDenialAndRetainsEverySuccessfulSleeper() {
+  void stopsAtFirstEagainPidDenialAndReapsEverySuccessfulSleeper() {
     AtomicInteger starts = new AtomicInteger();
     AtomicInteger pressureHolds = new AtomicInteger();
     List<RetainedProcess> children = new ArrayList<>();
@@ -100,21 +100,20 @@ final class ForkPidBombPluginTest {
               assertTrue(children.stream().allMatch(Process::isAlive));
             });
 
-    assertEquals(1, attack.startOnce());
-    assertEquals(1, attack.retainedChildCount());
+    assertEquals(0, attack.startOnce());
+    assertEquals(0, attack.retainedChildCount());
     assertEquals(4, starts.get());
     assertEquals(1, pressureHolds.get());
-    assertTrue(children.getFirst().isAlive());
-    assertTrue(children.subList(1, children.size()).stream().noneMatch(Process::isAlive));
-    assertTrue(children.subList(1, children.size()).stream().allMatch(RetainedProcess::reaped));
-    assertEquals(1, attack.startOnce());
+    assertTrue(children.stream().noneMatch(Process::isAlive));
+    assertTrue(children.stream().allMatch(RetainedProcess::reaped));
+    assertEquals(0, attack.startOnce());
     assertEquals(4, starts.get(), "a repeated trigger must not attempt another child");
     assertEquals(1, pressureHolds.get(), "a repeated trigger must not hold pressure again");
-    assertTrue(children.getFirst().isAlive());
+    assertTrue(children.stream().noneMatch(Process::isAlive));
   }
 
   @Test
-  void recognizesGvisorEnomemAndRetainsSuccessfulSleepers() {
+  void recognizesGvisorEnomemAndReapsSuccessfulSleepers() {
     AtomicInteger starts = new AtomicInteger();
     AtomicInteger pressureHolds = new AtomicInteger();
     RetainedProcess child = new RetainedProcess();
@@ -131,11 +130,12 @@ final class ForkPidBombPluginTest {
               assertTrue(child.isAlive());
             });
 
-    assertEquals(1, attack.startOnce());
+    assertEquals(0, attack.startOnce());
     assertEquals(2, starts.get());
     assertEquals(1, pressureHolds.get());
-    assertEquals(1, attack.retainedChildCount());
-    assertTrue(child.isAlive());
+    assertEquals(0, attack.retainedChildCount());
+    assertFalse(child.isAlive());
+    assertTrue(child.reaped());
   }
 
   @Test
@@ -269,39 +269,41 @@ final class ForkPidBombPluginTest {
   }
 
   @Test
-  void releaseEscalatesToForceAndReapsOnTheSecondWait() {
+  void releaseEscalatesEverySleeperToForceAndReapsOnTheSecondWait() {
     AtomicInteger starts = new AtomicInteger();
-    RetainedProcess survivor = new RetainedProcess();
-    ForceReapedProcess released = new ForceReapedProcess();
+    ForceReapedProcess first = new ForceReapedProcess();
+    ForceReapedProcess second = new ForceReapedProcess();
     ForkPidBombAttack attack =
         new ForkPidBombAttack(
             () ->
                 switch (starts.incrementAndGet()) {
-                  case 1 -> survivor;
-                  case 2 -> released;
+                  case 1 -> first;
+                  case 2 -> second;
                   default -> throw eagainPidLimitDenial();
                 },
             () -> {});
 
-    assertEquals(1, attack.startOnce());
-    assertEquals(2, released.timedWaits);
-    assertEquals(1, released.forceCalls);
-    assertTrue(released.reaped());
-    assertFalse(released.isAlive());
-    assertTrue(attack.owns(survivor));
-    assertFalse(attack.owns(released));
+    assertEquals(0, attack.startOnce());
+    for (ForceReapedProcess child : List.of(first, second)) {
+      assertEquals(2, child.timedWaits);
+      assertEquals(1, child.forceCalls);
+      assertTrue(child.reaped());
+      assertFalse(child.isAlive());
+      assertFalse(attack.owns(child));
+    }
+    assertEquals(0, attack.retainedChildCount());
   }
 
   @Test
-  void sleeperAliveAcrossBothReapAttemptsFailsAndRemainsOwned() {
+  void normalReleaseUnreapableSleeperFailsAndRemainsOwnedThroughCleanupRetry() {
     AtomicInteger starts = new AtomicInteger();
-    RetainedProcess survivor = new RetainedProcess();
+    RetainedProcess released = new RetainedProcess();
     StaysAliveProcess unreaped = new StaysAliveProcess();
     ForkPidBombAttack attack =
         new ForkPidBombAttack(
             () ->
                 switch (starts.incrementAndGet()) {
-                  case 1 -> survivor;
+                  case 1 -> released;
                   case 2 -> unreaped;
                   default -> throw eagainPidLimitDenial();
                 },
@@ -316,32 +318,33 @@ final class ForkPidBombPluginTest {
     assertTrue(unreaped.isAlive());
     assertEquals(1, attack.retainedChildCount());
     assertTrue(attack.owns(unreaped));
-    assertFalse(attack.owns(survivor));
+    assertFalse(attack.owns(released));
+    assertFalse(released.isAlive());
+    assertTrue(released.reaped());
   }
 
   @Test
   void interruptedTimedWaitForcesReapAndRestoresCallerInterrupt() {
     AtomicInteger starts = new AtomicInteger();
-    RetainedProcess survivor = new RetainedProcess();
     InterruptedThenReapedProcess released = new InterruptedThenReapedProcess();
     ForkPidBombAttack attack =
         new ForkPidBombAttack(
             () ->
                 switch (starts.incrementAndGet()) {
-                  case 1 -> survivor;
-                  case 2 -> released;
+                  case 1 -> released;
                   default -> throw eagainPidLimitDenial();
                 },
             () -> {});
 
     try {
-      assertEquals(1, attack.startOnce());
+      assertEquals(0, attack.startOnce());
       assertTrue(Thread.currentThread().isInterrupted());
       assertEquals(2, released.timedWaits);
       assertEquals(1, released.forceCalls);
       assertTrue(released.reaped());
       assertFalse(released.isAlive());
-      assertTrue(attack.owns(survivor));
+      assertFalse(attack.owns(released));
+      assertEquals(0, attack.retainedChildCount());
     } finally {
       Thread.interrupted();
     }
