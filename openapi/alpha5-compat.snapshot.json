@@ -1,0 +1,411 @@
+{
+  "sourceCommit": "5e17ca9299f354b55a5cb82c6c9d06d1382549d9",
+  "modifiedSha256": "331887f6e73da65ba4d2f5d2252730286fc60c3b96dcc20784f45017a7a2e65d",
+  "topLevelSha256": "c56f23cd1160d9839786e672634652b671fc2755e10cfc9967c3c66123a8f276",
+  "operations": {
+    "names": [
+      "approveReleaseCandidate",
+      "cancelReleaseCandidate",
+      "completeArtifactUpload",
+      "createArtifactUpload",
+      "createDeviceAuthorization",
+      "createGitHubConnection",
+      "createIntegration",
+      "createOrganization",
+      "createProject",
+      "createProjectConfigSnapshot",
+      "createReleaseCandidate",
+      "createSession",
+      "deleteCurrentSession",
+      "deleteIntegration",
+      "deleteOrganization",
+      "deleteProject",
+      "downloadCompleteExecutionLog",
+      "exchangeGitHubOidcToken",
+      "getArtifact",
+      "getCurrentSession",
+      "getIntegration",
+      "getOrganization",
+      "getOrganizationUsage",
+      "getProject",
+      "getPublicRelease",
+      "getPublicReleaseBadge",
+      "getReleaseCandidate",
+      "getRunner",
+      "getVerification",
+      "getVerificationAttestation",
+      "listGitHubInstallations",
+      "listIntegrations",
+      "listOrganizations",
+      "listProjects",
+      "listReleaseCandidateEvents",
+      "listReleaseCandidateExecutions",
+      "listRunners",
+      "readExecutionLogs",
+      "receiveGitHubWebhook",
+      "retryReleaseCandidate",
+      "updateIntegration",
+      "updateOrganization",
+      "updateProject",
+      "updateRunner"
+    ],
+    "sha256": "c89045d2daecc57e7051545b192f7c51e3733e61ee03441e86193fb175d9139b"
+  },
+  "components": {
+    "headers": {
+      "names": [
+        "BearerChallenge",
+        "CompleteLogContentDigest",
+        "CompleteLogContentDisposition",
+        "CompleteLogContentLength",
+        "PrivateNoStore",
+        "RetryAfter",
+        "SessionCookie",
+        "VaryAccept"
+      ],
+      "sha256": "14fcf0448aa9d597b0f6f960a7fbdba2127ca3b22e940ca868440d48cd176aa0"
+    },
+    "parameters": {
+      "names": [
+        "ArtifactId",
+        "CandidateId",
+        "Cursor",
+        "ExecutionId",
+        "GitHubDeliveryId",
+        "GitHubEvent",
+        "IdempotencyKey",
+        "IntegrationId",
+        "LastEventId",
+        "LogCursor",
+        "LogLastEventId",
+        "LogPageSize",
+        "OptionalIdempotencyKey",
+        "OrganizationId",
+        "OwnerSlug",
+        "PageSize",
+        "ProjectId",
+        "ProjectSlug",
+        "RunnerId",
+        "SessionCreationIdempotencyKey",
+        "UsageFrom",
+        "UsageTo",
+        "VerificationId",
+        "Version"
+      ],
+      "sha256": "5cd4ab56afd5fa2b2a532194ca1b33f9eafb9019424006ae29900635abb69084"
+    },
+    "requestBodies": {
+      "names": [
+        "CandidateDecision",
+        "CompleteArtifactUpload",
+        "CreateArtifactUpload",
+        "CreateDeviceAuthorization",
+        "CreateGitHubConnection",
+        "CreateIntegration",
+        "CreateOrganization",
+        "CreateProject",
+        "CreateProjectConfigSnapshot",
+        "CreateReleaseCandidate",
+        "CreateRunnerRegistration",
+        "CreateSession",
+        "ExchangeGitHubOidcToken",
+        "GitHubWebhook",
+        "UpdateIntegration",
+        "UpdateOrganization",
+        "UpdateProject",
+        "UpdateRunner"
+      ],
+      "sha256": "65871db3704f34be2b903b1d48c6ac9f6589f24a2e201133af0214cebdedd3ea"
+    },
+    "responses": {
+      "names": [
+        "AuthenticationRequired",
+        "CompleteLogExpired",
+        "CompleteLogNotReady",
+        "CompleteLogUnavailable",
+        "IdempotencyConflict",
+        "LogCursorExpired",
+        "LogRateLimited",
+        "LogRelayUnavailable",
+        "LogRepresentationNotAcceptable",
+        "LogRequestInvalid",
+        "NoContent",
+        "PrivateLogNotFound",
+        "PrivateProblem",
+        "Problem",
+        "ReleaseCandidateConflict",
+        "SessionCreationConflict"
+      ],
+      "sha256": "5595ce0eba257711b691ee50b318f969048a9c74a5c3df710830abbeb5e19297"
+    },
+    "securitySchemes": {
+      "names": ["BearerAuth", "GitHubWebhookSignature", "SessionCookie"],
+      "sha256": "fc6db43e88b79b970fe91056be31694ce5a0a33c33e7534f0b92cb2dd8b9d8aa"
+    },
+    "schemas": {
+      "names": [
+        "AccessToken",
+        "Artifact",
+        "ArtifactState",
+        "ArtifactUpload",
+        "AuthenticationRequiredProblem",
+        "BoundedStableId",
+        "CandidateDecisionRequest",
+        "CompleteArtifactUploadRequest",
+        "CompleteLogAvailable",
+        "CompleteLogExpired",
+        "CompleteLogExpiredProblem",
+        "CompleteLogFailed",
+        "CompleteLogNotReadyProblem",
+        "CompleteLogPending",
+        "CompleteLogState",
+        "CompleteLogUnavailable",
+        "CompleteLogUnavailableProblem",
+        "CreateArtifactUploadRequest",
+        "CreateDeviceAuthorizationRequest",
+        "CreateGitHubConnectionRequest",
+        "CreateIntegrationRequest",
+        "CreateOrganizationRequest",
+        "CreateProjectConfigSnapshotRequest",
+        "CreateProjectRequest",
+        "CreateReleaseCandidateRequest",
+        "CreateSessionRequest",
+        "Cursor",
+        "DeviceAuthorization",
+        "DroppedLogCount",
+        "ExchangeGitHubOidcTokenRequest",
+        "ExecutionCompleteLogStateEvent",
+        "ExecutionLogDescriptor",
+        "ExecutionLogDescriptorPage",
+        "ExecutionLogEntryEvent",
+        "ExecutionLogEvent",
+        "ExecutionLogGapEvent",
+        "ExecutionLogPage",
+        "ExecutionLogStateEvent",
+        "ExecutionState",
+        "GitHubConnection",
+        "GitHubInstallation",
+        "GitHubInstallationPage",
+        "IdempotencyKey",
+        "Integration",
+        "IntegrationPage",
+        "IntegrationState",
+        "LiveLogState",
+        "LogCursor",
+        "LogCursorExpiredProblem",
+        "LogRateLimitedProblem",
+        "LogRelayUnavailableProblem",
+        "LogRepresentationNotAcceptableProblem",
+        "LogRequestInvalidProblem",
+        "LogSequence",
+        "LogTimestamp",
+        "Organization",
+        "OrganizationPage",
+        "PageInfo",
+        "PrivateLogNotFoundProblem",
+        "PrivateProblemDetails",
+        "PrivateProblemFieldError",
+        "ProblemDetails",
+        "ProblemFieldError",
+        "Project",
+        "ProjectConfigSnapshot",
+        "ProjectPage",
+        "PublicRelease",
+        "ReleaseCandidate",
+        "ReleaseCandidateState",
+        "ReleaseEvent",
+        "ReleaseEventPage",
+        "RunnerPage",
+        "Session",
+        "SessionState",
+        "Sha256Digest",
+        "Slug",
+        "StableId",
+        "Timestamp",
+        "UpdateIntegrationRequest",
+        "UpdateOrganizationRequest",
+        "UpdateProjectRequest",
+        "Usage",
+        "Verification",
+        "VerificationState"
+      ],
+      "sha256": "628b81de0b44c78376299b03789f070cd2e26470db3ec89aed502fa90dd9e273"
+    }
+  },
+  "modified": {
+    "operations": {
+      "createRunnerRegistration": {
+        "path": "/v1/organizations/{organizationId}/runners",
+        "method": "post",
+        "operation": {
+          "operationId": "createRunnerRegistration",
+          "summary": "Create a one-time self-hosted runner registration",
+          "tags": ["runners"],
+          "parameters": [
+            {
+              "$ref": "#/components/parameters/IdempotencyKey"
+            }
+          ],
+          "requestBody": {
+            "$ref": "#/components/requestBodies/CreateRunnerRegistration"
+          },
+          "responses": {
+            "201": {
+              "description": "Runner registration created.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/RunnerRegistration"
+                  }
+                }
+              }
+            },
+            "409": {
+              "$ref": "#/components/responses/IdempotencyConflict"
+            },
+            "default": {
+              "$ref": "#/components/responses/Problem"
+            }
+          }
+        }
+      },
+      "rotateRunnerCredentials": {
+        "path": "/v1/runners/{runnerId}/credentials/rotate",
+        "method": "post",
+        "operation": {
+          "operationId": "rotateRunnerCredentials",
+          "summary": "Rotate short-lived runner connection credentials",
+          "tags": ["runners"],
+          "parameters": [
+            {
+              "$ref": "#/components/parameters/IdempotencyKey"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Rotated runner credential.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/RunnerCredential"
+                  }
+                }
+              }
+            },
+            "409": {
+              "$ref": "#/components/responses/IdempotencyConflict"
+            },
+            "default": {
+              "$ref": "#/components/responses/Problem"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "RunnerState": {
+        "type": "string",
+        "enum": ["offline", "idle", "busy", "draining"]
+      },
+      "Runner": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "organizationId",
+          "name",
+          "state",
+          "trust",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/StableId"
+          },
+          "organizationId": {
+            "$ref": "#/components/schemas/StableId"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunnerState"
+          },
+          "trust": {
+            "type": "string",
+            "const": "self_hosted"
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "CreateRunnerRegistrationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "RunnerRegistration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["runnerId", "registrationToken", "expiresAt"],
+        "properties": {
+          "runnerId": {
+            "$ref": "#/components/schemas/StableId"
+          },
+          "registrationToken": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One-time runner registration token."
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "UpdateRunnerRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "draining": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RunnerCredential": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["credential", "expiresAt"],
+        "properties": {
+          "credential": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Short-lived organization-scoped runner credential."
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      }
+    }
+  }
+}

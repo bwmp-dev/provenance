@@ -252,9 +252,21 @@
     "tag": "runners"
   },
   {
+    "method": "post",
+    "operationId": "revokeRunnerCredentials",
+    "path": "/v1/runners/{runnerId}/credential-revocations",
+    "tag": "runners"
+  },
+  {
     "method": "get",
     "operationId": "getRunner",
     "path": "/v1/runners/{runnerId}",
+    "tag": "runners"
+  },
+  {
+    "method": "post",
+    "operationId": "redeemRunnerRegistration",
+    "path": "/v1/runners/{runnerId}/registration-redemptions",
     "tag": "runners"
   },
   {

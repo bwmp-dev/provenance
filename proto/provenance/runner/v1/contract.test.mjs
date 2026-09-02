@@ -12,6 +12,10 @@ const gatewaySource = readFileSync(
   join(contractDirectory, "runner_gateway.proto"),
   "utf8",
 );
+const commonSource = readFileSync(
+  join(contractDirectory, "common.proto"),
+  "utf8",
+);
 const snapshot = JSON.parse(
   readFileSync(join(contractDirectory, "contract.snapshot.json"), "utf8"),
 );
@@ -345,6 +349,102 @@ test("durable acknowledgement semantics remain normative", () => {
     gatewaySource,
     /sequence with another ID, is a transport conflict/,
   );
+});
+
+test("credential rotation remains protocol-v1, feature-gated, and replay-safe", () => {
+  assert.match(
+    commonSource,
+    /PROTOCOL_FEATURE_CREDENTIAL_ROTATION\s*=\s*2\s*;/,
+  );
+  assert.match(gatewaySource, /keeps protocol_version equal to literal "1"/);
+  assert.match(
+    gatewaySource,
+    /MUST send RotateCredential only after the runner advertises CREDENTIAL_ROTATION/,
+  );
+  assert.match(
+    gatewaySource,
+    /non-advertising or mixed-version runner never receives rotation/,
+  );
+  assert.match(
+    gatewaySource,
+    /durably queue one rotation while the runner is offline/,
+  );
+  assert.match(
+    gatewaySource,
+    /MUST NOT attempt[\s\S]*current stream advertises CREDENTIAL_ROTATION/,
+  );
+  assert.match(
+    gatewaySource,
+    /Immediately before writing any[\s\S]*durably records delivery_attempted/,
+  );
+  assert.match(
+    gatewaySource,
+    /no delivery attempt[\s\S]*abandons the rotation[\s\S]*leaves the predecessor[\s\S]*unchanged/,
+  );
+  assert.match(gatewaySource, /mixed-version outcome/);
+  assert.match(
+    gatewaySource,
+    /Disabling rollout stops new rotations[\s\S]*attempt[\s\S]*abandonment rules/,
+  );
+  assert.match(
+    gatewaySource,
+    /After delivery_attempted, receipt is potentially ambiguous/,
+  );
+  assert.match(
+    gatewaySource,
+    /atomically persist the[\s\S]{0,20}new[\s\S]*before[\s\S]{0,20}acknowledgement/,
+  );
+  assert.match(
+    gatewaySource,
+    /exact[\s\S]{0,20}duplicate[\s\S]{0,30}acknowledged again/,
+  );
+  assert.match(
+    gatewaySource,
+    /conflicting[\s\S]{0,20}duplicate[\s\S]{0,30}terminates the stream/,
+  );
+  assert.match(
+    gatewaySource,
+    /crash before persistence yields no acknowledgement/i,
+  );
+  assert.match(
+    gatewaySource,
+    /crash after persistence but before[\s\S]{0,20}acknowledgement/i,
+  );
+  assert.match(
+    gatewaySource,
+    /does not terminate the active predecessor-authenticated stream/,
+  );
+  assert.match(gatewaySource, /reconnects[\s\S]*before reconnect_before/);
+  assert.match(gatewaySource, /revokes[\s\S]*predecessor immediately/);
+  assert.match(
+    gatewaySource,
+    /revokes the predecessor at[\s\S]*reconnect_before/,
+  );
+  assert.match(
+    gatewaySource,
+    /unattempted[\s\S]{0,20}abandoned rotation never revokes it/,
+  );
+  assert.match(
+    gatewaySource,
+    /Explicit administrative revocation overrides every[\s\S]*rotation/,
+  );
+  assert.match(
+    gatewaySource,
+    /does not by itself[\s\S]*revoke the predecessor/,
+  );
+  assert.match(gatewaySource, /exactly 50 canonical ASCII bytes/);
+  assert.match(
+    gatewaySource,
+    /\^prc_v1_\[A-Za-z0-9_-\]\{42\}\[AEIMQUYcgkosw048\]\$/,
+  );
+  assert.match(gatewaySource, /re-encode byte-for-byte/);
+  assert.match(gatewaySource, /fingerprint is exactly 32 SHA-256 bytes/);
+
+  const rotationBlock = gatewaySource.slice(
+    gatewaySource.indexOf("message RotateCredential"),
+    gatewaySource.indexOf("message ShutdownRunner"),
+  );
+  assert.doesNotMatch(rotationBlock, /private_key|storage_credential/);
 });
 
 test(
