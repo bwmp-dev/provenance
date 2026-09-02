@@ -216,6 +216,24 @@
     "tag": "release-candidates"
   },
   {
+    "method": "get",
+    "operationId": "listReleaseCandidateExecutions",
+    "path": "/v1/release-candidates/{candidateId}/executions",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "get",
+    "operationId": "readExecutionLogs",
+    "path": "/v1/release-candidates/{candidateId}/executions/{executionId}/logs",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "get",
+    "operationId": "downloadCompleteExecutionLog",
+    "path": "/v1/release-candidates/{candidateId}/executions/{executionId}/logs/complete",
+    "tag": "release-candidates"
+  },
+  {
     "method": "post",
     "operationId": "retryReleaseCandidate",
     "path": "/v1/release-candidates/{candidateId}/retry",

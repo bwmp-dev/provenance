@@ -580,6 +580,184 @@ paths:
                 type: string
         default:
           $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/executions:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    get:
+      operationId: listReleaseCandidateExecutions
+      summary: List the bounded execution log descriptors for a release candidate
+      description: >-
+        Returns the execution and attempt identities needed to consume logs for
+        every matrix environment in the candidate. An authenticated caller that
+        cannot access the private candidate receives the same HTTP 404 response
+        as a caller naming a nonexistent candidate.
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Bounded execution log descriptor page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionLogDescriptorPage"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/executions/{executionId}/logs:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+      - $ref: "#/components/parameters/ExecutionId"
+    get:
+      operationId: readExecutionLogs
+      summary: Reconcile or stream the bounded live log for one execution
+      description: |
+        This authenticated route exposes a convenience live view, not durable
+        evidence. `application/json` is the default for a missing Accept header,
+        `*/*`, or an equal preference. `text/event-stream` is selected only when
+        it is explicitly the most preferred supported representation.
+
+        The query `cursor` is used for JSON reconciliation and an initial SSE
+        request. For SSE reconnects, `Last-Event-ID` takes precedence. Supplying
+        both is accepted only when their opaque values are byte-for-byte equal;
+        different values fail with HTTP 400 and code `log_cursor_conflict`.
+        `Last-Event-ID` with the JSON representation fails with HTTP 400 and code
+        `last_event_id_not_applicable`. A cursor is scoped to the authenticated
+        tenant, candidate, execution, and attempt. Invalid cursors fail with HTTP
+        400; a cursor scoped to another private resource is indistinguishable
+        from a missing resource and returns HTTP 404.
+
+        Live relay cursors are opaque, short-lived positions and never promise
+        replay of missed bytes. If an accepted cursor precedes retained relay
+        state, the response explicitly reports an unrecoverable live gap. The
+        client must reconcile terminal state and use the authoritative complete
+        log when it becomes available. Structured results and assertions are
+        separate resources and are never inferred from this stream.
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/LogCursor"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/LogLastEventId"
+      responses:
+        "200":
+          description: |
+            Bounded JSON reconciliation page or a streaming SSE response.
+
+            The SSE grammar is UTF-8 and each data-bearing event is exactly
+            `id: <opaque cursor>`, one `event:` line (`log-entry`, `log-gap`,
+            `log-state`, or `complete-log-state`), one `data:` line containing a
+            compact single-line JSON `ExecutionLogEvent`, then a blank line. The
+            cursor in `id:` resumes strictly after that event. No data-bearing
+            frame exceeds 65536 encoded bytes. A server may send `retry:` between
+            1000 and 30000 milliseconds. While an open stream is idle, the server
+            sends a heartbeat every 15 to 30 seconds. Heartbeats are comment
+            records of the form `: heartbeat` followed by a blank line, carry no
+            id or data, and are never log or terminal evidence.
+
+            Servers flush batches of at most 100 data events and 1 MiB of
+            serialized event data incrementally, and apply the same bounds to the
+            per-connection queue. They do not assemble the complete response in
+            memory. Before response headers, subscriber pressure may return HTTP
+            429. After streaming starts, overload or disconnect closes the
+            connection; reconnect and JSON reconciliation then expose any
+            unrecoverable live gap. Every initial request and reconnect is
+            independently authenticated and authorized.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+            Vary:
+              $ref: "#/components/headers/VaryAccept"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionLogPage"
+            text/event-stream:
+              schema:
+                type: string
+                description: Incrementally flushed SSE frames; consumers must not buffer the stream as one string.
+                x-provenance-streaming: true
+                x-provenance-max-event-bytes: 65536
+                x-provenance-event-schema: "#/components/schemas/ExecutionLogEvent"
+        "400":
+          $ref: "#/components/responses/LogCursorConflict"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "406":
+          $ref: "#/components/responses/LogRepresentationNotAcceptable"
+        "429":
+          $ref: "#/components/responses/LogRateLimited"
+        "503":
+          $ref: "#/components/responses/LogRelayUnavailable"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/executions/{executionId}/logs/complete:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+      - $ref: "#/components/parameters/ExecutionId"
+    get:
+      operationId: downloadCompleteExecutionLog
+      summary: Stream the authoritative immutable completed gzip log
+      description: |
+        Streams the verified gzip object only after terminal metadata is durable.
+        This same-origin route independently authenticates every request and
+        never redirects to object storage, exposes an object key, returns storage
+        credentials, or issues a presigned or other durable download capability.
+        An authenticated caller that cannot access the private candidate or
+        execution receives the same HTTP 404 response as a nonexistent resource.
+
+        The response body is the exact stored gzip representation. Content-Type
+        is `application/gzip`; Content-Encoding MUST be absent so user agents do
+        not transparently decode the bytes covered by Content-Digest. Servers
+        stream at most 269484032 compressed bytes and do not buffer the object in
+        memory. Structured result and assertion evidence remains separate.
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Authoritative immutable completed gzip log.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+            Content-Digest:
+              $ref: "#/components/headers/CompleteLogContentDigest"
+            Content-Length:
+              $ref: "#/components/headers/CompleteLogContentLength"
+            Content-Disposition:
+              $ref: "#/components/headers/CompleteLogContentDisposition"
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+                contentMediaType: application/gzip
+                x-provenance-streaming: true
+                x-provenance-max-bytes: 269484032
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "409":
+          $ref: "#/components/responses/CompleteLogUnavailable"
+        "410":
+          $ref: "#/components/responses/CompleteLogExpired"
+        "425":
+          $ref: "#/components/responses/CompleteLogNotReady"
+        default:
+          $ref: "#/components/responses/Problem"
   /v1/verifications/{verificationId}:
     parameters:
       - $ref: "#/components/parameters/VerificationId"
@@ -923,6 +1101,26 @@ components:
       description: Opaque release-event reconnect cursor.
       schema:
         $ref: "#/components/schemas/Cursor"
+    LogCursor:
+      name: cursor
+      in: query
+      required: false
+      description: >-
+        Opaque, short-lived live-relay position scoped to the authenticated
+        tenant, candidate, execution, and attempt. It resumes strictly after the
+        identified event and never promises durable replay.
+      schema:
+        $ref: "#/components/schemas/LogCursor"
+    LogLastEventId:
+      name: Last-Event-ID
+      in: header
+      required: false
+      description: >-
+        SSE reconnect cursor. It takes precedence over the query cursor; when
+        both are present they must be byte-for-byte equal. It is invalid for the
+        JSON representation and is reauthorized on every reconnect.
+      schema:
+        $ref: "#/components/schemas/LogCursor"
     OrganizationId:
       name: organizationId
       in: path
@@ -947,6 +1145,12 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/StableId"
+    ExecutionId:
+      name: executionId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/BoundedStableId"
     VerificationId:
       name: verificationId
       in: path
@@ -1017,11 +1221,134 @@ components:
       description: HttpOnly, Secure browser session cookie.
       schema:
         type: string
+    PrivateNoStore:
+      required: true
+      description: Private log responses must not be stored by shared or browser caches.
+      schema:
+        type: string
+        const: private, no-store
+    VaryAccept:
+      required: true
+      description: Content negotiation varies the representation by Accept.
+      schema:
+        type: string
+        const: Accept
+    RetryAfter:
+      required: true
+      description: Bounded delay in seconds before retrying.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 60
+    CompleteLogContentDigest:
+      required: true
+      description: RFC 9530 SHA-256 digest of the exact compressed response bytes.
+      schema:
+        type: string
+        minLength: 54
+        maxLength: 54
+        pattern: ^sha-256=:[A-Za-z0-9+/]{43}=:$
+    CompleteLogContentLength:
+      required: true
+      description: Exact compressed response size in bytes.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 269484032
+    CompleteLogContentDisposition:
+      required: true
+      description: Bounded attachment filename; it never contains a storage object key.
+      schema:
+        type: string
+        minLength: 29
+        maxLength: 96
+        pattern: ^attachment; filename="execution-[0-9a-f-]{36}\.log\.gz"$
   responses:
     NoContent:
       description: Mutation completed successfully.
     Problem:
       description: Request failed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    AuthenticationRequired:
+      description: Authentication is required; no private resource identity is disclosed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    PrivateLogNotFound:
+      description: >-
+        The private candidate or execution does not exist or the authenticated
+        principal is not authorized to access it. Both cases use the identical
+        status and problem shape to avoid cross-tenant identity disclosure.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    LogCursorConflict:
+      description: >-
+        The cursor is malformed, Last-Event-ID was used with JSON, or the query
+        cursor and Last-Event-ID differ. Stable codes are `invalid_log_cursor`,
+        `last_event_id_not_applicable`, and `log_cursor_conflict`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    LogRepresentationNotAcceptable:
+      description: >-
+        Accept does not permit application/json or text/event-stream. Code
+        `log_representation_not_acceptable` is returned.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    LogRateLimited:
+      description: The authenticated identity or relay subscriber limit was reached.
+      headers:
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    LogRelayUnavailable:
+      description: >-
+        The best-effort live relay is unavailable. The client must reconcile
+        execution state and complete-log status; this is not evidence that the
+        execution or authoritative completed log failed.
+      headers:
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    CompleteLogNotReady:
+      description: >-
+        Terminal complete-log verification or durable metadata persistence is
+        still pending. Code `complete_log_not_ready` is returned.
+      headers:
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    CompleteLogUnavailable:
+      description: >-
+        The complete log failed verification/persistence or was not produced.
+        Code `complete_log_unavailable` is returned; structured result evidence
+        remains a separate resource.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    CompleteLogExpired:
+      description: >-
+        The private complete log passed its retention boundary and is no longer
+        downloadable. Code `complete_log_expired` is returned.
       content:
         application/problem+json:
           schema:
@@ -1195,6 +1522,36 @@ components:
       minLength: 1
       maxLength: 2048
       description: Opaque pagination or event continuation cursor.
+    LogCursor:
+      type: string
+      minLength: 16
+      maxLength: 1024
+      pattern: ^[A-Za-z0-9._~-]+$
+      description: Opaque, short-lived live-log relay position; clients must not parse it.
+    BoundedStableId:
+      type: string
+      format: uuid
+      minLength: 36
+      maxLength: 36
+      description: Canonical bounded UUID resource identifier.
+    LogTimestamp:
+      type: string
+      format: date-time
+      minLength: 20
+      maxLength: 35
+      description: Bounded RFC 3339 timestamp with an explicit UTC offset.
+    LogSequence:
+      type: string
+      minLength: 1
+      maxLength: 20
+      pattern: ^(?:0|[1-9][0-9]{0,19})$
+      description: Unsigned runner log sequence represented as decimal text without precision loss.
+    DroppedLogCount:
+      type: string
+      minLength: 1
+      maxLength: 20
+      pattern: ^[1-9][0-9]{0,19}$
+      description: Positive unsigned count represented as decimal text without precision loss.
     IdempotencyKey:
       type: string
       minLength: 8
@@ -1777,6 +2134,423 @@ components:
             $ref: "#/components/schemas/ReleaseEvent"
         page:
           $ref: "#/components/schemas/PageInfo"
+    ExecutionLogDescriptorPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ExecutionLogDescriptor"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      x-provenance-max-json-bytes: 262144
+    ExecutionLogDescriptor:
+      type: object
+      additionalProperties: false
+      required:
+        - candidateId
+        - matrixEntryId
+        - executionId
+        - attemptId
+        - attemptNumber
+        - state
+        - liveState
+        - completeLog
+        - createdAt
+        - updatedAt
+      properties:
+        candidateId:
+          $ref: "#/components/schemas/BoundedStableId"
+        matrixEntryId:
+          $ref: "#/components/schemas/BoundedStableId"
+        executionId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptId:
+          oneOf:
+            - $ref: "#/components/schemas/BoundedStableId"
+            - type: "null"
+          description: Attempt identity, or null before a lease attempt has been created.
+        attemptNumber:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        state:
+          $ref: "#/components/schemas/ExecutionState"
+        liveState:
+          $ref: "#/components/schemas/LiveLogState"
+        completeLog:
+          $ref: "#/components/schemas/CompleteLogState"
+        createdAt:
+          $ref: "#/components/schemas/LogTimestamp"
+        updatedAt:
+          $ref: "#/components/schemas/LogTimestamp"
+    ExecutionState:
+      type: string
+      enum:
+        - queued
+        - offered
+        - leased
+        - preparing
+        - running
+        - succeeded
+        - failed
+        - cancelled
+        - orphaned
+    LiveLogState:
+      type: string
+      description: >-
+        Best-effort relay state. `expired` means retained live state aged out;
+        `unavailable` means no live relay state can be represented. Neither state
+        determines the execution result or complete-log status.
+      enum: [waiting, live, disconnected, terminal, expired, unavailable]
+    CompleteLogState:
+      description: >-
+        Authoritative completed-log handoff state. Only `available` permits the
+        same-origin download route; live log content is never substituted for it.
+      oneOf:
+        - $ref: "#/components/schemas/CompleteLogPending"
+        - $ref: "#/components/schemas/CompleteLogAvailable"
+        - $ref: "#/components/schemas/CompleteLogFailed"
+        - $ref: "#/components/schemas/CompleteLogExpired"
+        - $ref: "#/components/schemas/CompleteLogUnavailable"
+      discriminator:
+        propertyName: state
+        mapping:
+          pending: "#/components/schemas/CompleteLogPending"
+          available: "#/components/schemas/CompleteLogAvailable"
+          failed: "#/components/schemas/CompleteLogFailed"
+          expired: "#/components/schemas/CompleteLogExpired"
+          unavailable: "#/components/schemas/CompleteLogUnavailable"
+    CompleteLogPending:
+      type: object
+      additionalProperties: false
+      required: [state, retryAfterSeconds]
+      properties:
+        state:
+          type: string
+          const: pending
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          maximum: 60
+    CompleteLogAvailable:
+      type: object
+      additionalProperties: false
+      required:
+        - state
+        - sha256
+        - compressedSizeBytes
+        - contentType
+        - downloadPath
+        - wasRedacted
+        - wasTruncated
+      properties:
+        state:
+          type: string
+          const: available
+        sha256:
+          $ref: "#/components/schemas/Sha256Digest"
+        compressedSizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 269484032
+        uncompressedSizeBytes:
+          type: integer
+          minimum: 0
+          maximum: 268435456
+          description: Present only when exact uncompressed size evidence is available.
+        contentType:
+          type: string
+          const: application/gzip
+        downloadPath:
+          type: string
+          minLength: 110
+          maxLength: 160
+          pattern: ^/v1/release-candidates/[0-9a-f-]{36}/executions/[0-9a-f-]{36}/logs/complete$
+          description: >-
+            Same-origin authenticated API path with no query or fragment. It is
+            not an object key, redirect, presigned URL, or durable capability.
+        wasRedacted:
+          type: boolean
+        wasTruncated:
+          type: boolean
+        expiresAt:
+          $ref: "#/components/schemas/LogTimestamp"
+    CompleteLogFailed:
+      type: object
+      additionalProperties: false
+      required: [state, reasonCode]
+      properties:
+        state:
+          type: string
+          const: failed
+        reasonCode:
+          type: string
+          enum: [upload_failed, verification_failed, persistence_failed]
+    CompleteLogExpired:
+      type: object
+      additionalProperties: false
+      required: [state, expiredAt]
+      properties:
+        state:
+          type: string
+          const: expired
+        expiredAt:
+          $ref: "#/components/schemas/LogTimestamp"
+    CompleteLogUnavailable:
+      type: object
+      additionalProperties: false
+      required: [state, reasonCode]
+      properties:
+        state:
+          type: string
+          const: unavailable
+        reasonCode:
+          type: string
+          enum: [not_produced, retention_disabled, evidence_unavailable]
+    ExecutionLogPage:
+      type: object
+      additionalProperties: false
+      required:
+        - candidateId
+        - matrixEntryId
+        - executionId
+        - attemptId
+        - attemptNumber
+        - events
+        - nextCursor
+        - liveState
+        - completeLog
+      properties:
+        candidateId:
+          $ref: "#/components/schemas/BoundedStableId"
+        matrixEntryId:
+          $ref: "#/components/schemas/BoundedStableId"
+        executionId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptId:
+          oneOf:
+            - $ref: "#/components/schemas/BoundedStableId"
+            - type: "null"
+        attemptNumber:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        events:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ExecutionLogEvent"
+        nextCursor:
+          oneOf:
+            - $ref: "#/components/schemas/LogCursor"
+            - type: "null"
+        liveState:
+          $ref: "#/components/schemas/LiveLogState"
+        completeLog:
+          $ref: "#/components/schemas/CompleteLogState"
+      x-provenance-max-json-bytes: 1048576
+    ExecutionLogEvent:
+      oneOf:
+        - $ref: "#/components/schemas/ExecutionLogEntryEvent"
+        - $ref: "#/components/schemas/ExecutionLogGapEvent"
+        - $ref: "#/components/schemas/ExecutionLogStateEvent"
+        - $ref: "#/components/schemas/ExecutionCompleteLogStateEvent"
+      discriminator:
+        propertyName: kind
+        mapping:
+          entry: "#/components/schemas/ExecutionLogEntryEvent"
+          gap: "#/components/schemas/ExecutionLogGapEvent"
+          state: "#/components/schemas/ExecutionLogStateEvent"
+          complete_log: "#/components/schemas/ExecutionCompleteLogStateEvent"
+    ExecutionLogEntryEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - candidateId
+        - matrixEntryId
+        - executionId
+        - attemptId
+        - attemptNumber
+        - sequence
+        - stream
+        - observedAt
+        - data
+        - partial
+        - redacted
+      properties:
+        kind:
+          type: string
+          const: entry
+        candidateId:
+          $ref: "#/components/schemas/BoundedStableId"
+        matrixEntryId:
+          $ref: "#/components/schemas/BoundedStableId"
+        executionId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptNumber:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        sequence:
+          $ref: "#/components/schemas/LogSequence"
+        stream:
+          type: string
+          enum: [stdout, stderr, runner, probe]
+        observedAt:
+          $ref: "#/components/schemas/LogTimestamp"
+        data:
+          type: string
+          maxLength: 16384
+          x-provenance-max-utf8-bytes: 16384
+          description: >-
+            Valid normalized UTF-8 text, at most 16384 encoded bytes. Invalid
+            source bytes are replaced before delivery. In SSE the compact JSON
+            encoding escapes embedded CR, LF, and NUL so data remains one line.
+        partial:
+          type: boolean
+          description: True when data is a fragment rather than a complete line.
+        redacted:
+          type: boolean
+          description: True when sensitive source text was replaced before delivery.
+      x-provenance-max-json-bytes: 65536
+    ExecutionLogGapEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - candidateId
+        - matrixEntryId
+        - executionId
+        - attemptId
+        - attemptNumber
+        - sequence
+        - occurredAt
+        - reason
+        - liveRecovery
+        - completeLogState
+      properties:
+        kind:
+          type: string
+          const: gap
+        candidateId:
+          $ref: "#/components/schemas/BoundedStableId"
+        matrixEntryId:
+          $ref: "#/components/schemas/BoundedStableId"
+        executionId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptNumber:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        sequence:
+          oneOf:
+            - $ref: "#/components/schemas/LogSequence"
+            - type: "null"
+          description: First known sequence after the gap, or null when unknown.
+        occurredAt:
+          $ref: "#/components/schemas/LogTimestamp"
+        reason:
+          type: string
+          enum: [runner_dropped, relay_evicted, relay_restarted, disconnected]
+        droppedCount:
+          $ref: "#/components/schemas/DroppedLogCount"
+          description: Known positive dropped entry count; omitted when the exact count is unknown.
+        liveRecovery:
+          type: string
+          const: unavailable
+          description: Missed live bytes can never be recovered from the in-memory relay.
+        completeLogState:
+          type: string
+          enum: [pending, available, failed, expired, unavailable]
+          description: Reconciliation target; only available provides authoritative bytes.
+      x-provenance-max-json-bytes: 65536
+    ExecutionLogStateEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - candidateId
+        - matrixEntryId
+        - executionId
+        - attemptId
+        - attemptNumber
+        - sequence
+        - occurredAt
+        - state
+      properties:
+        kind:
+          type: string
+          const: state
+        candidateId:
+          $ref: "#/components/schemas/BoundedStableId"
+        matrixEntryId:
+          $ref: "#/components/schemas/BoundedStableId"
+        executionId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptNumber:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        sequence:
+          oneOf:
+            - $ref: "#/components/schemas/LogSequence"
+            - type: "null"
+          description: Last observed entry sequence, or null before the first entry.
+        occurredAt:
+          $ref: "#/components/schemas/LogTimestamp"
+        state:
+          $ref: "#/components/schemas/LiveLogState"
+      x-provenance-max-json-bytes: 65536
+    ExecutionCompleteLogStateEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - candidateId
+        - matrixEntryId
+        - executionId
+        - attemptId
+        - attemptNumber
+        - sequence
+        - occurredAt
+        - completeLog
+      properties:
+        kind:
+          type: string
+          const: complete_log
+        candidateId:
+          $ref: "#/components/schemas/BoundedStableId"
+        matrixEntryId:
+          $ref: "#/components/schemas/BoundedStableId"
+        executionId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptId:
+          $ref: "#/components/schemas/BoundedStableId"
+        attemptNumber:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        sequence:
+          oneOf:
+            - $ref: "#/components/schemas/LogSequence"
+            - type: "null"
+          description: Last observed entry sequence, or null when no entry was retained.
+        occurredAt:
+          $ref: "#/components/schemas/LogTimestamp"
+        completeLog:
+          $ref: "#/components/schemas/CompleteLogState"
+      x-provenance-max-json-bytes: 65536
     Verification:
       type: object
       additionalProperties: false
