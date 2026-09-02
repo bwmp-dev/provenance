@@ -394,6 +394,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/release-candidates/{candidateId}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List the bounded execution log descriptors for a release candidate
+         * @description Returns the execution and attempt identities needed to consume logs for every matrix environment in the candidate. An authenticated caller that cannot access the private candidate receives the same HTTP 404 response as a caller naming a nonexistent candidate.
+         */
+        get: operations["listReleaseCandidateExecutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/release-candidates/{candidateId}/executions/{executionId}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+                executionId: components["parameters"]["ExecutionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Reconcile or stream the bounded live log for one execution
+         * @description This authenticated route exposes a convenience live view, not durable
+         *     evidence. `application/json` is the default for a missing Accept header,
+         *     `*\/*`, or an equal preference. `text/event-stream` is selected only when
+         *     it is explicitly the most preferred supported representation.
+         *
+         *     The server first authenticates the caller and authorizes the candidate
+         *     and execution, then negotiates the representation. It validates the
+         *     representation-specific parameters only after those checks. For JSON,
+         *     any `Last-Event-ID` fails with HTTP 400 and code
+         *     `last_event_id_not_applicable`, before either cursor is compared or
+         *     decoded. For SSE, `limit` is not applicable and fails first with HTTP 400
+         *     and code `limit_not_applicable`. Next, differing query `cursor` and
+         *     `Last-Event-ID` values fail with HTTP 400 and code
+         *     `log_cursor_conflict`; equal values are treated as one cursor. A
+         *     syntactically or cryptographically invalid selected cursor then fails
+         *     with HTTP 400 and code `invalid_log_cursor`. A valid cursor scoped to a
+         *     different tenant, candidate, or execution, or whose attempt never
+         *     belonged to the path execution, is indistinguishable from a missing
+         *     private resource and returns HTTP 404. Only after scope is accepted does
+         *     an expired cursor fail with HTTP 410 and code `log_cursor_expired`.
+         *
+         *     Without a cursor, the server selects the execution's current lease
+         *     attempt in offered, accepted, or active state, otherwise its most
+         *     recently created lease attempt, or no attempt before the first lease
+         *     exists. JSON and the initial SSE snapshot start at the earliest retained
+         *     event for that selected attempt. If the relay knows that any earlier live
+         *     prefix was dropped, evicted, or lost on restart, a `log-gap` event is the
+         *     first data event. A valid unexpired cursor for any attempt that belongs
+         *     to the execution selects that attempt even when it is no longer current
+         *     and resumes strictly after the identified event.
+         *
+         *     JSON events are returned in ascending opaque relay order. `limit` counts
+         *     every `ExecutionLogEvent`, including gap and state events. When at least
+         *     one event is returned, `nextCursor` is the position strictly after the
+         *     final returned event, for both full and partial pages. An empty response
+         *     echoes a supplied cursor byte-for-byte without advancing it; it returns
+         *     null only when no cursor was supplied. These rules also apply to empty
+         *     terminal pages. Clients reconcile until an empty page and compare the
+         *     echoed cursor before polling again.
+         *
+         *     Live relay cursors are opaque, short-lived positions and never promise
+         *     replay of missed bytes. If an accepted cursor precedes retained relay
+         *     state, the response explicitly reports an unrecoverable live gap. The
+         *     client must reconcile terminal state and use the authoritative complete
+         *     log when it becomes available. Structured results and assertions are
+         *     separate resources and are never inferred from this stream.
+         */
+        get: operations["readExecutionLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/release-candidates/{candidateId}/executions/{executionId}/logs/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+                executionId: components["parameters"]["ExecutionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Stream the authoritative immutable completed gzip log
+         * @description Streams the verified gzip object only after terminal metadata is durable.
+         *     This same-origin route independently authenticates every request and
+         *     never redirects to object storage, exposes an object key, returns storage
+         *     credentials, or issues a presigned or other durable download capability.
+         *     An authenticated caller that cannot access the private candidate or
+         *     execution receives the same HTTP 404 response as a nonexistent resource.
+         *
+         *     The response body is the exact stored gzip representation. Content-Type
+         *     is `application/gzip`; Content-Encoding MUST be absent so user agents do
+         *     not transparently decode the bytes covered by Content-Digest. Servers
+         *     stream at most 269484032 compressed bytes and do not buffer the object in
+         *     memory. Structured result and assertion evidence remains separate.
+         */
+        get: operations["downloadCompleteExecutionLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/verifications/{verificationId}": {
         parameters: {
             query?: never;
@@ -610,6 +734,22 @@ export interface components {
         Slug: string;
         /** @description Opaque pagination or event continuation cursor. */
         Cursor: string;
+        /** @description Opaque, short-lived live-log relay position; clients must not parse it. */
+        LogCursor: string;
+        /**
+         * Format: uuid
+         * @description Canonical bounded UUID resource identifier.
+         */
+        BoundedStableId: string;
+        /**
+         * Format: date-time
+         * @description Bounded RFC 3339 timestamp with an explicit UTC offset.
+         */
+        LogTimestamp: string;
+        /** @description Unsigned runner log sequence represented as decimal text without precision loss. */
+        LogSequence: string;
+        /** @description Positive unsigned count represented as decimal text without precision loss. */
+        DroppedLogCount: string;
         IdempotencyKey: string;
         Sha256Digest: string;
         PageInfo: {
@@ -638,6 +778,67 @@ export interface components {
             path?: string;
             message: string;
             code?: string;
+        };
+        /** @description Bounded RFC 9457 problem details for private log resources. */
+        PrivateProblemDetails: {
+            /**
+             * Format: uri-reference
+             * @default about:blank
+             */
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
+            /** Format: uri-reference */
+            instance?: string;
+            code: string;
+            traceId?: string;
+            errors?: components["schemas"]["PrivateProblemFieldError"][];
+        };
+        PrivateProblemFieldError: {
+            path?: string;
+            message: string;
+            code?: string;
+        };
+        AuthenticationRequiredProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "authentication_required";
+        };
+        PrivateLogNotFoundProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "private_log_not_found";
+        };
+        LogRequestInvalidProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @enum {string} */
+            code: "last_event_id_not_applicable" | "limit_not_applicable" | "log_cursor_conflict" | "invalid_log_cursor";
+        };
+        LogRepresentationNotAcceptableProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "log_representation_not_acceptable";
+        };
+        LogCursorExpiredProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "log_cursor_expired";
+        };
+        LogRateLimitedProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "log_rate_limited";
+        };
+        LogRelayUnavailableProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "log_relay_unavailable";
+        };
+        CompleteLogNotReadyProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "complete_log_not_ready";
+        };
+        CompleteLogUnavailableProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "complete_log_unavailable";
+        };
+        CompleteLogExpiredProblem: components["schemas"]["PrivateProblemDetails"] & {
+            /** @constant */
+            code: "complete_log_expired";
         };
         /** @enum {string} */
         SessionState: "active" | "expired" | "revoked";
@@ -834,6 +1035,181 @@ export interface components {
         ReleaseEventPage: {
             items: components["schemas"]["ReleaseEvent"][];
             page: components["schemas"]["PageInfo"];
+        };
+        ExecutionLogDescriptorPage: {
+            items: components["schemas"]["ExecutionLogDescriptor"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        ExecutionLogDescriptor: {
+            candidateId: components["schemas"]["BoundedStableId"];
+            matrixEntryId: components["schemas"]["BoundedStableId"];
+            executionId: components["schemas"]["BoundedStableId"];
+            /** @description Attempt identity, or null before a lease attempt has been created. */
+            attemptId: components["schemas"]["BoundedStableId"] | null;
+            attemptNumber: number;
+            state: components["schemas"]["ExecutionState"];
+            liveState: components["schemas"]["LiveLogState"];
+            completeLog: components["schemas"]["CompleteLogState"];
+            createdAt: components["schemas"]["LogTimestamp"];
+            updatedAt: components["schemas"]["LogTimestamp"];
+        };
+        /** @enum {string} */
+        ExecutionState: "queued" | "offered" | "leased" | "preparing" | "running" | "succeeded" | "failed" | "cancelled" | "orphaned";
+        /**
+         * @description Best-effort relay state. `expired` means retained live state aged out; `unavailable` means no live relay state can be represented. Neither state determines the execution result or complete-log status.
+         * @enum {string}
+         */
+        LiveLogState: "waiting" | "live" | "disconnected" | "terminal" | "expired" | "unavailable";
+        /** @description Authoritative completed-log handoff state. Only `available` permits the same-origin download route; live log content is never substituted for it. */
+        CompleteLogState: components["schemas"]["CompleteLogPending"] | components["schemas"]["CompleteLogAvailable"] | components["schemas"]["CompleteLogFailed"] | components["schemas"]["CompleteLogExpired"] | components["schemas"]["CompleteLogUnavailable"];
+        CompleteLogPending: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "pending";
+            retryAfterSeconds: number;
+        };
+        CompleteLogAvailable: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "available";
+            sha256: components["schemas"]["Sha256Digest"];
+            compressedSizeBytes: number;
+            /** @description Present only when exact uncompressed size evidence is available. */
+            uncompressedSizeBytes?: number;
+            /** @constant */
+            contentType: "application/gzip";
+            /** @description Same-origin authenticated API path with no query or fragment. It is not an object key, redirect, presigned URL, or durable capability. */
+            downloadPath: string;
+            wasRedacted: boolean;
+            wasTruncated: boolean;
+            expiresAt?: components["schemas"]["LogTimestamp"];
+        };
+        CompleteLogFailed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "failed";
+            /** @enum {string} */
+            reasonCode: "upload_failed" | "verification_failed" | "persistence_failed";
+        };
+        CompleteLogExpired: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "expired";
+            expiredAt: components["schemas"]["LogTimestamp"];
+        };
+        CompleteLogUnavailable: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "unavailable";
+            /** @enum {string} */
+            reasonCode: "not_produced" | "retention_disabled" | "evidence_unavailable";
+        };
+        ExecutionLogPage: {
+            candidateId: components["schemas"]["BoundedStableId"];
+            matrixEntryId: components["schemas"]["BoundedStableId"];
+            executionId: components["schemas"]["BoundedStableId"];
+            attemptId: components["schemas"]["BoundedStableId"] | null;
+            attemptNumber: number;
+            /** @description Events in ascending opaque relay order, bounded by the JSON limit. */
+            events: components["schemas"]["ExecutionLogEvent"][];
+            /** @description Position strictly after the final returned event. An empty page echoes its input cursor without advancing, or returns null when no cursor was supplied. */
+            nextCursor: components["schemas"]["LogCursor"] | null;
+            liveState: components["schemas"]["LiveLogState"];
+            completeLog: components["schemas"]["CompleteLogState"];
+        };
+        ExecutionLogEvent: components["schemas"]["ExecutionLogEntryEvent"] | components["schemas"]["ExecutionLogGapEvent"] | components["schemas"]["ExecutionLogStateEvent"] | components["schemas"]["ExecutionCompleteLogStateEvent"];
+        ExecutionLogEntryEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "entry";
+            candidateId: components["schemas"]["BoundedStableId"];
+            matrixEntryId: components["schemas"]["BoundedStableId"];
+            executionId: components["schemas"]["BoundedStableId"];
+            attemptId: components["schemas"]["BoundedStableId"];
+            attemptNumber: number;
+            sequence: components["schemas"]["LogSequence"];
+            /** @enum {string} */
+            stream: "stdout" | "stderr" | "runner" | "probe";
+            observedAt: components["schemas"]["LogTimestamp"];
+            /** @description Valid normalized UTF-8 text, at most 16384 encoded bytes. Invalid source bytes are replaced before delivery. In SSE the compact JSON encoding escapes embedded CR, LF, and NUL so data remains one line. */
+            data: string;
+            /** @description True when data is a fragment rather than a complete line. */
+            partial: boolean;
+            /** @description True when sensitive source text was replaced before delivery. */
+            redacted: boolean;
+        };
+        ExecutionLogGapEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "gap";
+            candidateId: components["schemas"]["BoundedStableId"];
+            matrixEntryId: components["schemas"]["BoundedStableId"];
+            executionId: components["schemas"]["BoundedStableId"];
+            attemptId: components["schemas"]["BoundedStableId"];
+            attemptNumber: number;
+            /** @description First known sequence after the gap, or null when unknown. */
+            sequence: components["schemas"]["LogSequence"] | null;
+            occurredAt: components["schemas"]["LogTimestamp"];
+            /** @enum {string} */
+            reason: "runner_dropped" | "relay_evicted" | "relay_restarted" | "disconnected";
+            /** @description Known positive dropped entry count; omitted when the exact count is unknown. */
+            droppedCount?: components["schemas"]["DroppedLogCount"];
+            /**
+             * @description Missed live bytes can never be recovered from the in-memory relay.
+             * @constant
+             */
+            liveRecovery: "unavailable";
+            /**
+             * @description Reconciliation target; only available provides authoritative bytes.
+             * @enum {string}
+             */
+            completeLogState: "pending" | "available" | "failed" | "expired" | "unavailable";
+        };
+        ExecutionLogStateEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "state";
+            candidateId: components["schemas"]["BoundedStableId"];
+            matrixEntryId: components["schemas"]["BoundedStableId"];
+            executionId: components["schemas"]["BoundedStableId"];
+            attemptId: components["schemas"]["BoundedStableId"];
+            attemptNumber: number;
+            /** @description Last observed entry sequence, or null before the first entry. */
+            sequence: components["schemas"]["LogSequence"] | null;
+            occurredAt: components["schemas"]["LogTimestamp"];
+            state: components["schemas"]["LiveLogState"];
+        };
+        ExecutionCompleteLogStateEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "complete_log";
+            candidateId: components["schemas"]["BoundedStableId"];
+            matrixEntryId: components["schemas"]["BoundedStableId"];
+            executionId: components["schemas"]["BoundedStableId"];
+            attemptId: components["schemas"]["BoundedStableId"];
+            attemptNumber: number;
+            /** @description Last observed entry sequence, or null when no entry was retained. */
+            sequence: components["schemas"]["LogSequence"] | null;
+            occurredAt: components["schemas"]["LogTimestamp"];
+            completeLog: components["schemas"]["CompleteLogState"];
         };
         Verification: {
             id: components["schemas"]["StableId"];
@@ -1144,6 +1520,120 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description Private request failed without a more specific response. */
+        PrivateProblem: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["PrivateProblemDetails"];
+            };
+        };
+        /** @description Authentication is required; no private resource identity is disclosed. */
+        AuthenticationRequired: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                "WWW-Authenticate": components["headers"]["BearerChallenge"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AuthenticationRequiredProblem"];
+            };
+        };
+        /** @description The private candidate or execution does not exist or the authenticated principal is not authorized to access it. Both cases use the identical status and problem shape to avoid cross-tenant identity disclosure. */
+        PrivateLogNotFound: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["PrivateLogNotFoundProblem"];
+            };
+        };
+        /** @description A representation-specific parameter is not applicable, cursor forms conflict, or the selected cursor is invalid. Stable codes are `last_event_id_not_applicable`, `limit_not_applicable`, `log_cursor_conflict`, and `invalid_log_cursor`. */
+        LogRequestInvalid: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["LogRequestInvalidProblem"];
+            };
+        };
+        /** @description Accept does not permit application/json or text/event-stream. Code `log_representation_not_acceptable` is returned. */
+        LogRepresentationNotAcceptable: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["LogRepresentationNotAcceptableProblem"];
+            };
+        };
+        /** @description The valid, correctly scoped live cursor passed its short retention boundary. Code `log_cursor_expired` is returned. This is distinct from an accepted cursor whose position predates retained relay bytes, which returns HTTP 200 with a `log-gap` event. */
+        LogCursorExpired: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["LogCursorExpiredProblem"];
+            };
+        };
+        /** @description The authenticated identity or relay subscriber limit was reached. */
+        LogRateLimited: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                "Retry-After": components["headers"]["RetryAfter"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["LogRateLimitedProblem"];
+            };
+        };
+        /** @description The best-effort live relay is unavailable. The client must reconcile execution state and complete-log status; this is not evidence that the execution or authoritative completed log failed. */
+        LogRelayUnavailable: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                "Retry-After": components["headers"]["RetryAfter"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["LogRelayUnavailableProblem"];
+            };
+        };
+        /** @description Terminal complete-log verification or durable metadata persistence is still pending. Code `complete_log_not_ready` is returned. */
+        CompleteLogNotReady: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                "Retry-After": components["headers"]["RetryAfter"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["CompleteLogNotReadyProblem"];
+            };
+        };
+        /** @description The complete log failed verification/persistence or was not produced. Code `complete_log_unavailable` is returned; structured result evidence remains a separate resource. */
+        CompleteLogUnavailable: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["CompleteLogUnavailableProblem"];
+            };
+        };
+        /** @description The private complete log passed its retention boundary and is no longer downloadable. Code `complete_log_expired` is returned. */
+        CompleteLogExpired: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["CompleteLogExpiredProblem"];
+            };
+        };
         /** @description The idempotency key was reused with a different request. */
         IdempotencyConflict: {
             headers: {
@@ -1209,10 +1699,17 @@ export interface components {
         PageSize: number;
         /** @description Opaque release-event reconnect cursor. */
         LastEventId: components["schemas"]["Cursor"];
+        /** @description Opaque, short-lived live-relay position scoped to the authenticated tenant, candidate, execution, and attempt. It resumes strictly after the identified event and never promises durable replay. */
+        LogCursor: components["schemas"]["LogCursor"];
+        /** @description Maximum number of ExecutionLogEvent values in a JSON reconciliation page, including gap and state events. It is invalid for SSE. */
+        LogPageSize: number;
+        /** @description SSE reconnect cursor. When both cursor forms are present they must be byte-for-byte equal. Any Last-Event-ID is invalid for JSON, and every SSE reconnect independently reauthorizes and validates the selected cursor. */
+        LogLastEventId: components["schemas"]["LogCursor"];
         OrganizationId: components["schemas"]["StableId"];
         ProjectId: components["schemas"]["StableId"];
         ArtifactId: components["schemas"]["StableId"];
         CandidateId: components["schemas"]["StableId"];
+        ExecutionId: components["schemas"]["BoundedStableId"];
         VerificationId: components["schemas"]["StableId"];
         IntegrationId: components["schemas"]["StableId"];
         RunnerId: components["schemas"]["StableId"];
@@ -1321,6 +1818,20 @@ export interface components {
     headers: {
         /** @description HttpOnly, Secure browser session cookie. */
         SessionCookie: string;
+        /** @description Private log responses must not be stored by shared or browser caches. */
+        PrivateNoStore: "private, no-store";
+        /** @description Content negotiation varies the representation by Accept. */
+        VaryAccept: "Accept";
+        /** @description Bounded RFC 9110 Bearer authentication challenge. */
+        BearerChallenge: "Bearer realm=\"provenance\"";
+        /** @description Bounded delay in seconds before retrying. */
+        RetryAfter: number;
+        /** @description RFC 9530 SHA-256 digest of the exact compressed response bytes. */
+        CompleteLogContentDigest: string;
+        /** @description Exact compressed response size in bytes. */
+        CompleteLogContentLength: number;
+        /** @description Bounded attachment filename; it never contains a storage object key. */
+        CompleteLogContentDisposition: string;
     };
     pathItems: never;
 }
@@ -2028,6 +2539,134 @@ export interface operations {
                 };
             };
             default: components["responses"]["Problem"];
+        };
+    };
+    listReleaseCandidateExecutions: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded execution log descriptor page. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionLogDescriptorPage"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            404: components["responses"]["PrivateLogNotFound"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    readExecutionLogs: {
+        parameters: {
+            query?: {
+                /** @description Opaque, short-lived live-relay position scoped to the authenticated tenant, candidate, execution, and attempt. It resumes strictly after the identified event and never promises durable replay. */
+                cursor?: components["parameters"]["LogCursor"];
+                /** @description Maximum number of ExecutionLogEvent values in a JSON reconciliation page, including gap and state events. It is invalid for SSE. */
+                limit?: components["parameters"]["LogPageSize"];
+            };
+            header?: {
+                /** @description SSE reconnect cursor. When both cursor forms are present they must be byte-for-byte equal. Any Last-Event-ID is invalid for JSON, and every SSE reconnect independently reauthorizes and validates the selected cursor. */
+                "Last-Event-ID"?: components["parameters"]["LogLastEventId"];
+            };
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+                executionId: components["parameters"]["ExecutionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description Bounded JSON reconciliation page or a streaming SSE response.
+             *
+             *     The SSE grammar is UTF-8 and each data-bearing event is exactly
+             *     `id: <opaque cursor>`, one `event:` line (`log-entry`, `log-gap`,
+             *     `log-state`, or `complete-log-state`), one `data:` line containing a
+             *     compact single-line JSON `ExecutionLogEvent`, then a blank line. The
+             *     cursor in `id:` resumes strictly after that event. No data-bearing
+             *     frame exceeds 65536 encoded bytes. A server may send `retry:` between
+             *     1000 and 30000 milliseconds. While an open stream is idle, the server
+             *     sends a heartbeat every 15 to 30 seconds. Heartbeats are comment
+             *     records of the form `: heartbeat` followed by a blank line, carry no
+             *     id or data, and are never log or terminal evidence.
+             *
+             *     Servers flush batches of at most 100 data events and 1 MiB of
+             *     serialized event data incrementally, and apply the same bounds to the
+             *     per-connection queue. They do not assemble the complete response in
+             *     memory. Before response headers, subscriber pressure may return HTTP
+             *     429. After streaming starts, overload or disconnect closes the
+             *     connection; reconnect and JSON reconciliation then expose any
+             *     unrecoverable live gap. Every initial request and reconnect is
+             *     independently authenticated and authorized.
+             */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    Vary: components["headers"]["VaryAccept"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionLogPage"];
+                    "text/event-stream": string;
+                };
+            };
+            400: components["responses"]["LogRequestInvalid"];
+            401: components["responses"]["AuthenticationRequired"];
+            404: components["responses"]["PrivateLogNotFound"];
+            406: components["responses"]["LogRepresentationNotAcceptable"];
+            410: components["responses"]["LogCursorExpired"];
+            429: components["responses"]["LogRateLimited"];
+            503: components["responses"]["LogRelayUnavailable"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    downloadCompleteExecutionLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+                executionId: components["parameters"]["ExecutionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative immutable completed gzip log. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    "Content-Digest": components["headers"]["CompleteLogContentDigest"];
+                    "Content-Length": components["headers"]["CompleteLogContentLength"];
+                    "Content-Disposition": components["headers"]["CompleteLogContentDisposition"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/gzip": string;
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            404: components["responses"]["PrivateLogNotFound"];
+            409: components["responses"]["CompleteLogUnavailable"];
+            410: components["responses"]["CompleteLogExpired"];
+            425: components["responses"]["CompleteLogNotReady"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     getVerification: {
