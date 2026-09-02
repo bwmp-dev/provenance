@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "14d7b53c4eaec50bce7bf77db0a4ce7407d556312db68db1b8974d785e8351f9",
+  "descriptorSha256": "c5b5ea8ee8bf388c311430ffde585f969ab573dfa54fe0ed3f4c30e1c9577057",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -56,6 +56,7 @@
     "HeartbeatLease",
     "JobCancelled",
     "JobCompleted",
+    "JobCorrelation",
     "JobFailed",
     "JobHashes",
     "JobPreparing",
@@ -113,7 +114,8 @@
     "ProtocolFeature": {
       "0": "PROTOCOL_FEATURE_UNSPECIFIED",
       "1": "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
-      "2": "PROTOCOL_FEATURE_CREDENTIAL_ROTATION"
+      "2": "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
+      "3": "PROTOCOL_FEATURE_JOB_CORRELATION_V1"
     },
     "RunnerMessageDisposition": {
       "0": "RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED",
@@ -169,6 +171,12 @@
       "2": "object",
       "10": "plugin_name"
     },
+    "JobCorrelation": {
+      "1": "traceparent",
+      "2": "organization_id",
+      "3": "project_id",
+      "4": "workflow_id"
+    },
     "JobSpecification": {
       "1": "lease",
       "2": "attempt",
@@ -180,7 +188,8 @@
       "8": "dependencies",
       "9": "normalized_configuration_json",
       "10": "complete_log_upload",
-      "20": "target_plugin_name"
+      "20": "target_plugin_name",
+      "21": "job_correlation"
     },
     "LeaseReconciliation": {
       "1": "lease",
@@ -243,7 +252,9 @@
       [3, 10],
       [17, 30]
     ],
-    "ObjectDownload": [[5, 10]]
+    "ObjectDownload": [[5, 10]],
+    "JobCorrelation": [[5, 10]],
+    "JobSpecification": [[11, 20]]
   },
   "reservedNames": {
     "Authenticate": ["registration_token"],

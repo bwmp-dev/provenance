@@ -221,6 +221,42 @@ message DependencyInput {
   string plugin_name = 10;
 }
 
+// JobCorrelation is the bounded IFC-012 correlation carrier introduced for
+// v0.1.0-alpha.7. It is observability identity, not authorization input:
+// organization_scope remains the sole job authorization scope and consumers MUST NOT authorize
+// work from any JobCorrelation value.
+//
+// A gateway MUST attach job_correlation only after the current runner stream advertises
+// JOB_CORRELATION_V1. A runner advertising JOB_CORRELATION_V1 MUST require and validate this
+// message before persisting or executing every offered job. A supporting runner that receives a
+// carrier without having advertised the feature MUST reject the offer. Absence is valid only for
+// explicitly legacy, non-negotiated operation, for which the gateway MUST NOT claim complete
+// gateway/runner correlation.
+//
+// traceparent is exactly 55 lowercase ASCII bytes in canonical W3C version-00 form:
+// 00-<32 lowercase hex trace id>-<16 lowercase hex parent id>-<2 lowercase hex flags>. The trace
+// and parent ids MUST be nonzero. organization_id and project_id are nonzero canonical lowercase
+// hyphenated UUIDs of exactly 36 ASCII bytes. workflow_id is exactly "release/" followed by the
+// release candidate's nonzero canonical lowercase UUID, for a total of 44 ASCII bytes; its suffix
+// MUST equal AttemptIdentity.release_candidate_id. The gateway sources organization_id and
+// project_id from the immutable candidate and MUST preserve all four values across job retries.
+// AttemptIdentity.matrix_entry_id is the alpha test-instance correlation and is deliberately not
+// repeated here.
+//
+// Tracestate, baggage, arbitrary metadata, secrets, plugin output, and authorization scope are not
+// correlation values and MUST NOT be encoded in this message. An exact replay MUST preserve every
+// field byte-for-byte; changing correlation for the same durable job identity is a protocol
+// conflict. Unknown or duplicate JOB_CORRELATION_V1 feature values and any malformed present
+// carrier fail closed.
+message JobCorrelation {
+  string traceparent = 1;
+  string organization_id = 2;
+  string project_id = 3;
+  string workflow_id = 4;
+
+  reserved 5 to 9;
+}
+
 message JobSpecification {
   LeaseIdentity lease = 1;
   AttemptIdentity attempt = 2;
@@ -236,6 +272,7 @@ message JobSpecification {
   reserved 11 to 19;
 
   string target_plugin_name = 20;
+  JobCorrelation job_correlation = 21;
 }
 
 enum JobPhase {
@@ -370,6 +407,7 @@ enum ProtocolFeature {
   PROTOCOL_FEATURE_UNSPECIFIED = 0;
   PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS = 1;
   PROTOCOL_FEATURE_CREDENTIAL_ROTATION = 2;
+  PROTOCOL_FEATURE_JOB_CORRELATION_V1 = 3;
 }
 
 message FailureDetail {

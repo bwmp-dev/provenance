@@ -20,6 +20,57 @@ const snapshot = JSON.parse(
   readFileSync(join(contractDirectory, "contract.snapshot.json"), "utf8"),
 );
 
+const canonicalUuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const canonicalTraceparentPattern =
+  /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
+const zeroUuid = "00000000-0000-0000-0000-000000000000";
+
+function validCorrelationUuid(value) {
+  return (
+    typeof value === "string" &&
+    value !== zeroUuid &&
+    canonicalUuidPattern.test(value)
+  );
+}
+
+function validJobCorrelation(value) {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.keys(value).sort().join(",") !==
+      "organizationId,projectId,traceparent,workflowId"
+  ) {
+    return false;
+  }
+  const traceparent = canonicalTraceparentPattern.exec(value.traceparent);
+  return (
+    traceparent !== null &&
+    traceparent[1] !== "0".repeat(32) &&
+    traceparent[2] !== "0".repeat(16) &&
+    validCorrelationUuid(value.organizationId) &&
+    validCorrelationUuid(value.projectId) &&
+    value.workflowId === `release/${value.workflowId?.slice(8)}` &&
+    value.workflowId.length === 44 &&
+    validCorrelationUuid(value.workflowId.slice(8))
+  );
+}
+
+function validJobCorrelationNegotiation(features, correlation) {
+  if (
+    !Array.isArray(features) ||
+    features.some(
+      (feature, index) =>
+        ![1, 2, 3].includes(feature) || features.indexOf(feature) !== index,
+    )
+  ) {
+    return false;
+  }
+  const advertised = features.includes(3);
+  return advertised ? validJobCorrelation(correlation) : correlation == null;
+}
+
 function runBuf(arguments_) {
   const configuredCommand = process.env.BUF;
   const command = configuredCommand ?? process.execPath;
@@ -349,6 +400,132 @@ test("durable acknowledgement semantics remain normative", () => {
     gatewaySource,
     /sequence with another ID, is a transport conflict/,
   );
+});
+
+test("IFC-012 job correlation is bounded, negotiated, and replay-stable", () => {
+  assert.match(commonSource, /v0\.1\.0-alpha\.7/);
+  assert.match(commonSource, /PROTOCOL_FEATURE_JOB_CORRELATION_V1\s*=\s*3\s*;/);
+  assert.match(commonSource, /JobCorrelation job_correlation\s*=\s*21\s*;/);
+  assert.match(commonSource, /reserved 11 to 19;/);
+  assert.match(
+    commonSource,
+    /MUST attach job_correlation only after[\s\S]*advertises[\s\S]*JOB_CORRELATION_V1/,
+  );
+  assert.match(
+    commonSource,
+    /advertising JOB_CORRELATION_V1 MUST require and validate[\s\S]*every offered job/,
+  );
+  assert.match(
+    commonSource,
+    /carrier without having advertised the feature MUST reject the offer/,
+  );
+  assert.match(
+    commonSource,
+    /Absence is valid only for[\s\S]*legacy, non-negotiated operation/,
+  );
+  assert.match(commonSource, /exactly 55 lowercase ASCII bytes/);
+  assert.match(commonSource, /trace[\s\S]{0,20}and parent ids MUST be nonzero/);
+  assert.match(
+    commonSource,
+    /organization_scope remains the sole job authorization scope/,
+  );
+  assert.match(
+    commonSource,
+    /AttemptIdentity\.matrix_entry_id is the alpha test-instance correlation/,
+  );
+  assert.match(
+    commonSource,
+    /suffix[\s\S]{0,20}MUST equal AttemptIdentity\.release_candidate_id/,
+  );
+  assert.match(
+    commonSource,
+    /sources organization_id and[\s\S]*project_id from the immutable candidate/,
+  );
+  assert.match(
+    commonSource,
+    /exact replay MUST preserve every[\s\S]*field byte-for-byte/,
+  );
+
+  const correlationBlock = commonSource.slice(
+    commonSource.indexOf("message JobCorrelation"),
+    commonSource.indexOf("message JobSpecification"),
+  );
+  assert.doesNotMatch(
+    correlationBlock,
+    /\b(map|metadata|baggage|tracestate|secret|plugin_output|authorization_scope)\s*</,
+  );
+  assert.doesNotMatch(correlationBlock, /test_id/);
+
+  const valid = {
+    traceparent: "00-0000000000000000000000000000aa11-000000000000bb22-01",
+    organizationId: "a0000000-0000-0000-0000-000000000011",
+    projectId: "b0000000-0000-0000-0000-000000000022",
+    workflowId: "release/c0000000-0000-0000-0000-000000000033",
+  };
+  assert.equal(validJobCorrelationNegotiation([1, 3], valid), true);
+  assert.equal(validJobCorrelationNegotiation([1], null), true);
+
+  const invalidCorrelations = [
+    null,
+    {},
+    { ...valid, traceparent: valid.traceparent.toUpperCase() },
+    {
+      ...valid,
+      traceparent: "01-0000000000000000000000000000aa11-000000000000bb22-01",
+    },
+    {
+      ...valid,
+      traceparent: "00-00000000000000000000000000000000-000000000000bb22-01",
+    },
+    {
+      ...valid,
+      traceparent: "00-0000000000000000000000000000aa11-0000000000000000-01",
+    },
+    { ...valid, traceparent: `${valid.traceparent}0` },
+    { ...valid, organizationId: zeroUuid },
+    { ...valid, organizationId: valid.organizationId.toUpperCase() },
+    { ...valid, organizationId: "not-a-uuid" },
+    { ...valid, projectId: zeroUuid },
+    { ...valid, projectId: `${valid.projectId}0` },
+    { ...valid, workflowId: `other/${valid.workflowId.slice(8)}` },
+    { ...valid, workflowId: `release/${zeroUuid}` },
+    { ...valid, baggage: "private=value" },
+    { ...valid, tracestate: "private=value" },
+    { ...valid, metadata: { token: "private" } },
+  ];
+  for (const correlation of invalidCorrelations) {
+    assert.equal(
+      validJobCorrelationNegotiation([1, 3], correlation),
+      false,
+      JSON.stringify(correlation),
+    );
+  }
+
+  assert.equal(
+    validJobCorrelationNegotiation([1], valid),
+    false,
+    "carrier without feature",
+  );
+  assert.equal(
+    validJobCorrelationNegotiation([1, 3], null),
+    false,
+    "feature without carrier",
+  );
+  assert.equal(
+    validJobCorrelationNegotiation([1, 3, 3], valid),
+    false,
+    "duplicate feature",
+  );
+  assert.equal(
+    validJobCorrelationNegotiation([1, 99], null),
+    false,
+    "unknown feature",
+  );
+
+  const replay = structuredClone(valid);
+  assert.deepEqual(replay, valid);
+  replay.traceparent = replay.traceparent.replace(/bb22-01$/, "bb23-01");
+  assert.notDeepEqual(replay, valid);
 });
 
 test("credential rotation remains protocol-v1, feature-gated, and replay-safe", () => {
