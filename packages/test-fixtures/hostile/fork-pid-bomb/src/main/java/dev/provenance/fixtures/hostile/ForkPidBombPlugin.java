@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -22,14 +23,15 @@ public final class ForkPidBombPlugin extends JavaPlugin implements Listener {
   private final ForkPidBombAttack attack;
 
   public ForkPidBombPlugin() {
-    this.attack = new ForkPidBombAttack(SleeperProcess::start);
+    this.attack =
+        new ForkPidBombAttack(SleeperProcess::start, SleeperPressureHold::sustain);
     this.registerServerLoadListener =
         () -> getServer().getPluginManager().registerEvents(this, this);
   }
 
   ForkPidBombPlugin(Runnable registerServerLoadListener, ForkPidBombAttack.ChildStarter starter) {
     this.registerServerLoadListener = Objects.requireNonNull(registerServerLoadListener);
-    this.attack = new ForkPidBombAttack(starter);
+    this.attack = new ForkPidBombAttack(starter, () -> {});
   }
 
   @Override
@@ -51,12 +53,16 @@ public final class ForkPidBombPlugin extends JavaPlugin implements Listener {
 }
 
 final class ForkPidBombAttack {
+  private static final long REAP_TIMEOUT_SECONDS = 1;
+
   private final ChildStarter childStarter;
+  private final PressureSustainer pressureSustainer;
   private final AtomicBoolean triggered = new AtomicBoolean();
   private final List<Process> retainedChildren = new ArrayList<>();
 
-  ForkPidBombAttack(ChildStarter childStarter) {
+  ForkPidBombAttack(ChildStarter childStarter, PressureSustainer pressureSustainer) {
     this.childStarter = Objects.requireNonNull(childStarter);
+    this.pressureSustainer = Objects.requireNonNull(pressureSustainer);
   }
 
   int startOnce() {
@@ -69,9 +75,14 @@ final class ForkPidBombAttack {
         retainedChildren.add(Objects.requireNonNull(childStarter.start()));
       } catch (IOException exception) {
         if (!isPidLimitDenial(exception)) {
-          throw new IllegalStateException("fork/PID fixture process creation failed", exception);
+          throw cleanupAfterFailure(
+              new IllegalStateException("fork/PID fixture process creation failed", exception));
         }
-        return retainedChildren.size();
+        return sustainPressureAndRelease();
+      } catch (RuntimeException exception) {
+        throw cleanupAfterFailure(exception);
+      } catch (Error error) {
+        throw cleanupAfterFailure(error);
       }
     }
   }
@@ -80,15 +91,96 @@ final class ForkPidBombAttack {
     return retainedChildren.size();
   }
 
-  private static boolean isPidLimitDenial(IOException exception) {
+  boolean owns(Process child) {
+    return retainedChildren.contains(child);
+  }
+
+  private int sustainPressureAndRelease() {
+    try {
+      pressureSustainer.sustain();
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw cleanupAfterFailure(
+          new IllegalStateException("fork/PID pressure hold was interrupted", exception));
+    } catch (RuntimeException exception) {
+      throw cleanupAfterFailure(exception);
+    } catch (Error error) {
+      throw cleanupAfterFailure(error);
+    }
+
+    try {
+      releaseAll();
+      return retainedChildren.size();
+    } catch (RuntimeException exception) {
+      throw cleanupAfterFailure(exception);
+    } catch (Error error) {
+      throw cleanupAfterFailure(error);
+    }
+  }
+
+  private void releaseAll() {
+    for (Process child : retainedChildren) {
+      terminateAndReap(child);
+    }
+    retainedChildren.clear();
+  }
+
+  private <T extends Throwable> T cleanupAfterFailure(T failure) {
+    for (Process child : retainedChildren) {
+      try {
+        terminateAndReap(child);
+      } catch (Throwable cleanupFailure) {
+        if (cleanupFailure != failure) {
+          failure.addSuppressed(cleanupFailure);
+        }
+      }
+    }
+    for (int index = retainedChildren.size() - 1; index >= 0; index--) {
+      if (!retainedChildren.get(index).isAlive()) {
+        retainedChildren.remove(index);
+      }
+    }
+    return failure;
+  }
+
+  private static void terminateAndReap(Process child) {
+    boolean interrupted = false;
+    boolean reaped = false;
+    child.destroy();
+    try {
+      for (int attempt = 0; attempt < 2 && !reaped; attempt++) {
+        try {
+          reaped = child.waitFor(REAP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+          if (!reaped) {
+            child.destroyForcibly();
+          }
+        } catch (InterruptedException exception) {
+          interrupted = true;
+          child.destroyForcibly();
+        }
+      }
+      if (!reaped || child.isAlive()) {
+        throw new IllegalStateException("fork/PID fixture could not reap a sleeper");
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  static boolean isPidLimitDenial(IOException exception) {
     for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
       String message = cause.getMessage();
       if (message == null) {
         continue;
       }
       String normalized = message.toLowerCase(Locale.ROOT);
-      if (normalized.contains("error=11")
-          || normalized.contains("resource temporarily unavailable")) {
+      // Linux reports pids.max exhaustion as EAGAIN. gVisor can surface the same
+      // process-launch denial as ENOMEM. Match only stable ProcessBuilder/errno tokens;
+      // strerror text after the comma is locale-dependent.
+      if (normalized.contains("cannot run program")
+          && (normalized.contains(": error=11,") || normalized.contains(": error=12,"))) {
         return true;
       }
     }
@@ -98,6 +190,21 @@ final class ForkPidBombAttack {
   @FunctionalInterface
   interface ChildStarter {
     Process start() throws IOException;
+  }
+
+  @FunctionalInterface
+  interface PressureSustainer {
+    void sustain() throws InterruptedException;
+  }
+}
+
+final class SleeperPressureHold {
+  static final long HOLD_MILLIS = 2_000;
+
+  private SleeperPressureHold() {}
+
+  static void sustain() throws InterruptedException {
+    Thread.sleep(HOLD_MILLIS);
   }
 }
 

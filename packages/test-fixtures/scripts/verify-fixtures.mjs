@@ -52,10 +52,15 @@ if (!build.includes('tasks.register("hostileFixtures")')) {
     "hostile fixtures do not have an explicit opt-in Gradle task",
   );
 }
-const defaultCheck = build.slice(build.indexOf('tasks.named("check")'));
-if (defaultCheck.slice(0, defaultCheck.indexOf("}")).includes("hostile")) {
-  throw new Error("hostile fixtures are part of the default check task");
-}
+const allowedDefaultCheckDependencies = [
+  ":paper-probe:check",
+  ":paper-probe:verifyPaperApiArtifact",
+  "verifySafeFixtureArtifacts",
+  ":fixture-fork-pid-bomb:test",
+  "verifyHostileFixtureArtifacts",
+];
+verifyDefaultCheckDependencies(build, allowedDefaultCheckDependencies);
+selfCheckDefaultCheckGuard(allowedDefaultCheckDependencies);
 
 const selected = [
   ...benign.map((name) => ["benign", name]),
@@ -118,6 +123,85 @@ function findJavaSource(directory) {
   throw new Error(`no Java source under ${directory}`);
 }
 
+function verifyDefaultCheckDependencies(source, allowed) {
+  const marker = 'tasks.named("check")';
+  const start = source.lastIndexOf(marker);
+  if (start < 0) {
+    throw new Error("root default check task is missing");
+  }
+
+  const rootCheck = source.slice(start);
+  const match = rootCheck.match(
+    /^tasks\.named\("check"\)\s*\{\s*dependsOn\((?<entries>[\s\S]*?)\)\s*\}/,
+  );
+  if (!match?.groups?.entries) {
+    throw new Error(
+      "root default check must contain only one explicit dependsOn allowlist",
+    );
+  }
+
+  const entriesSource = match.groups.entries;
+  const entries = [...entriesSource.matchAll(/"([^"\\]*)"/g)].map(
+    ([, entry]) => entry,
+  );
+  const residue = entriesSource
+    .replaceAll(/"[^"\\]*"/g, "")
+    .replaceAll(",", "")
+    .trim();
+  if (residue.length > 0) {
+    throw new Error(
+      `root default check contains non-literal dependency syntax: ${residue}`,
+    );
+  }
+
+  const counts = new Map();
+  for (const entry of entries) {
+    counts.set(entry, (counts.get(entry) ?? 0) + 1);
+  }
+  const duplicates = [...counts]
+    .filter(([, count]) => count > 1)
+    .map(([entry]) => entry);
+  const missing = allowed.filter((entry) => !counts.has(entry));
+  const unexpected = entries.filter((entry) => !allowed.includes(entry));
+  if (
+    entries.length !== allowed.length ||
+    duplicates.length > 0 ||
+    missing.length > 0 ||
+    unexpected.length > 0
+  ) {
+    throw new Error(
+      `root default check dependency allowlist differs: missing=${missing.join(",")}; ` +
+        `unexpected=${unexpected.join(",")}; duplicates=${duplicates.join(",")}`,
+    );
+  }
+}
+
+function selfCheckDefaultCheckGuard(allowed) {
+  const render = (entries, extra = "") =>
+    `tasks.named("check") {\n  dependsOn(\n${entries
+      .map((entry) => `    "${entry}",`)
+      .join("\n")}\n  )\n${extra}}`;
+
+  verifyDefaultCheckDependencies(render(allowed), allowed);
+  const rejected = [
+    render(allowed.slice(1)),
+    render([...allowed, allowed[0]]),
+    render([...allowed, ":fixture-memory-bomb:test"]),
+    render(allowed, '  doLast { tasks.named("hostileFixtures").get() }\n'),
+  ];
+  for (const mutation of rejected) {
+    let failedClosed = false;
+    try {
+      verifyDefaultCheckDependencies(mutation, allowed);
+    } catch {
+      failedClosed = true;
+    }
+    if (!failedClosed) {
+      throw new Error("root default check guard accepted a hostile mutation");
+    }
+  }
+}
+
 function verifyDeterministicForkPidFixture(source) {
   const onEnable = source.match(
     /public void onEnable\(\) \{(?<body>[\s\S]*?)\n  \}/,
@@ -135,7 +219,15 @@ function verifyDeterministicForkPidFixture(source) {
     "AtomicBoolean",
     "compareAndSet(false, true)",
     "retainedChildren.add",
-    "error=11",
+    '": error=11,"',
+    '": error=12,"',
+    "SleeperPressureHold::sustain",
+    "HOLD_MILLIS = 2_000",
+    "Thread.sleep(HOLD_MILLIS)",
+    "releaseAll",
+    "terminateAndReap",
+    "child.waitFor",
+    "retainedChildren.clear()",
     'Path.of("/usr/bin/sleep")',
     'Path.of("/bin/sleep")',
     "builder.environment().clear()",
@@ -148,7 +240,13 @@ function verifyDeterministicForkPidFixture(source) {
     }
   }
 
-  const forbidden = ["ForkPidBombProcess", "java.home", "spawnChildren"];
+  const forbidden = [
+    "ForkPidBombProcess",
+    "java.home",
+    "spawnChildren",
+    "releaseAllButOne",
+    "Process survivor",
+  ];
   for (const marker of forbidden) {
     if (source.includes(marker)) {
       throw new Error(

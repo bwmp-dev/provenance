@@ -1,4 +1,7 @@
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+import org.gradle.api.tasks.testing.TestResult
 import org.gradle.jvm.tasks.Jar
 import groovy.json.JsonSlurper
 import java.security.MessageDigest
@@ -74,6 +77,30 @@ project(":fixture-fork-pid-bomb") {
         testImplementation "org.junit.jupiter:junit-jupiter"
         testImplementation files(rootProject.project(":paper-api-stubs").sourceSets.main.output)
         testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    }
+
+    tasks.named("test") {
+        addTestListener(new TestListener() {
+            @Override
+            void beforeSuite(TestDescriptor descriptor) {}
+
+            @Override
+            void afterSuite(TestDescriptor descriptor, TestResult result) {
+                if (descriptor.parent == null) {
+                    println(
+                        "fork-pid-bomb focused suite: ${result.testCount} tests; " +
+                            "${result.successfulTestCount} passed; ${result.failedTestCount} failed; " +
+                            "${result.skippedTestCount} skipped",
+                    )
+                }
+            }
+
+            @Override
+            void beforeTest(TestDescriptor descriptor) {}
+
+            @Override
+            void afterTest(TestDescriptor descriptor, TestResult result) {}
+        })
     }
 }
 
@@ -239,9 +266,11 @@ tasks.register("resolveAndLockAll") {
 
 tasks.named("check") {
     dependsOn(
+        ":fixture-fork-pid-bomb:test",
         ":paper-probe:check",
         ":paper-probe:verifyPaperApiArtifact",
         "verifySafeFixtureArtifacts",
+        "verifyHostileFixtureArtifacts",
     )
 }
 
