@@ -458,6 +458,54 @@ paths:
   /v1/projects/{projectId}/release-candidates:
     parameters:
       - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: listReleaseCandidates
+      summary: List release candidates in a project
+      description: |
+        IFC-013 returns a bounded page of release-candidate summaries belonging
+        to the path project. Results use deterministic descending keyset order
+        by `(createdAt, id)`. The `createdAt` primary key compares RFC 3339
+        instants after normalization to UTC, not their source text; equal
+        instants use canonical lowercase UUID text for the `id` tie-break. A
+        continuation cursor is opaque, binds the path project and the last
+        `(createdAt, id)` key from the preceding page, and resumes strictly
+        after that key. Clients must not parse or synthesize cursors. Newer
+        candidates inserted before a returned cursor do not shift later pages.
+
+        Authentication and project visibility are resolved before cursor
+        validation. A nonexistent project and a project outside the caller's
+        tenant or visibility scope return the same HTTP 404 status and problem
+        shape. An authenticated caller that can resolve the project but lacks
+        the release-candidate read capability receives HTTP 403. A malformed,
+        expired, or differently scoped cursor, or a `limit` outside 1 through
+        100, receives HTTP 400.
+      x-provenance-interface: IFC-013
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Bounded release-candidate summary page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseCandidatePage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
     post:
       operationId: createReleaseCandidate
       summary: Create a release candidate from immutable inputs
@@ -1872,6 +1920,11 @@ components:
       type: string
       format: date-time
       description: RFC 3339 timestamp with an explicit UTC offset.
+    BoundedTimestamp:
+      allOf:
+        - $ref: "#/components/schemas/Timestamp"
+      maxLength: 35
+      description: Bounded RFC 3339 timestamp with an explicit UTC offset.
     Slug:
       type: string
       pattern: ^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
@@ -2737,6 +2790,53 @@ components:
           $ref: "#/components/schemas/Timestamp"
         updatedAt:
           $ref: "#/components/schemas/Timestamp"
+    ReleaseCandidateSummary:
+      type: object
+      additionalProperties: false
+      description: >-
+        Bounded project-list representation. id is the canonical candidate
+        identity and artifactId is the canonical artifact resource identity.
+      required:
+        - id
+        - projectId
+        - artifactId
+        - configurationHash
+        - version
+        - state
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: "#/components/schemas/BoundedStableId"
+        projectId:
+          $ref: "#/components/schemas/BoundedStableId"
+        artifactId:
+          $ref: "#/components/schemas/BoundedStableId"
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+        version:
+          type: string
+          minLength: 1
+          maxLength: 128
+        state:
+          $ref: "#/components/schemas/ReleaseCandidateState"
+        createdAt:
+          $ref: "#/components/schemas/BoundedTimestamp"
+        updatedAt:
+          $ref: "#/components/schemas/BoundedTimestamp"
+    ReleaseCandidatePage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ReleaseCandidateSummary"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      x-provenance-max-json-bytes: 262144
     ReleaseEvent:
       type: object
       additionalProperties: false

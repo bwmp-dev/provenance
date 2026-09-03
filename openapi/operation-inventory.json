@@ -162,6 +162,12 @@
     "tag": "integrations"
   },
   {
+    "method": "get",
+    "operationId": "listReleaseCandidates",
+    "path": "/v1/projects/{projectId}/release-candidates",
+    "tag": "release-candidates"
+  },
+  {
     "method": "post",
     "operationId": "createReleaseCandidate",
     "path": "/v1/projects/{projectId}/release-candidates",
