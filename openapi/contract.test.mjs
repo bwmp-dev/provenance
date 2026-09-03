@@ -284,10 +284,12 @@ test("configuration snapshot creation preserves canonical source identity", () =
   );
 });
 
-test("WP-08C exposes a bounded deterministic project candidate list", () => {
+test("IFC-013 exposes a bounded deterministic project candidate list", () => {
   const list = operation("listReleaseCandidates");
   const schemas = document.components.schemas;
 
+  assert.equal(list["x-provenance-interface"], "IFC-013");
+  assert.match(list.description, /IFC-013/);
   assert.deepEqual(list.security, [{ BearerAuth: [] }, { SessionCookie: [] }]);
   assert.equal(createPath(list), "/v1/projects/{projectId}/release-candidates");
   assert.deepEqual(
@@ -303,7 +305,15 @@ test("WP-08C exposes a bounded deterministic project candidate list", () => {
   });
   assert.match(
     list.description,
-    /descending keyset order by\s+`\(createdAt, id\)`/i,
+    /descending keyset order\s+by `\(createdAt, id\)`/i,
+  );
+  assert.match(
+    list.description,
+    /`createdAt` primary key compares RFC 3339\s+instants after normalization to UTC/i,
+  );
+  assert.match(
+    list.description,
+    /equal\s+instants use canonical lowercase UUID text for the `id` tie-break/i,
   );
   assert.match(list.description, /resumes strictly\s+after that key/i);
   assert.match(
@@ -324,10 +334,21 @@ test("WP-08C exposes a bounded deterministic project candidate list", () => {
   );
   assert.match(
     list.description,
-    /differently scoped cursor receives HTTP 400/i,
+    /differently scoped cursor.*receives HTTP 400/is,
   );
+  assert.match(list.description, /`limit` outside 1 through\s+100.*HTTP 400/is);
 
-  for (const status of ["400", "401", "403", "404", "422", "500"]) {
+  assert.deepEqual(Object.keys(list.responses).sort(), [
+    "200",
+    "400",
+    "401",
+    "403",
+    "404",
+    "500",
+    "default",
+  ]);
+  assert.equal(list.responses["422"], undefined);
+  for (const status of ["400", "401", "403", "404", "500"]) {
     assert.equal(
       list.responses[status].$ref,
       "#/components/responses/Problem",

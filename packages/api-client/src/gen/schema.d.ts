@@ -291,10 +291,12 @@ export interface paths {
         };
         /**
          * List release candidates in a project
-         * @description Returns a bounded page of release-candidate summaries belonging to the
-         *     path project. Results use deterministic descending keyset order by
-         *     `(createdAt, id)`, comparing `id` as its canonical lowercase UUID text.
-         *     A continuation cursor is opaque, binds the path project and the last
+         * @description IFC-013 returns a bounded page of release-candidate summaries belonging
+         *     to the path project. Results use deterministic descending keyset order
+         *     by `(createdAt, id)`. The `createdAt` primary key compares RFC 3339
+         *     instants after normalization to UTC, not their source text; equal
+         *     instants use canonical lowercase UUID text for the `id` tie-break. A
+         *     continuation cursor is opaque, binds the path project and the last
          *     `(createdAt, id)` key from the preceding page, and resumes strictly
          *     after that key. Clients must not parse or synthesize cursors. Newer
          *     candidates inserted before a returned cursor do not shift later pages.
@@ -304,7 +306,8 @@ export interface paths {
          *     tenant or visibility scope return the same HTTP 404 status and problem
          *     shape. An authenticated caller that can resolve the project but lacks
          *     the release-candidate read capability receives HTTP 403. A malformed,
-         *     expired, or differently scoped cursor receives HTTP 400.
+         *     expired, or differently scoped cursor, or a `limit` outside 1 through
+         *     100, receives HTTP 400.
          */
         get: operations["listReleaseCandidates"];
         put?: never;
@@ -2757,7 +2760,6 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
             500: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
