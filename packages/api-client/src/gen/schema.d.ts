@@ -289,7 +289,24 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List release candidates in a project
+         * @description Returns a bounded page of release-candidate summaries belonging to the
+         *     path project. Results use deterministic descending keyset order by
+         *     `(createdAt, id)`, comparing `id` as its canonical lowercase UUID text.
+         *     A continuation cursor is opaque, binds the path project and the last
+         *     `(createdAt, id)` key from the preceding page, and resumes strictly
+         *     after that key. Clients must not parse or synthesize cursors. Newer
+         *     candidates inserted before a returned cursor do not shift later pages.
+         *
+         *     Authentication and project visibility are resolved before cursor
+         *     validation. A nonexistent project and a project outside the caller's
+         *     tenant or visibility scope return the same HTTP 404 status and problem
+         *     shape. An authenticated caller that can resolve the project but lacks
+         *     the release-candidate read capability receives HTTP 403. A malformed,
+         *     expired, or differently scoped cursor receives HTTP 400.
+         */
+        get: operations["listReleaseCandidates"];
         put?: never;
         /** Create a release candidate from immutable inputs */
         post: operations["createReleaseCandidate"];
@@ -876,6 +893,8 @@ export interface components {
          * @description RFC 3339 timestamp with an explicit UTC offset.
          */
         Timestamp: string;
+        /** @description Bounded RFC 3339 timestamp with an explicit UTC offset. */
+        BoundedTimestamp: components["schemas"]["Timestamp"];
         Slug: string;
         /** @description Opaque pagination or event continuation cursor. */
         Cursor: string;
@@ -1217,6 +1236,21 @@ export interface components {
             state: components["schemas"]["ReleaseCandidateState"];
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Bounded project-list representation. id is the canonical candidate identity and artifactId is the canonical artifact resource identity. */
+        ReleaseCandidateSummary: {
+            id: components["schemas"]["BoundedStableId"];
+            projectId: components["schemas"]["BoundedStableId"];
+            artifactId: components["schemas"]["BoundedStableId"];
+            configurationHash: components["schemas"]["Sha256Digest"];
+            version: string;
+            state: components["schemas"]["ReleaseCandidateState"];
+            createdAt: components["schemas"]["BoundedTimestamp"];
+            updatedAt: components["schemas"]["BoundedTimestamp"];
+        };
+        ReleaseCandidatePage: {
+            items: components["schemas"]["ReleaseCandidateSummary"][];
+            page: components["schemas"]["PageInfo"];
         };
         ReleaseEvent: {
             id: components["schemas"]["StableId"];
@@ -2691,6 +2725,40 @@ export interface operations {
                     "application/json": components["schemas"]["Artifact"];
                 };
             };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listReleaseCandidates: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded release-candidate summary page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseCandidatePage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            500: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

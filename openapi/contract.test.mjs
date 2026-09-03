@@ -284,6 +284,117 @@ test("configuration snapshot creation preserves canonical source identity", () =
   );
 });
 
+test("WP-08C exposes a bounded deterministic project candidate list", () => {
+  const list = operation("listReleaseCandidates");
+  const schemas = document.components.schemas;
+
+  assert.deepEqual(list.security, [{ BearerAuth: [] }, { SessionCookie: [] }]);
+  assert.equal(createPath(list), "/v1/projects/{projectId}/release-candidates");
+  assert.deepEqual(
+    list.parameters.map(resolveParameter).map(({ name }) => name),
+    ["cursor", "limit"],
+  );
+  assert.equal(document.components.schemas.Cursor.maxLength, 2048);
+  assert.deepEqual(document.components.parameters.PageSize.schema, {
+    type: "integer",
+    minimum: 1,
+    maximum: 100,
+    default: 50,
+  });
+  assert.match(
+    list.description,
+    /descending keyset order by\s+`\(createdAt, id\)`/i,
+  );
+  assert.match(list.description, /resumes strictly\s+after that key/i);
+  assert.match(
+    list.description,
+    /clients must not parse or synthesize cursors/i,
+  );
+  assert.match(
+    list.description,
+    /nonexistent project.*outside the caller's\s+tenant.*same HTTP 404/is,
+  );
+  assert.match(
+    list.description,
+    /visibility are resolved before cursor\s+validation/i,
+  );
+  assert.match(
+    list.description,
+    /lacks\s+the release-candidate read capability receives HTTP 403/i,
+  );
+  assert.match(
+    list.description,
+    /differently scoped cursor receives HTTP 400/i,
+  );
+
+  for (const status of ["400", "401", "403", "404", "422", "500"]) {
+    assert.equal(
+      list.responses[status].$ref,
+      "#/components/responses/Problem",
+      status,
+    );
+  }
+  assert.equal(
+    list.responses["200"].content["application/json"].schema.$ref,
+    "#/components/schemas/ReleaseCandidatePage",
+  );
+
+  const page = schemas.ReleaseCandidatePage;
+  assert.equal(page.additionalProperties, false);
+  assert.deepEqual(page.required, ["items", "page"]);
+  assert.equal(page.properties.items.maxItems, 100);
+  assert.equal(
+    page.properties.items.items.$ref,
+    "#/components/schemas/ReleaseCandidateSummary",
+  );
+  assert.equal(page.properties.page.$ref, "#/components/schemas/PageInfo");
+  assert.equal(page["x-provenance-max-json-bytes"], 262_144);
+
+  const summary = schemas.ReleaseCandidateSummary;
+  assert.equal(summary.additionalProperties, false);
+  assert.deepEqual(summary.required, [
+    "id",
+    "projectId",
+    "artifactId",
+    "configurationHash",
+    "version",
+    "state",
+    "createdAt",
+    "updatedAt",
+  ]);
+  for (const identity of ["id", "projectId", "artifactId"]) {
+    assert.equal(
+      summary.properties[identity].$ref,
+      "#/components/schemas/BoundedStableId",
+      identity,
+    );
+  }
+  assert.equal(
+    summary.properties.configurationHash.$ref,
+    "#/components/schemas/Sha256Digest",
+  );
+  assert.equal(summary.properties.version.minLength, 1);
+  assert.equal(summary.properties.version.maxLength, 128);
+  assert.equal(
+    summary.properties.state.$ref,
+    "#/components/schemas/ReleaseCandidateState",
+  );
+  for (const timestamp of ["createdAt", "updatedAt"]) {
+    assert.equal(
+      summary.properties[timestamp].$ref,
+      "#/components/schemas/BoundedTimestamp",
+      timestamp,
+    );
+  }
+  assert.equal(schemas.BoundedTimestamp.maxLength, 35);
+  assert.equal(
+    schemas.BoundedTimestamp.allOf[0].$ref,
+    "#/components/schemas/Timestamp",
+  );
+  assert.match(generatedClient, /listReleaseCandidates/);
+  assert.match(generatedClient, /ReleaseCandidateSummary/);
+});
+
 test("authentication, pagination, identifiers, timestamps, and states stay stable", () => {
   assert.deepEqual(Object.keys(document.components.securitySchemes).sort(), [
     "BearerAuth",
@@ -363,6 +474,7 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
         assert.ok(
           [
             "#/components/schemas/Timestamp",
+            "#/components/schemas/BoundedTimestamp",
             "#/components/schemas/LogTimestamp",
           ].includes(property.$ref),
           name,
