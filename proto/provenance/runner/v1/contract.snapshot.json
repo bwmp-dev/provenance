@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "c5b5ea8ee8bf388c311430ffde585f969ab573dfa54fe0ed3f4c30e1c9577057",
+  "descriptorSha256": "b64085142964a59952260cbc867f10595e3c72f1e240faf57358e324eba17667",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -115,7 +115,8 @@
       "0": "PROTOCOL_FEATURE_UNSPECIFIED",
       "1": "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
       "2": "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
-      "3": "PROTOCOL_FEATURE_JOB_CORRELATION_V1"
+      "3": "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
+      "4": "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY"
     },
     "RunnerMessageDisposition": {
       "0": "RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED",
@@ -198,7 +199,8 @@
       "4": "status",
       "5": "phase",
       "6": "terminal_message_id",
-      "7": "cancellation_id"
+      "7": "cancellation_id",
+      "16": "complete_log_upload"
     },
     "RunnerEventAcknowledgement": {
       "1": "runner_message_id",
@@ -254,7 +256,8 @@
     ],
     "ObjectDownload": [[5, 10]],
     "JobCorrelation": [[5, 10]],
-    "JobSpecification": [[11, 20]]
+    "JobSpecification": [[11, 20]],
+    "LeaseReconciliation": [[8, 16]]
   },
   "reservedNames": {
     "Authenticate": ["registration_token"],

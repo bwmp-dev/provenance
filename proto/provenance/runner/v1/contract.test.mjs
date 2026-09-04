@@ -25,6 +25,23 @@ const canonicalUuidPattern =
 const canonicalTraceparentPattern =
   /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
 const zeroUuid = "00000000-0000-0000-0000-000000000000";
+const protocolFeature = Object.freeze({
+  durableLeaseAcknowledgements: 1,
+  credentialRotation: 2,
+  jobCorrelationV1: 3,
+  restartUploadRecovery: 4,
+});
+
+function validProtocolFeatures(features) {
+  const known = new Set(Object.values(protocolFeature));
+  return (
+    Array.isArray(features) &&
+    features.every(
+      (feature, index) =>
+        known.has(feature) && features.indexOf(feature) === index,
+    )
+  );
+}
 
 function validCorrelationUuid(value) {
   return (
@@ -58,17 +75,57 @@ function validJobCorrelation(value) {
 }
 
 function validJobCorrelationNegotiation(features, correlation) {
-  if (
-    !Array.isArray(features) ||
-    features.some(
-      (feature, index) =>
-        ![1, 2, 3].includes(feature) || features.indexOf(feature) !== index,
-    )
-  ) {
+  if (!validProtocolFeatures(features)) {
     return false;
   }
-  const advertised = features.includes(3);
+  const advertised = features.includes(protocolFeature.jobCorrelationV1);
   return advertised ? validJobCorrelation(correlation) : correlation == null;
+}
+
+function exactIdentity(actual, expected, fields) {
+  return (
+    actual !== null &&
+    typeof actual === "object" &&
+    expected !== null &&
+    typeof expected === "object" &&
+    Object.keys(actual).sort().join(",") === [...fields].sort().join(",") &&
+    Object.keys(expected).sort().join(",") === [...fields].sort().join(",") &&
+    fields.every((field) => actual[field] === expected[field])
+  );
+}
+
+function futureTimestamp(value, now) {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && parsed > now.getTime();
+}
+
+function validRestartUploadRecovery(features, reconciliation, localJob, now) {
+  if (!validProtocolFeatures(features)) {
+    return false;
+  }
+  const upload = reconciliation?.completeLogUpload;
+  if (upload == null) {
+    return true;
+  }
+  return (
+    features.includes(protocolFeature.restartUploadRecovery) &&
+    reconciliation.status === 3 &&
+    exactIdentity(reconciliation.lease, localJob?.lease, [
+      "leaseId",
+      "jobId",
+      "executionId",
+      "expiresAt",
+    ]) &&
+    exactIdentity(reconciliation.attempt, localJob?.attempt, [
+      "attemptId",
+      "attemptNumber",
+      "releaseCandidateId",
+      "matrixEntryId",
+    ]) &&
+    futureTimestamp(reconciliation.lease.expiresAt, now) &&
+    upload.contentType === "application/gzip" &&
+    futureTimestamp(upload.expiresAt, now)
+  );
 }
 
 function runBuf(arguments_) {
@@ -400,6 +457,196 @@ test("durable acknowledgement semantics remain normative", () => {
     gatewaySource,
     /sequence with another ID, is a transport conflict/,
   );
+});
+
+test("restart recovery upload is feature-gated, identity-bound, and ephemeral", () => {
+  const reconciliationBlock = gatewaySource.slice(
+    gatewaySource.indexOf("message LeaseReconciliation"),
+    gatewaySource.indexOf("message RunnerEventAcknowledgement"),
+  );
+  const reconciliationNormative = reconciliationBlock
+    .replaceAll("//", "")
+    .replaceAll(/\s+/g, " ");
+
+  assert.match(
+    commonSource,
+    /PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY\s*=\s*4\s*;/,
+  );
+  assert.equal(
+    snapshot.criticalEnums.ProtocolFeature["4"],
+    "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
+  );
+  assert.equal(
+    snapshot.criticalFields.LeaseReconciliation["16"],
+    "complete_log_upload",
+  );
+  assert.match(reconciliationBlock, /reserved 8 to 15;/);
+  assert.match(
+    reconciliationBlock,
+    /ObjectUpload complete_log_upload\s*=\s*16\s*;/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /MUST attach complete_log_upload only to a HeartbeatAcknowledgement[\s\S]*after reconnect/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /only when[\s\S]*current[\s\S]*authenticated stream advertised PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /MUST omit it from RunnerEventAcknowledgement[\s\S]*did not advertise/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /does not create, replay,[\s\S]*or extend a LeaseOffer/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /compare every LeaseIdentity and AttemptIdentity field against JobSpecification\.lease and[\s\S]*JobSpecification\.attempt/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /LEASE_STATUS_ACTIVE and future lease and upload expiries/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /receiving this field[\s\S]*did not advertise[\s\S]*MUST reject the acknowledgement/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /reject a[\s\S]*stale, substituted, expired, terminal, cancelled,[\s\S]*mismatched capability/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /Fields 1 through 7 are the committed reconciliation state; complete_log_upload is explicitly[\s\S]*excluded from that state, its payload hash, and replay reproducibility/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /exact duplicate heartbeat replays the[\s\S]*same committed fields and committed_at but MAY mint a different URI and expiry/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /neither peer may persist it in durable lease, attempt, event, log,[\s\S]*or audit state/,
+  );
+  assert.match(reconciliationNormative, /redact it from diagnostics/);
+  assert.match(
+    reconciliationNormative,
+    /Absence remains valid for older[\s\S]*peers/,
+  );
+
+  const now = new Date("2030-01-02T03:04:05.000Z");
+  const localJob = {
+    lease: {
+      leaseId: "lease-recovery",
+      jobId: "job-recovery",
+      executionId: "execution-recovery",
+      expiresAt: "2030-01-02T04:00:00.000Z",
+    },
+    attempt: {
+      attemptId: "attempt-recovery",
+      attemptNumber: 2,
+      releaseCandidateId: "candidate-recovery",
+      matrixEntryId: "matrix-recovery",
+    },
+  };
+  const reconciliation = {
+    lease: structuredClone(localJob.lease),
+    attempt: structuredClone(localJob.attempt),
+    status: 3,
+    completeLogUpload: {
+      uri: "https://object.invalid/ephemeral-recovery-capability",
+      contentType: "application/gzip",
+      expiresAt: "2030-01-02T03:30:00.000Z",
+    },
+  };
+  const negotiated = [
+    protocolFeature.durableLeaseAcknowledgements,
+    protocolFeature.restartUploadRecovery,
+  ];
+
+  assert.equal(
+    validRestartUploadRecovery(negotiated, reconciliation, localJob, now),
+    true,
+  );
+  assert.equal(
+    validRestartUploadRecovery(
+      [protocolFeature.durableLeaseAcknowledgements],
+      reconciliation,
+      localJob,
+      now,
+    ),
+    false,
+    "runner must reject an upload it did not advertise support for",
+  );
+  assert.equal(
+    validRestartUploadRecovery(
+      [
+        protocolFeature.durableLeaseAcknowledgements,
+        protocolFeature.restartUploadRecovery,
+        protocolFeature.restartUploadRecovery,
+      ],
+      reconciliation,
+      localJob,
+      now,
+    ),
+    false,
+    "duplicate feature",
+  );
+  assert.equal(
+    validRestartUploadRecovery([1, 99], reconciliation, localJob, now),
+    false,
+    "unknown feature",
+  );
+  assert.equal(
+    validRestartUploadRecovery(
+      [protocolFeature.durableLeaseAcknowledgements],
+      { ...reconciliation, completeLogUpload: undefined },
+      localJob,
+      now,
+    ),
+    true,
+    "absence remains valid for a non-negotiating peer",
+  );
+
+  for (const [path, value] of [
+    [["lease", "leaseId"], "substituted-lease"],
+    [["lease", "jobId"], "substituted-job"],
+    [["lease", "executionId"], "substituted-execution"],
+    [["lease", "expiresAt"], "2030-01-02T05:00:00.000Z"],
+    [["attempt", "attemptId"], "substituted-attempt"],
+    [["attempt", "attemptNumber"], 3],
+    [["attempt", "releaseCandidateId"], "substituted-candidate"],
+    [["attempt", "matrixEntryId"], "substituted-matrix"],
+  ]) {
+    const substituted = structuredClone(reconciliation);
+    substituted[path[0]][path[1]] = value;
+    assert.equal(
+      validRestartUploadRecovery(negotiated, substituted, localJob, now),
+      false,
+      `substituted ${path.join(".")}`,
+    );
+  }
+
+  for (const invalid of [
+    { ...reconciliation, status: 2 },
+    {
+      ...reconciliation,
+      lease: { ...reconciliation.lease, expiresAt: now.toISOString() },
+    },
+    {
+      ...reconciliation,
+      completeLogUpload: {
+        ...reconciliation.completeLogUpload,
+        expiresAt: now.toISOString(),
+      },
+    },
+  ]) {
+    assert.equal(
+      validRestartUploadRecovery(negotiated, invalid, localJob, now),
+      false,
+    );
+  }
 });
 
 test("IFC-012 job correlation is bounded, negotiated, and replay-stable", () => {

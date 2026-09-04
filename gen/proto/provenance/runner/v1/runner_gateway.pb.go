@@ -2234,6 +2234,30 @@ type LeaseReconciliation struct {
 	Phase             JobPhase                 `protobuf:"varint,5,opt,name=phase,proto3,enum=provenance.runner.v1.JobPhase" json:"phase,omitempty"`
 	TerminalMessageId string                   `protobuf:"bytes,6,opt,name=terminal_message_id,json=terminalMessageId,proto3" json:"terminal_message_id,omitempty"`
 	CancellationId    string                   `protobuf:"bytes,7,opt,name=cancellation_id,json=cancellationId,proto3" json:"cancellation_id,omitempty"`
+	// A gateway MUST attach complete_log_upload only to a HeartbeatAcknowledgement that reconciles the
+	// exact authoritative active lease and attempt after reconnect, and only when the current
+	// authenticated stream advertised PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY. A gateway MUST omit it
+	// from RunnerEventAcknowledgement and from every stream that did not advertise the feature. Its
+	// presence does not create, replay, or extend a LeaseOffer.
+	//
+	// Before attaching it, the gateway MUST re-read authoritative state and require that the lease and
+	// attempt are owned by the runner authenticated on the current stream, exactly match that state,
+	// remain active and unexpired, and have no terminal or cancellation decision. The runner MUST
+	// compare every LeaseIdentity and AttemptIdentity field against JobSpecification.lease and
+	// JobSpecification.attempt for the corresponding job locally executing under that lease. It MUST
+	// also require LEASE_STATUS_ACTIVE and future lease and upload expiries before replacing the
+	// in-memory upload target. A runner receiving this field on a stream where it did not advertise
+	// PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY MUST reject the acknowledgement. It MUST also reject a
+	// stale, substituted, expired, terminal, cancelled, or otherwise mismatched capability.
+	//
+	// Fields 1 through 7 are the committed reconciliation state; complete_log_upload is explicitly
+	// excluded from that state, its payload hash, and replay reproducibility. The gateway attaches it
+	// only after the reconciliation transaction commits. An exact duplicate heartbeat replays the
+	// same committed fields and committed_at but MAY mint a different URI and expiry. The URI is
+	// ephemeral secret material: neither peer may persist it in durable lease, attempt, event, log,
+	// or audit state, and both peers must redact it from diagnostics. Absence remains valid for older
+	// peers and means that reconciliation does not replace the previously delivered upload target.
+	CompleteLogUpload *ObjectUpload `protobuf:"bytes,16,opt,name=complete_log_upload,json=completeLogUpload,proto3" json:"complete_log_upload,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -2315,6 +2339,13 @@ func (x *LeaseReconciliation) GetCancellationId() string {
 		return x.CancellationId
 	}
 	return ""
+}
+
+func (x *LeaseReconciliation) GetCompleteLogUpload() *ObjectUpload {
+	if x != nil {
+		return x.CompleteLogUpload
+	}
+	return nil
 }
 
 // Sent only after transactional inspection. Reusing a message ID with identical payload yields
@@ -2641,7 +2672,7 @@ const file_runner_gateway_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x126\n" +
 	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\bdeadline\x12'\n" +
 	"\x0frestart_allowed\x18\x04 \x01(\bR\x0erestartAllowedJ\x04\b\x05\x10\n" +
-	"\"\xb3\x03\n" +
+	"\"\x87\x04\n" +
 	"\x13LeaseReconciliation\x129\n" +
 	"\x05lease\x18\x01 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
 	"\aattempt\x18\x02 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\x12P\n" +
@@ -2649,7 +2680,8 @@ const file_runner_gateway_proto_rawDesc = "" +
 	"\x06status\x18\x04 \x01(\x0e2!.provenance.runner.v1.LeaseStatusR\x06status\x124\n" +
 	"\x05phase\x18\x05 \x01(\x0e2\x1e.provenance.runner.v1.JobPhaseR\x05phase\x12.\n" +
 	"\x13terminal_message_id\x18\x06 \x01(\tR\x11terminalMessageId\x12'\n" +
-	"\x0fcancellation_id\x18\a \x01(\tR\x0ecancellationIdJ\x04\b\b\x10\x10\"\xe0\x01\n" +
+	"\x0fcancellation_id\x18\a \x01(\tR\x0ecancellationId\x12R\n" +
+	"\x13complete_log_upload\x18\x10 \x01(\v2\".provenance.runner.v1.ObjectUploadR\x11completeLogUploadJ\x04\b\b\x10\x10\"\xe0\x01\n" +
 	"\x1aRunnerEventAcknowledgement\x12*\n" +
 	"\x11runner_message_id\x18\x01 \x01(\tR\x0frunnerMessageId\x12Q\n" +
 	"\x0ereconciliation\x18\x02 \x01(\v2).provenance.runner.v1.LeaseReconciliationR\x0ereconciliation\x12=\n" +
@@ -2745,6 +2777,7 @@ var file_runner_gateway_proto_goTypes = []any{
 	(*LogObject)(nil),                         // 42: provenance.runner.v1.LogObject
 	(*Digest)(nil),                            // 43: provenance.runner.v1.Digest
 	(*RunnerPolicy)(nil),                      // 44: provenance.runner.v1.RunnerPolicy
+	(*ObjectUpload)(nil),                      // 45: provenance.runner.v1.ObjectUpload
 }
 var file_runner_gateway_proto_depIdxs = []int32{
 	29, // 0: provenance.runner.v1.RunnerMessage.sent_at:type_name -> google.protobuf.Timestamp
@@ -2838,17 +2871,18 @@ var file_runner_gateway_proto_depIdxs = []int32{
 	1,  // 88: provenance.runner.v1.LeaseReconciliation.disposition:type_name -> provenance.runner.v1.RunnerMessageDisposition
 	2,  // 89: provenance.runner.v1.LeaseReconciliation.status:type_name -> provenance.runner.v1.LeaseStatus
 	35, // 90: provenance.runner.v1.LeaseReconciliation.phase:type_name -> provenance.runner.v1.JobPhase
-	26, // 91: provenance.runner.v1.RunnerEventAcknowledgement.reconciliation:type_name -> provenance.runner.v1.LeaseReconciliation
-	29, // 92: provenance.runner.v1.RunnerEventAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
-	26, // 93: provenance.runner.v1.HeartbeatAcknowledgement.reconciliations:type_name -> provenance.runner.v1.LeaseReconciliation
-	29, // 94: provenance.runner.v1.HeartbeatAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
-	3,  // 95: provenance.runner.v1.RunnerGateway.Connect:input_type -> provenance.runner.v1.RunnerMessage
-	4,  // 96: provenance.runner.v1.RunnerGateway.Connect:output_type -> provenance.runner.v1.GatewayMessage
-	96, // [96:97] is the sub-list for method output_type
-	95, // [95:96] is the sub-list for method input_type
-	95, // [95:95] is the sub-list for extension type_name
-	95, // [95:95] is the sub-list for extension extendee
-	0,  // [0:95] is the sub-list for field type_name
+	45, // 91: provenance.runner.v1.LeaseReconciliation.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
+	26, // 92: provenance.runner.v1.RunnerEventAcknowledgement.reconciliation:type_name -> provenance.runner.v1.LeaseReconciliation
+	29, // 93: provenance.runner.v1.RunnerEventAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
+	26, // 94: provenance.runner.v1.HeartbeatAcknowledgement.reconciliations:type_name -> provenance.runner.v1.LeaseReconciliation
+	29, // 95: provenance.runner.v1.HeartbeatAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
+	3,  // 96: provenance.runner.v1.RunnerGateway.Connect:input_type -> provenance.runner.v1.RunnerMessage
+	4,  // 97: provenance.runner.v1.RunnerGateway.Connect:output_type -> provenance.runner.v1.GatewayMessage
+	97, // [97:98] is the sub-list for method output_type
+	96, // [96:97] is the sub-list for method input_type
+	96, // [96:96] is the sub-list for extension type_name
+	96, // [96:96] is the sub-list for extension extendee
+	0,  // [0:96] is the sub-list for field type_name
 }
 
 func init() { file_runner_gateway_proto_init() }
