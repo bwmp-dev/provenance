@@ -2234,11 +2234,26 @@ type LeaseReconciliation struct {
 	Phase             JobPhase                 `protobuf:"varint,5,opt,name=phase,proto3,enum=provenance.runner.v1.JobPhase" json:"phase,omitempty"`
 	TerminalMessageId string                   `protobuf:"bytes,6,opt,name=terminal_message_id,json=terminalMessageId,proto3" json:"terminal_message_id,omitempty"`
 	CancellationId    string                   `protobuf:"bytes,7,opt,name=cancellation_id,json=cancellationId,proto3" json:"cancellation_id,omitempty"`
-	// A gateway MAY supply a fresh complete-log upload capability only while reconciling the exact
-	// authoritative active lease and attempt after reconnect. Its presence does not create, replay,
-	// or extend a LeaseOffer. The runner MUST require an exact lease and attempt identity match,
-	// LEASE_STATUS_ACTIVE, and an unexpired capability before replacing the in-memory upload target;
-	// it MUST reject a stale, substituted, expired, or otherwise mismatched capability. The URI is
+	// A gateway MUST attach complete_log_upload only to a HeartbeatAcknowledgement that reconciles the
+	// exact authoritative active lease and attempt after reconnect, and only when the current
+	// authenticated stream advertised PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY. A gateway MUST omit it
+	// from RunnerEventAcknowledgement and from every stream that did not advertise the feature. Its
+	// presence does not create, replay, or extend a LeaseOffer.
+	//
+	// Before attaching it, the gateway MUST re-read authoritative state and require that the lease and
+	// attempt are owned by the runner authenticated on the current stream, exactly match that state,
+	// remain active and unexpired, and have no terminal or cancellation decision. The runner MUST
+	// compare every LeaseIdentity and AttemptIdentity field against JobSpecification.lease and
+	// JobSpecification.attempt for the corresponding job locally executing under that lease. It MUST
+	// also require LEASE_STATUS_ACTIVE and future lease and upload expiries before replacing the
+	// in-memory upload target. A runner receiving this field on a stream where it did not advertise
+	// PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY MUST reject the acknowledgement. It MUST also reject a
+	// stale, substituted, expired, terminal, cancelled, or otherwise mismatched capability.
+	//
+	// Fields 1 through 7 are the committed reconciliation state; complete_log_upload is explicitly
+	// excluded from that state, its payload hash, and replay reproducibility. The gateway attaches it
+	// only after the reconciliation transaction commits. An exact duplicate heartbeat replays the
+	// same committed fields and committed_at but MAY mint a different URI and expiry. The URI is
 	// ephemeral secret material: neither peer may persist it in durable lease, attempt, event, log,
 	// or audit state, and both peers must redact it from diagnostics. Absence remains valid for older
 	// peers and means that reconciliation does not replace the previously delivered upload target.

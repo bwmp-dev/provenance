@@ -189,8 +189,9 @@ message Capabilities {
 
   reserved 10 to 15;
 
-  // Consumers reject unspecified, unknown, or duplicate values. A gateway must not offer leases
-  // unless durable acknowledgements are advertised.
+  // Consumers reject unspecified, unknown, or duplicate values. Negotiation applies only to the
+  // current authenticated stream and resets on reconnect. A gateway must not offer leases unless
+  // durable acknowledgements are advertised.
   repeated ProtocolFeature features = 16;
 }
 
@@ -408,6 +409,7 @@ enum ProtocolFeature {
   PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS = 1;
   PROTOCOL_FEATURE_CREDENTIAL_ROTATION = 2;
   PROTOCOL_FEATURE_JOB_CORRELATION_V1 = 3;
+  PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY = 4;
 }
 
 message FailureDetail {

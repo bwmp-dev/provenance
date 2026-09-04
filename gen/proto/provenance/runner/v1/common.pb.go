@@ -820,6 +820,7 @@ const (
 	ProtocolFeature_PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS ProtocolFeature = 1
 	ProtocolFeature_PROTOCOL_FEATURE_CREDENTIAL_ROTATION            ProtocolFeature = 2
 	ProtocolFeature_PROTOCOL_FEATURE_JOB_CORRELATION_V1             ProtocolFeature = 3
+	ProtocolFeature_PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY        ProtocolFeature = 4
 )
 
 // Enum value maps for ProtocolFeature.
@@ -829,12 +830,14 @@ var (
 		1: "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
 		2: "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
 		3: "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
+		4: "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
 	}
 	ProtocolFeature_value = map[string]int32{
 		"PROTOCOL_FEATURE_UNSPECIFIED":                    0,
 		"PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS": 1,
 		"PROTOCOL_FEATURE_CREDENTIAL_ROTATION":            2,
 		"PROTOCOL_FEATURE_JOB_CORRELATION_V1":             3,
+		"PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY":        4,
 	}
 )
 
@@ -1822,8 +1825,9 @@ type Capabilities struct {
 	Capacity         *Capacity              `protobuf:"bytes,7,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	Policy           *RunnerPolicy          `protobuf:"bytes,8,opt,name=policy,proto3" json:"policy,omitempty"`
 	Labels           map[string]string      `protobuf:"bytes,9,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Consumers reject unspecified, unknown, or duplicate values. A gateway must not offer leases
-	// unless durable acknowledgements are advertised.
+	// Consumers reject unspecified, unknown, or duplicate values. Negotiation applies only to the
+	// current authenticated stream and resets on reconnect. A gateway must not offer leases unless
+	// durable acknowledgements are advertised.
 	Features      []ProtocolFeature `protobuf:"varint,16,rep,packed,name=features,proto3,enum=provenance.runner.v1.ProtocolFeature" json:"features,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3227,12 +3231,13 @@ const file_common_proto_rawDesc = "" +
 	"\x15FAILURE_STAGE_STARTUP\x10\x03\x12\x1b\n" +
 	"\x17FAILURE_STAGE_EXECUTION\x10\x04\x12\x19\n" +
 	"\x15FAILURE_STAGE_CLEANUP\x10\x05\x12\x1f\n" +
-	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xbb\x01\n" +
+	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xe9\x01\n" +
 	"\x0fProtocolFeature\x12 \n" +
 	"\x1cPROTOCOL_FEATURE_UNSPECIFIED\x10\x00\x123\n" +
 	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01\x12(\n" +
 	"$PROTOCOL_FEATURE_CREDENTIAL_ROTATION\x10\x02\x12'\n" +
-	"#PROTOCOL_FEATURE_JOB_CORRELATION_V1\x10\x03BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
+	"#PROTOCOL_FEATURE_JOB_CORRELATION_V1\x10\x03\x12,\n" +
+	"(PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY\x10\x04BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once

@@ -10,6 +10,33 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+func TestRestartUploadRecoveryFeatureDescriptorAndRoundTrip(t *testing.T) {
+	feature := runnerv1.ProtocolFeature_PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY
+	if feature.Number() != protoreflect.EnumNumber(4) {
+		t.Fatalf("restart upload recovery feature number = %d, want 4", feature.Number())
+	}
+	descriptor := feature.Type().Descriptor().Values().ByNumber(feature.Number())
+	if descriptor.Name() != "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY" {
+		t.Fatalf("restart upload recovery feature name = %s", descriptor.Name())
+	}
+
+	capabilities := &runnerv1.Capabilities{Features: []runnerv1.ProtocolFeature{
+		runnerv1.ProtocolFeature_PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS,
+		feature,
+	}}
+	wire, err := proto.Marshal(capabilities)
+	if err != nil {
+		t.Fatalf("marshal negotiated recovery feature: %v", err)
+	}
+	var decoded runnerv1.Capabilities
+	if err := proto.Unmarshal(wire, &decoded); err != nil {
+		t.Fatalf("unmarshal negotiated recovery feature: %v", err)
+	}
+	if !proto.Equal(capabilities, &decoded) {
+		t.Fatalf("negotiated recovery features changed during round trip: got %v", &decoded)
+	}
+}
+
 func TestLeaseReconciliationRecoveryUploadRoundTrip(t *testing.T) {
 	expiresAt := timestamppb.New(time.Date(2030, time.January, 2, 3, 4, 5, 0, time.UTC))
 	reconciliation := &runnerv1.LeaseReconciliation{
