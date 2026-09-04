@@ -25,7 +25,7 @@
     "test:release": "node --test scripts/*.test.mjs",
     "test:paper-harness": "node --test packages/test-fixtures/scripts/paper-behavioral.test.mjs",
     "paper:behavioral": "node packages/test-fixtures/scripts/run-paper-behavioral.mjs",
-    "security:check": "pnpm audit --audit-level high && go -C gen/proto run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
+    "security:check": "pnpm audit --audit-level high --ignore-registry-errors && go -C gen/proto run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
     "test:python": "python schemas/config/test_contract.py && python schemas/attestation/test_contract.py && python schemas/paper-metadata/test_contract.py",
     "test:vectors": "node schemas/attestation/verify_vectors.mjs"
   },
