@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "c5b5ea8ee8bf388c311430ffde585f969ab573dfa54fe0ed3f4c30e1c9577057",
+  "descriptorSha256": "9e16b0bee5d1226b3d9df52ace6f3ee0b0b00232dba7a87cc2c3c615125c87eb",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -198,7 +198,8 @@
       "4": "status",
       "5": "phase",
       "6": "terminal_message_id",
-      "7": "cancellation_id"
+      "7": "cancellation_id",
+      "16": "complete_log_upload"
     },
     "RunnerEventAcknowledgement": {
       "1": "runner_message_id",
@@ -254,7 +255,8 @@
     ],
     "ObjectDownload": [[5, 10]],
     "JobCorrelation": [[5, 10]],
-    "JobSpecification": [[11, 20]]
+    "JobSpecification": [[11, 20]],
+    "LeaseReconciliation": [[8, 16]]
   },
   "reservedNames": {
     "Authenticate": ["registration_token"],

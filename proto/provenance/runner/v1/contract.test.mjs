@@ -402,6 +402,44 @@ test("durable acknowledgement semantics remain normative", () => {
   );
 });
 
+test("restart recovery upload remains identity-bound, optional, and ephemeral", () => {
+  const reconciliationBlock = gatewaySource.slice(
+    gatewaySource.indexOf("message LeaseReconciliation"),
+    gatewaySource.indexOf("message RunnerEventAcknowledgement"),
+  );
+
+  assert.match(reconciliationBlock, /reserved 8 to 15;/);
+  assert.match(
+    reconciliationBlock,
+    /ObjectUpload complete_log_upload\s*=\s*16\s*;/,
+  );
+  assert.match(
+    reconciliationBlock,
+    /only while reconciling the exact[\s\S]*authoritative active lease and attempt after reconnect/,
+  );
+  assert.match(
+    reconciliationBlock,
+    /does not create, replay,[\s\S]*or extend a LeaseOffer/,
+  );
+  assert.match(
+    reconciliationBlock,
+    /exact lease and attempt identity match,[\s\S]*LEASE_STATUS_ACTIVE,[\s\S]*unexpired capability/,
+  );
+  assert.match(
+    reconciliationBlock,
+    /reject a stale, substituted, expired, or otherwise mismatched capability/,
+  );
+  assert.match(
+    reconciliationBlock,
+    /neither peer may persist it in durable lease, attempt, event, log,[\s\S]*or audit state/,
+  );
+  assert.match(reconciliationBlock, /redact it from diagnostics/);
+  assert.match(
+    reconciliationBlock,
+    /Absence remains valid for older[\s\S]*peers/,
+  );
+});
+
 test("IFC-012 job correlation is bounded, negotiated, and replay-stable", () => {
   assert.match(commonSource, /v0\.1\.0-alpha\.7/);
   assert.match(commonSource, /PROTOCOL_FEATURE_JOB_CORRELATION_V1\s*=\s*3\s*;/);
