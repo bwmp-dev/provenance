@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "b64085142964a59952260cbc867f10595e3c72f1e240faf57358e324eba17667",
+  "descriptorSha256": "9fcd41c5abbf5c096fe04b116f124a29c5f10d62dad66e2efd8998376bf1be92",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -116,7 +116,8 @@
       "1": "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
       "2": "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
       "3": "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
-      "4": "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY"
+      "4": "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
+      "5": "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY"
     },
     "RunnerMessageDisposition": {
       "0": "RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED",
@@ -154,6 +155,12 @@
       "3": "filename",
       "4": "expires_at",
       "10": "size_bytes"
+    },
+    "ObjectUpload": {
+      "1": "uri",
+      "2": "content_type",
+      "3": "expires_at",
+      "10": "object_key"
     },
     "Capabilities": {
       "1": "runner_version",
@@ -255,6 +262,7 @@
       [17, 30]
     ],
     "ObjectDownload": [[5, 10]],
+    "ObjectUpload": [[4, 10]],
     "JobCorrelation": [[5, 10]],
     "JobSpecification": [[11, 20]],
     "LeaseReconciliation": [[8, 16]]

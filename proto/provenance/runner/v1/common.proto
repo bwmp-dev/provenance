@@ -205,10 +205,30 @@ message ObjectDownload {
   reserved 5 to 9;
 }
 
+// When the current authenticated stream advertises OBJECT_UPLOAD_IDENTITY, every populated
+// ObjectUpload MUST carry a conforming object_key. The gateway MUST omit object_key from streams
+// that did not advertise the feature, and a supporting runner receiving a populated object_key
+// without having advertised the feature MUST reject the containing message.
+//
+// With OBJECT_UPLOAD_IDENTITY negotiated, uri is a transport-only, opaque, short-lived upload
+// capability. Consumers MUST NOT derive durable object identity from any URI component;
+// object_key is the sole authoritative object identity. A runner advertising the feature MUST
+// reject a populated ObjectUpload whose object_key is missing or malformed before accepting an
+// offered job or replacing an in-memory recovery upload target.
+//
+// Without OBJECT_UPLOAD_IDENTITY, an absent object_key remains valid for compatibility with the
+// released alpha.9 contract. A legacy runner MAY derive the same bounded bucket-relative key from
+// a validated URI path only in that non-negotiated mode; this does not provide authoritative
+// object identity and MUST NOT be used when the feature is negotiated.
 message ObjectUpload {
   string uri = 1;
   string content_type = 2;
   google.protobuf.Timestamp expires_at = 3;
+
+  // The authoritative bucket-relative object identity. When present, it MUST be valid UTF-8
+  // between 1 and 1024 bytes, MUST NOT start with '/', contain '\\' or control characters, and
+  // every '/' separated segment MUST be non-empty and neither '.' nor '..'.
+  string object_key = 10;
 
   reserved 4 to 9;
 }
@@ -410,6 +430,7 @@ enum ProtocolFeature {
   PROTOCOL_FEATURE_CREDENTIAL_ROTATION = 2;
   PROTOCOL_FEATURE_JOB_CORRELATION_V1 = 3;
   PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY = 4;
+  PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY = 5;
 }
 
 message FailureDetail {
