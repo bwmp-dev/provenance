@@ -372,6 +372,11 @@ export const HeartbeatSchema: GenMessage<Heartbeat> = /*@__PURE__*/
   messageDesc(file_runner_gateway, 5);
 
 /**
+ * When the current authenticated stream advertises OBJECT_UPLOAD_IDENTITY and
+ * job.complete_log_upload is populated, the gateway MUST include a conforming object_key and the
+ * runner MUST validate it before accepting the lease. Without the feature, object_key MUST be
+ * absent and the released alpha.9 URI-derived compatibility behavior remains allowed.
+ *
  * @generated from message provenance.runner.v1.LeaseOffer
  */
 export type LeaseOffer = Message<"provenance.runner.v1.LeaseOffer"> & {
@@ -1027,14 +1032,21 @@ export type LeaseReconciliation = Message<"provenance.runner.v1.LeaseReconciliat
    * in-memory upload target. A runner receiving this field on a stream where it did not advertise
    * PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY MUST reject the acknowledgement. It MUST also reject a
    * stale, substituted, expired, terminal, cancelled, or otherwise mismatched capability.
+   * When the stream also advertised PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY, the gateway MUST
+   * include a conforming object_key and the runner MUST reject the acknowledgement when that key is
+   * missing or malformed. The URI is transport-only in this negotiated mode and MUST NOT be used
+   * to derive or compare durable object identity.
    *
    * Fields 1 through 7 are the committed reconciliation state; complete_log_upload is explicitly
    * excluded from that state, its payload hash, and replay reproducibility. The gateway attaches it
    * only after the reconciliation transaction commits. An exact duplicate heartbeat replays the
    * same committed fields and committed_at but MAY mint a different URI and expiry. The URI is
    * ephemeral secret material: neither peer may persist it in durable lease, attempt, event, log,
-   * or audit state, and both peers must redact it from diagnostics. Absence remains valid for older
-   * peers and means that reconciliation does not replace the previously delivered upload target.
+   * or audit state, and both peers must redact it from diagnostics. Absence of complete_log_upload
+   * remains valid for older peers and means that reconciliation does not replace the previously
+   * delivered upload target. When complete_log_upload is present without negotiated
+   * OBJECT_UPLOAD_IDENTITY, absence of object_key remains valid only for released alpha.9
+   * compatibility and permits the legacy bounded URI-path derivation.
    *
    * @generated from field: provenance.runner.v1.ObjectUpload complete_log_upload = 16;
    */

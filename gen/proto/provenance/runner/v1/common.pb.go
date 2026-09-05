@@ -821,6 +821,7 @@ const (
 	ProtocolFeature_PROTOCOL_FEATURE_CREDENTIAL_ROTATION            ProtocolFeature = 2
 	ProtocolFeature_PROTOCOL_FEATURE_JOB_CORRELATION_V1             ProtocolFeature = 3
 	ProtocolFeature_PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY        ProtocolFeature = 4
+	ProtocolFeature_PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY         ProtocolFeature = 5
 )
 
 // Enum value maps for ProtocolFeature.
@@ -831,6 +832,7 @@ var (
 		2: "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
 		3: "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
 		4: "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
+		5: "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
 	}
 	ProtocolFeature_value = map[string]int32{
 		"PROTOCOL_FEATURE_UNSPECIFIED":                    0,
@@ -838,6 +840,7 @@ var (
 		"PROTOCOL_FEATURE_CREDENTIAL_ROTATION":            2,
 		"PROTOCOL_FEATURE_JOB_CORRELATION_V1":             3,
 		"PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY":        4,
+		"PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY":         5,
 	}
 )
 
@@ -2009,16 +2012,29 @@ func (x *ObjectDownload) GetSizeBytes() int64 {
 	return 0
 }
 
+// When the current authenticated stream advertises OBJECT_UPLOAD_IDENTITY, every populated
+// ObjectUpload MUST carry a conforming object_key. The gateway MUST omit object_key from streams
+// that did not advertise the feature, and a supporting runner receiving a populated object_key
+// without having advertised the feature MUST reject the containing message.
+//
+// With OBJECT_UPLOAD_IDENTITY negotiated, uri is a transport-only, opaque, short-lived upload
+// capability. Consumers MUST NOT derive durable object identity from any URI component;
+// object_key is the sole authoritative object identity. A runner advertising the feature MUST
+// reject a populated ObjectUpload whose object_key is missing or malformed before accepting an
+// offered job or replacing an in-memory recovery upload target.
+//
+// Without OBJECT_UPLOAD_IDENTITY, an absent object_key remains valid for compatibility with the
+// released alpha.9 contract. A legacy runner MAY derive the same bounded bucket-relative key from
+// a validated URI path only in that non-negotiated mode; this does not provide authoritative
+// object identity and MUST NOT be used when the feature is negotiated.
 type ObjectUpload struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// uri is an opaque, short-lived upload capability. Consumers MUST NOT derive durable object
-	// identity from any URI component; object_key is the sole authoritative object identity.
+	state       protoimpl.MessageState `protogen:"open.v1"`
 	Uri         string                 `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
 	ContentType string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	ExpiresAt   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	// object_key is the durable bucket-relative object identity. It MUST be valid UTF-8 between 1
-	// and 1024 bytes, MUST NOT start with '/', contain '\\' or control characters, and every '/'
-	// separated segment MUST be non-empty and neither '.' nor '..'.
+	// The authoritative bucket-relative object identity. When present, it MUST be valid UTF-8
+	// between 1 and 1024 bytes, MUST NOT start with '/', contain '\\' or control characters, and
+	// every '/' separated segment MUST be non-empty and neither '.' nor '..'.
 	ObjectKey     string `protobuf:"bytes,10,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3247,13 +3263,14 @@ const file_common_proto_rawDesc = "" +
 	"\x15FAILURE_STAGE_STARTUP\x10\x03\x12\x1b\n" +
 	"\x17FAILURE_STAGE_EXECUTION\x10\x04\x12\x19\n" +
 	"\x15FAILURE_STAGE_CLEANUP\x10\x05\x12\x1f\n" +
-	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xe9\x01\n" +
+	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\x96\x02\n" +
 	"\x0fProtocolFeature\x12 \n" +
 	"\x1cPROTOCOL_FEATURE_UNSPECIFIED\x10\x00\x123\n" +
 	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01\x12(\n" +
 	"$PROTOCOL_FEATURE_CREDENTIAL_ROTATION\x10\x02\x12'\n" +
 	"#PROTOCOL_FEATURE_JOB_CORRELATION_V1\x10\x03\x12,\n" +
-	"(PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY\x10\x04BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
+	"(PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY\x10\x04\x12+\n" +
+	"'PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY\x10\x05BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once

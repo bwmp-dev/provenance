@@ -1009,6 +1009,10 @@ func (x *Heartbeat) GetObservedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// When the current authenticated stream advertises OBJECT_UPLOAD_IDENTITY and
+// job.complete_log_upload is populated, the gateway MUST include a conforming object_key and the
+// runner MUST validate it before accepting the lease. Without the feature, object_key MUST be
+// absent and the released alpha.9 URI-derived compatibility behavior remains allowed.
 type LeaseOffer struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Job            *JobSpecification      `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
@@ -2249,14 +2253,21 @@ type LeaseReconciliation struct {
 	// in-memory upload target. A runner receiving this field on a stream where it did not advertise
 	// PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY MUST reject the acknowledgement. It MUST also reject a
 	// stale, substituted, expired, terminal, cancelled, or otherwise mismatched capability.
+	// When the stream also advertised PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY, the gateway MUST
+	// include a conforming object_key and the runner MUST reject the acknowledgement when that key is
+	// missing or malformed. The URI is transport-only in this negotiated mode and MUST NOT be used
+	// to derive or compare durable object identity.
 	//
 	// Fields 1 through 7 are the committed reconciliation state; complete_log_upload is explicitly
 	// excluded from that state, its payload hash, and replay reproducibility. The gateway attaches it
 	// only after the reconciliation transaction commits. An exact duplicate heartbeat replays the
 	// same committed fields and committed_at but MAY mint a different URI and expiry. The URI is
 	// ephemeral secret material: neither peer may persist it in durable lease, attempt, event, log,
-	// or audit state, and both peers must redact it from diagnostics. Absence remains valid for older
-	// peers and means that reconciliation does not replace the previously delivered upload target.
+	// or audit state, and both peers must redact it from diagnostics. Absence of complete_log_upload
+	// remains valid for older peers and means that reconciliation does not replace the previously
+	// delivered upload target. When complete_log_upload is present without negotiated
+	// OBJECT_UPLOAD_IDENTITY, absence of object_key remains valid only for released alpha.9
+	// compatibility and permits the legacy bounded URI-path derivation.
 	CompleteLogUpload *ObjectUpload `protobuf:"bytes,16,opt,name=complete_log_upload,json=completeLogUpload,proto3" json:"complete_log_upload,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache

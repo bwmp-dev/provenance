@@ -30,6 +30,7 @@ const protocolFeature = Object.freeze({
   credentialRotation: 2,
   jobCorrelationV1: 3,
   restartUploadRecovery: 4,
+  objectUploadIdentity: 5,
 });
 
 function validProtocolFeatures(features) {
@@ -100,8 +101,13 @@ function futureTimestamp(value, now) {
 }
 
 function validObjectKey(value) {
+  const utf8RoundTrip =
+    typeof value === "string"
+      ? Buffer.from(value, "utf8").toString("utf8")
+      : undefined;
   if (
     typeof value !== "string" ||
+    utf8RoundTrip !== value ||
     Buffer.byteLength(value, "utf8") < 1 ||
     Buffer.byteLength(value, "utf8") > 1024 ||
     value.startsWith("/") ||
@@ -117,6 +123,42 @@ function validObjectKey(value) {
   return value
     .split("/")
     .every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
+function legacyObjectKeyFromUri(value) {
+  try {
+    const uri = new URL(value);
+    if (
+      uri.protocol !== "https:" ||
+      uri.username !== "" ||
+      uri.password !== "" ||
+      uri.hash !== "" ||
+      uri.pathname.includes("%") ||
+      !uri.pathname.startsWith("/")
+    ) {
+      return undefined;
+    }
+    return uri.pathname.slice(1);
+  } catch {
+    return undefined;
+  }
+}
+
+function validObjectUploadIdentity(features, upload) {
+  if (!validProtocolFeatures(features) || upload == null) {
+    return upload == null && validProtocolFeatures(features);
+  }
+  if (features.includes(protocolFeature.objectUploadIdentity)) {
+    return validObjectKey(upload.objectKey);
+  }
+  if (upload.objectKey !== undefined && upload.objectKey !== "") {
+    return false;
+  }
+  return validObjectKey(legacyObjectKeyFromUri(upload.uri));
+}
+
+function validJobSpecificationUpload(features, job) {
+  return validObjectUploadIdentity(features, job?.completeLogUpload);
 }
 
 function validRestartUploadRecovery(features, reconciliation, localJob, now) {
@@ -145,7 +187,7 @@ function validRestartUploadRecovery(features, reconciliation, localJob, now) {
     futureTimestamp(reconciliation.lease.expiresAt, now) &&
     upload.contentType === "application/gzip" &&
     futureTimestamp(upload.expiresAt, now) &&
-    validObjectKey(upload.objectKey)
+    validObjectUploadIdentity(features, upload)
   );
 }
 
@@ -480,6 +522,158 @@ test("durable acknowledgement semantics remain normative", () => {
   );
 });
 
+test("authoritative object upload identity is negotiated and URI-independent", () => {
+  assert.match(
+    commonSource,
+    /PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY\s*=\s*5\s*;/,
+  );
+  assert.equal(
+    snapshot.criticalEnums.ProtocolFeature["5"],
+    "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
+  );
+  assert.equal(snapshot.criticalFields.ObjectUpload["10"], "object_key");
+  assert.deepEqual(snapshot.reservedRanges.ObjectUpload, [[4, 10]]);
+
+  const objectUploadBlock = commonSource.slice(
+    commonSource.indexOf(
+      "// When the current authenticated stream advertises OBJECT_UPLOAD_IDENTITY",
+    ),
+    commonSource.indexOf("message DependencyInput"),
+  );
+  const objectUploadNormative = objectUploadBlock
+    .replaceAll("//", "")
+    .replaceAll(/\s+/g, " ");
+  assert.match(objectUploadBlock, /string object_key\s*=\s*10\s*;/);
+  assert.match(objectUploadBlock, /reserved 4 to 9;/);
+  assert.match(
+    objectUploadNormative,
+    /every populated ObjectUpload MUST carry a conforming object_key/,
+  );
+  assert.match(
+    objectUploadNormative,
+    /gateway MUST omit object_key from streams that did not advertise the feature/,
+  );
+  assert.match(
+    objectUploadNormative,
+    /runner receiving a populated object_key without having advertised the feature MUST reject/,
+  );
+  assert.match(
+    objectUploadNormative,
+    /uri is a transport-only, opaque, short-lived upload capability[\s\S]*MUST NOT derive durable object identity from any URI component/,
+  );
+  assert.match(
+    objectUploadNormative,
+    /object_key is missing or malformed before accepting an offered job or replacing an in-memory recovery upload target/,
+  );
+  assert.match(
+    objectUploadNormative,
+    /absent object_key remains valid for compatibility with the released alpha\.9 contract/,
+  );
+  assert.match(
+    objectUploadNormative,
+    /legacy runner MAY derive the same bounded bucket-relative key from a validated URI path only in that non-negotiated mode/,
+  );
+  assert.match(objectUploadNormative, /between 1 and 1024 bytes/);
+
+  const leaseOfferBlock = gatewaySource.slice(
+    gatewaySource.indexOf(
+      "// When the current authenticated stream advertises OBJECT_UPLOAD_IDENTITY",
+    ),
+    gatewaySource.indexOf("message LeaseAccepted"),
+  );
+  const leaseOfferNormative = leaseOfferBlock
+    .replaceAll("//", "")
+    .replaceAll(/\s+/g, " ");
+  assert.match(
+    leaseOfferNormative,
+    /OBJECT_UPLOAD_IDENTITY[\s\S]*job\.complete_log_upload[\s\S]*MUST include a conforming object_key/,
+  );
+  assert.match(
+    leaseOfferNormative,
+    /runner MUST validate it before accepting the lease/,
+  );
+  assert.match(
+    leaseOfferNormative,
+    /Without the feature, object_key MUST be absent[\s\S]*alpha\.9 URI-derived compatibility behavior remains allowed/,
+  );
+
+  const upload = {
+    uri: "https://object.invalid/an-opaque-transport-path?signature=secret",
+    contentType: "application/gzip",
+    expiresAt: "2030-01-02T03:30:00.000Z",
+    objectKey: "complete-logs/candidate/attempt.log.gz",
+  };
+  const job = { completeLogUpload: upload };
+  const negotiated = [
+    protocolFeature.durableLeaseAcknowledgements,
+    protocolFeature.objectUploadIdentity,
+  ];
+
+  assert.equal(validJobSpecificationUpload(negotiated, job), true);
+  assert.equal(
+    validJobSpecificationUpload(negotiated, {
+      completeLogUpload: {
+        ...upload,
+        uri: "https://different.invalid/not-the-object-key?different=capability",
+      },
+    }),
+    true,
+    "negotiated job identity is independent of the transport URI",
+  );
+  assert.equal(
+    validJobSpecificationUpload(negotiated, {
+      completeLogUpload: { ...upload, objectKey: "" },
+    }),
+    false,
+    "negotiated jobs reject a missing key",
+  );
+
+  const legacyUpload = structuredClone(upload);
+  delete legacyUpload.objectKey;
+  assert.equal(
+    validJobSpecificationUpload(
+      [protocolFeature.durableLeaseAcknowledgements],
+      { completeLogUpload: legacyUpload },
+    ),
+    true,
+    "released alpha.9 URI-path derivation remains valid without negotiation",
+  );
+  assert.equal(
+    validJobSpecificationUpload(
+      [protocolFeature.durableLeaseAcknowledgements],
+      job,
+    ),
+    false,
+    "a new field cannot be sent without negotiation",
+  );
+
+  assert.equal(validObjectKey("x".repeat(1024)), true, "1024-byte key");
+  assert.equal(
+    validObjectKey("é".repeat(513)),
+    false,
+    "the key bound is measured in UTF-8 bytes",
+  );
+  for (const objectKey of [
+    "",
+    "/complete-logs/attempt.log.gz",
+    "complete-logs//attempt.log.gz",
+    "complete-logs/./attempt.log.gz",
+    "complete-logs/../attempt.log.gz",
+    "complete-logs\\attempt.log.gz",
+    "complete-logs/control\u0000.log.gz",
+    "complete-logs/lone-surrogate-\ud800.log.gz",
+    "x".repeat(1025),
+  ]) {
+    assert.equal(validObjectKey(objectKey), false, JSON.stringify(objectKey));
+    assert.equal(
+      validJobSpecificationUpload(negotiated, {
+        completeLogUpload: { ...upload, objectKey },
+      }),
+      false,
+    );
+  }
+});
+
 test("restart recovery upload is feature-gated, identity-bound, and ephemeral", () => {
   const reconciliationBlock = gatewaySource.slice(
     gatewaySource.indexOf("message LeaseReconciliation"),
@@ -500,25 +694,6 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
   assert.equal(
     snapshot.criticalFields.LeaseReconciliation["16"],
     "complete_log_upload",
-  );
-  assert.equal(snapshot.criticalFields.ObjectUpload["10"], "object_key");
-  assert.deepEqual(snapshot.reservedRanges.ObjectUpload, [[4, 10]]);
-  const objectUploadBlock = commonSource.slice(
-    commonSource.indexOf("message ObjectUpload"),
-    commonSource.indexOf("message DependencyInput"),
-  );
-  const objectUploadNormative = objectUploadBlock
-    .replaceAll("//", "")
-    .replaceAll(/\s+/g, " ");
-  assert.match(objectUploadBlock, /string object_key\s*=\s*10\s*;/);
-  assert.match(objectUploadBlock, /reserved 4 to 9;/);
-  assert.match(
-    objectUploadNormative,
-    /uri is an opaque, short-lived upload capability[\s\S]*MUST NOT derive durable object identity from any URI component/,
-  );
-  assert.match(
-    objectUploadNormative,
-    /object_key is the durable bucket-relative object identity[\s\S]*between 1 and 1024 bytes/,
   );
   assert.match(reconciliationBlock, /reserved 8 to 15;/);
   assert.match(
@@ -559,6 +734,18 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
   );
   assert.match(
     reconciliationNormative,
+    /also advertised PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY[\s\S]*MUST include a conforming object_key/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /runner MUST reject the acknowledgement when that key is missing or malformed/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /URI is transport-only in this negotiated mode and MUST NOT be used to derive or compare durable object identity/,
+  );
+  assert.match(
+    reconciliationNormative,
     /Fields 1 through 7 are the committed reconciliation state; complete_log_upload is explicitly[\s\S]*excluded from that state, its payload hash, and replay reproducibility/,
   );
   assert.match(
@@ -572,7 +759,11 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
   assert.match(reconciliationNormative, /redact it from diagnostics/);
   assert.match(
     reconciliationNormative,
-    /Absence remains valid for older[\s\S]*peers/,
+    /Absence of complete_log_upload remains valid for older peers/,
+  );
+  assert.match(
+    reconciliationNormative,
+    /present without negotiated OBJECT_UPLOAD_IDENTITY[\s\S]*absence of object_key remains valid only for released alpha\.9 compatibility[\s\S]*legacy bounded URI-path derivation/,
   );
 
   const now = new Date("2030-01-02T03:04:05.000Z");
@@ -604,17 +795,12 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
   const negotiated = [
     protocolFeature.durableLeaseAcknowledgements,
     protocolFeature.restartUploadRecovery,
+    protocolFeature.objectUploadIdentity,
   ];
 
   assert.equal(
     validRestartUploadRecovery(negotiated, reconciliation, localJob, now),
     true,
-  );
-  assert.equal(validObjectKey("x".repeat(1024)), true, "1024-byte key");
-  assert.equal(
-    validObjectKey("é".repeat(513)),
-    false,
-    "the key bound is measured in UTF-8 bytes",
   );
   assert.equal(
     validRestartUploadRecovery(
@@ -631,6 +817,34 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
     ),
     true,
     "object identity is explicit and must not be derived from the opaque URI",
+  );
+  const legacyReconciliation = structuredClone(reconciliation);
+  delete legacyReconciliation.completeLogUpload.objectKey;
+  assert.equal(
+    validRestartUploadRecovery(
+      [
+        protocolFeature.durableLeaseAcknowledgements,
+        protocolFeature.restartUploadRecovery,
+      ],
+      legacyReconciliation,
+      localJob,
+      now,
+    ),
+    true,
+    "released alpha.9 recovery may derive the key from URI without identity negotiation",
+  );
+  assert.equal(
+    validRestartUploadRecovery(
+      [
+        protocolFeature.durableLeaseAcknowledgements,
+        protocolFeature.restartUploadRecovery,
+      ],
+      reconciliation,
+      localJob,
+      now,
+    ),
+    false,
+    "recovery object_key cannot be sent without identity negotiation",
   );
   assert.equal(
     validRestartUploadRecovery(
