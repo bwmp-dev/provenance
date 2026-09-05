@@ -2010,10 +2010,16 @@ func (x *ObjectDownload) GetSizeBytes() int64 {
 }
 
 type ObjectUpload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Uri           string                 `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
-	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// uri is an opaque, short-lived upload capability. Consumers MUST NOT derive durable object
+	// identity from any URI component; object_key is the sole authoritative object identity.
+	Uri         string                 `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
+	ContentType string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	ExpiresAt   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// object_key is the durable bucket-relative object identity. It MUST be valid UTF-8 between 1
+	// and 1024 bytes, MUST NOT start with '/', contain '\\' or control characters, and every '/'
+	// separated segment MUST be non-empty and neither '.' nor '..'.
+	ObjectKey     string `protobuf:"bytes,10,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2067,6 +2073,13 @@ func (x *ObjectUpload) GetExpiresAt() *timestamppb.Timestamp {
 		return x.ExpiresAt
 	}
 	return nil
+}
+
+func (x *ObjectUpload) GetObjectKey() string {
+	if x != nil {
+		return x.ObjectKey
+	}
+	return ""
 }
 
 type DependencyInput struct {
@@ -3053,12 +3066,15 @@ const file_common_proto_rawDesc = "" +
 	"\n" +
 	"size_bytes\x18\n" +
 	" \x01(\x03R\tsizeBytesJ\x04\b\x05\x10\n" +
-	"\"\x84\x01\n" +
+	"\"\xa3\x01\n" +
 	"\fObjectUpload\x12\x10\n" +
 	"\x03uri\x18\x01 \x01(\tR\x03uri\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x129\n" +
 	"\n" +
-	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAtJ\x04\b\x04\x10\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1d\n" +
+	"\n" +
+	"object_key\x18\n" +
+	" \x01(\tR\tobjectKeyJ\x04\b\x04\x10\n" +
 	"\"\x9b\x01\n" +
 	"\x0fDependencyInput\x12#\n" +
 	"\rdependency_id\x18\x01 \x01(\tR\fdependencyId\x12<\n" +

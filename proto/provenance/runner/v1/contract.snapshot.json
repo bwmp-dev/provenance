@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "b64085142964a59952260cbc867f10595e3c72f1e240faf57358e324eba17667",
+  "descriptorSha256": "31f43f14791ca041b21119b12662c08a9e649ddc6ad8c1791ffbb9cd0520ad0f",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -155,6 +155,12 @@
       "4": "expires_at",
       "10": "size_bytes"
     },
+    "ObjectUpload": {
+      "1": "uri",
+      "2": "content_type",
+      "3": "expires_at",
+      "10": "object_key"
+    },
     "Capabilities": {
       "1": "runner_version",
       "2": "protocol_versions",
@@ -255,6 +261,7 @@
       [17, 30]
     ],
     "ObjectDownload": [[5, 10]],
+    "ObjectUpload": [[4, 10]],
     "JobCorrelation": [[5, 10]],
     "JobSpecification": [[11, 20]],
     "LeaseReconciliation": [[8, 16]]

@@ -206,9 +206,16 @@ message ObjectDownload {
 }
 
 message ObjectUpload {
+  // uri is an opaque, short-lived upload capability. Consumers MUST NOT derive durable object
+  // identity from any URI component; object_key is the sole authoritative object identity.
   string uri = 1;
   string content_type = 2;
   google.protobuf.Timestamp expires_at = 3;
+
+  // object_key is the durable bucket-relative object identity. It MUST be valid UTF-8 between 1
+  // and 1024 bytes, MUST NOT start with '/', contain '\\' or control characters, and every '/'
+  // separated segment MUST be non-empty and neither '.' nor '..'.
+  string object_key = 10;
 
   reserved 4 to 9;
 }

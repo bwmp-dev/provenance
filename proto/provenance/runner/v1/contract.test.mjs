@@ -99,6 +99,26 @@ function futureTimestamp(value, now) {
   return Number.isFinite(parsed) && parsed > now.getTime();
 }
 
+function validObjectKey(value) {
+  if (
+    typeof value !== "string" ||
+    Buffer.byteLength(value, "utf8") < 1 ||
+    Buffer.byteLength(value, "utf8") > 1024 ||
+    value.startsWith("/") ||
+    value.includes("\\") ||
+    [...value].some((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f);
+    })
+  ) {
+    return false;
+  }
+
+  return value
+    .split("/")
+    .every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
 function validRestartUploadRecovery(features, reconciliation, localJob, now) {
   if (!validProtocolFeatures(features)) {
     return false;
@@ -124,7 +144,8 @@ function validRestartUploadRecovery(features, reconciliation, localJob, now) {
     ]) &&
     futureTimestamp(reconciliation.lease.expiresAt, now) &&
     upload.contentType === "application/gzip" &&
-    futureTimestamp(upload.expiresAt, now)
+    futureTimestamp(upload.expiresAt, now) &&
+    validObjectKey(upload.objectKey)
   );
 }
 
@@ -480,6 +501,25 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
     snapshot.criticalFields.LeaseReconciliation["16"],
     "complete_log_upload",
   );
+  assert.equal(snapshot.criticalFields.ObjectUpload["10"], "object_key");
+  assert.deepEqual(snapshot.reservedRanges.ObjectUpload, [[4, 10]]);
+  const objectUploadBlock = commonSource.slice(
+    commonSource.indexOf("message ObjectUpload"),
+    commonSource.indexOf("message DependencyInput"),
+  );
+  const objectUploadNormative = objectUploadBlock
+    .replaceAll("//", "")
+    .replaceAll(/\s+/g, " ");
+  assert.match(objectUploadBlock, /string object_key\s*=\s*10\s*;/);
+  assert.match(objectUploadBlock, /reserved 4 to 9;/);
+  assert.match(
+    objectUploadNormative,
+    /uri is an opaque, short-lived upload capability[\s\S]*MUST NOT derive durable object identity from any URI component/,
+  );
+  assert.match(
+    objectUploadNormative,
+    /object_key is the durable bucket-relative object identity[\s\S]*between 1 and 1024 bytes/,
+  );
   assert.match(reconciliationBlock, /reserved 8 to 15;/);
   assert.match(
     reconciliationBlock,
@@ -558,6 +598,7 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
       uri: "https://object.invalid/ephemeral-recovery-capability",
       contentType: "application/gzip",
       expiresAt: "2030-01-02T03:30:00.000Z",
+      objectKey: "complete-logs/candidate-recovery/attempt-recovery.log.gz",
     },
   };
   const negotiated = [
@@ -568,6 +609,28 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
   assert.equal(
     validRestartUploadRecovery(negotiated, reconciliation, localJob, now),
     true,
+  );
+  assert.equal(validObjectKey("x".repeat(1024)), true, "1024-byte key");
+  assert.equal(
+    validObjectKey("é".repeat(513)),
+    false,
+    "the key bound is measured in UTF-8 bytes",
+  );
+  assert.equal(
+    validRestartUploadRecovery(
+      negotiated,
+      {
+        ...reconciliation,
+        completeLogUpload: {
+          ...reconciliation.completeLogUpload,
+          uri: "https://another.invalid/a-path-unrelated-to-the-object-key?signature=opaque",
+        },
+      },
+      localJob,
+      now,
+    ),
+    true,
+    "object identity is explicit and must not be derived from the opaque URI",
   );
   assert.equal(
     validRestartUploadRecovery(
@@ -641,6 +704,22 @@ test("restart recovery upload is feature-gated, identity-bound, and ephemeral", 
         expiresAt: now.toISOString(),
       },
     },
+    ...[
+      "",
+      "/complete-logs/attempt.log.gz",
+      "complete-logs//attempt.log.gz",
+      "complete-logs/./attempt.log.gz",
+      "complete-logs/../attempt.log.gz",
+      "complete-logs\\attempt.log.gz",
+      "complete-logs/control\u0000.log.gz",
+      "x".repeat(1025),
+    ].map((objectKey) => ({
+      ...reconciliation,
+      completeLogUpload: {
+        ...reconciliation.completeLogUpload,
+        objectKey,
+      },
+    })),
   ]) {
     assert.equal(
       validRestartUploadRecovery(negotiated, invalid, localJob, now),
