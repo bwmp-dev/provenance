@@ -167,30 +167,31 @@ async function expectedRuntimeDependencies() {
     dependenciesByBundle.set(bundle.id, bundleDependencies);
   }
 
-  const goMod = await readFile(
-    resolve(repositoryDirectory, "gen/proto/go.mod"),
-    "utf8",
-  );
-  const goSum = await readFile(
-    resolve(repositoryDirectory, "gen/proto/go.sum"),
-    "utf8",
-  );
-  const sums = new Map();
-  for (const line of goSum.trimEnd().split("\n")) {
-    const match = /^(\S+) (\S+) h1:(\S+)$/.exec(line.trim());
-    if (match && !match[2].endsWith("/go.mod")) {
-      sums.set(`${match[1]}@${match[2]}`, match[3]);
-    }
-  }
-  const runnerDependencies = new Set(
-    dependenciesByBundle.get("runner-protocol") ?? [],
-  );
-  for (const block of goMod.matchAll(/require\s*\(([^)]*)\)/g)) {
-    for (const line of block[1].trim().split("\n")) {
-      const match = /^(\S+)\s+(\S+)/.exec(line.trim());
-      if (!match) {
-        continue;
+  for (const [bundleId, module] of [
+    ["runner-protocol", "gen/proto"],
+    ["attestation-schema", "packages/verification-go"],
+  ]) {
+    const goMod = await readFile(
+      resolve(repositoryDirectory, `${module}/go.mod`),
+      "utf8",
+    );
+    const goSum = await readFile(
+      resolve(repositoryDirectory, `${module}/go.sum`),
+      "utf8",
+    );
+    const sums = new Map();
+    for (const line of goSum.trimEnd().split("\n")) {
+      const match = /^(\S+) (\S+) h1:(\S+)$/.exec(line.trim());
+      if (match && !match[2].endsWith("/go.mod")) {
+        sums.set(`${match[1]}@${match[2]}`, match[3]);
       }
+    }
+    const runnerDependencies = new Set(
+      dependenciesByBundle.get(bundleId) ?? [],
+    );
+    for (const match of goMod.matchAll(
+      /^\s*(?:require\s+)?([^\s()]+)\s+(v\S+)/gm,
+    )) {
       const packageKey = `${match[1]}@${match[2]}`;
       const sum = sums.get(packageKey);
       invariant(sum, `go.sum is missing module checksum: ${packageKey}`);
@@ -208,8 +209,8 @@ async function expectedRuntimeDependencies() {
       });
       runnerDependencies.add(key);
     }
+    dependenciesByBundle.set(bundleId, runnerDependencies);
   }
-  dependenciesByBundle.set("runner-protocol", runnerDependencies);
 
   const javaDependencies = await readJson(
     resolve(
@@ -499,6 +500,29 @@ async function verifyArchive({
         `unknown bundle transform: ${file.transform}`,
       );
     }
+  }
+  if (archive.bundle === "attestation-schema") {
+    equalStringSets(
+      embeddedManifest.files
+        .filter((file) => file.path.startsWith("go/"))
+        .map((file) => file.path),
+      [
+        "go/verification.go",
+        "go/json.go",
+        "go/schema.json",
+        "go/go.mod",
+        "go/go.sum",
+        "go/README.md",
+        "go/LICENSE",
+      ],
+      "released Go verifier file inventory differs",
+    );
+    invariant(
+      (await readFile(resolve(extractedRoot, "go/schema.json"))).equals(
+        await readFile(resolve(extractedRoot, "schema/schema.json")),
+      ),
+      "released Go verifier embedded schema differs",
+    );
   }
   const embeddedManifestContents = await readFile(
     resolve(extractedRoot, "RELEASE-MANIFEST.json"),
@@ -964,6 +988,122 @@ async function installNodeConsumer(
   );
 }
 
+async function verifyReleasedGoVerifier(root) {
+  const moduleDirectory = resolve(root, "go");
+  const modulePath = "github.com/bwmp-dev/provenance/packages/verification-go";
+  const goMod = await readFile(resolve(moduleDirectory, "go.mod"), "utf8");
+  invariant(
+    goMod.startsWith(`module ${modulePath}\n`),
+    "released Go verifier module identity differs",
+  );
+  invariant(
+    (await readFile(resolve(moduleDirectory, "schema.json"))).equals(
+      await readFile(resolve(root, "schema/schema.json")),
+    ),
+    "released Go verifier embedded schema differs",
+  );
+  const consumer = await mkdtemp(
+    join(tmpdir(), "provenance-released-go-consumer-"),
+  );
+  try {
+    const requirements = [
+      ...goMod.matchAll(/^\s*(?:require\s+)?([^\s()]+)\s+(v\S+)/gm),
+    ];
+    await writeFile(
+      resolve(consumer, "go.mod"),
+      [
+        "module released-verifier-consumer",
+        "",
+        "go 1.25.13",
+        "",
+        "require (",
+        `  ${modulePath} v0.0.0`,
+        ...requirements.map((match) => `  ${match[1]} ${match[2]}`),
+        ")",
+        "",
+        `replace ${modulePath} => ${JSON.stringify(moduleDirectory)}`,
+        "",
+      ].join("\n"),
+    );
+    await writeFile(
+      resolve(consumer, "go.sum"),
+      await readFile(resolve(moduleDirectory, "go.sum")),
+    );
+    await writeFile(
+      resolve(consumer, "consumer_test.go"),
+      `package consumer
+import (
+ "bytes"
+ "crypto/ed25519"
+ "crypto/sha256"
+ "encoding/hex"
+ "encoding/json"
+ "errors"
+ "io"
+ "os"
+ "testing"
+ verification "github.com/bwmp-dev/provenance/packages/verification-go"
+)
+type countedReader struct { reads int }
+func (r *countedReader) Read(p []byte) (int, error) { r.reads++; return 0, io.EOF }
+var sentinel = errors.New("reader failure")
+type failedReader struct{}
+func (failedReader) Read(p []byte) (int, error) { return 0, sentinel }
+func TestReleasedVerifier(t *testing.T) {
+ raw, err := os.ReadFile(os.Getenv("VERIFIER_FIXTURE")); if err != nil { t.Fatal(err) }
+ var fixture struct { Document json.RawMessage; ArtifactHex, PublicKeyHex string }
+ if err := json.Unmarshal(raw, &fixture); err != nil { t.Fatal(err) }
+ artifact, err := hex.DecodeString(fixture.ArtifactHex); if err != nil { t.Fatal(err) }
+ key, err := hex.DecodeString(fixture.PublicKeyHex); if err != nil { t.Fatal(err) }
+ identity, err := verification.VerifyArtifact(fixture.Document, ed25519.PublicKey(key), bytes.NewReader(artifact))
+ expectedHash := sha256.Sum256(artifact)
+ if err != nil || identity.SizeBytes != int64(len(artifact)) || identity.SHA256 != hex.EncodeToString(expectedHash[:]) { t.Fatalf("valid artifact: %+v %v", identity, err) }
+ if _, err := verification.VerifyEnvelope(fixture.Document, key); err != nil { t.Fatal(err) }
+ invalid := bytes.Replace(fixture.Document, []byte("plugin-"), []byte("changed-"), 1)
+ if bytes.Equal(invalid, fixture.Document) { t.Fatal("mutation did not apply") }
+ unread := &countedReader{}
+ if _, err := verification.VerifyArtifact(invalid, key, unread); !errors.Is(err, verification.ErrSignature) || unread.reads != 0 { t.Fatalf("signature-before-read: %v reads=%d", err, unread.reads) }
+ wrong := append([]byte(nil), artifact...); wrong[0] ^= 1
+ if _, err := verification.VerifyArtifact(fixture.Document, key, bytes.NewReader(wrong)); !errors.Is(err, verification.ErrDigest) { t.Fatalf("digest: %v", err) }
+ for _, data := range [][]byte{artifact[:len(artifact)-1], append(append([]byte(nil), artifact...), 0)} {
+  if _, err := verification.VerifyArtifact(fixture.Document, key, bytes.NewReader(data)); !errors.Is(err, verification.ErrSize) { t.Fatalf("size: %v", err) }
+ }
+ if _, err := verification.VerifyArtifact(fixture.Document, key, failedReader{}); !errors.Is(err, verification.ErrRead) || !errors.Is(err, sentinel) { t.Fatalf("reader: %v", err) }
+}
+`,
+    );
+    const environment = {
+      GOWORK: "off",
+      GOPATH: resolve(consumer, "gopath"),
+      GOMODCACHE: resolve(consumer, "modules"),
+      GOFLAGS: "-modcacherw",
+      GOTOOLCHAIN: "local",
+    };
+    // Provision checksum-verified dependencies explicitly before disabling their
+    // resolution. This is not a claim of an offline cold installation.
+    run(
+      "go",
+      ["mod", "download"],
+      consumer,
+      "released Go verifier dependency provisioning",
+      environment,
+    );
+    const offline = { ...environment, GOPROXY: "off", GOSUMDB: "off" };
+    run(
+      "go",
+      ["test", "-mod=readonly", "-count=1", "./..."],
+      consumer,
+      "isolated released Go verifier",
+      {
+        ...offline,
+        VERIFIER_FIXTURE: resolve(root, "fixtures/interop/small-artifact.json"),
+      },
+    );
+  } finally {
+    await rm(consumer, { recursive: true, force: true });
+  }
+}
+
 async function verifyConsumers(bundleRoots, version) {
   const rootFor = (bundle) => {
     const root = bundleRoots.get(bundle);
@@ -1160,6 +1300,7 @@ async function verifyConsumers(bundleRoots, version) {
 
   {
     const root = rootFor("attestation-schema");
+    await verifyReleasedGoVerifier(root);
     await installNodeConsumer(
       resolve(root, "package"),
       "packages/verification",

@@ -42,9 +42,11 @@ export const contractBundles = [
   },
   {
     id: "attestation-schema",
+    goModule: "packages/verification-go",
     nodeImporter: "packages/verification",
     entries: [
       { source: "LICENSE", destination: "LICENSE" },
+      { source: "LICENSE", destination: "go/LICENSE" },
       {
         source: "packages/verification/package.json",
         destination: "package/package.json",
@@ -56,6 +58,17 @@ export const contractBundles = [
       },
       { source: "schemas/attestation/v1", destination: "schema" },
       { source: "schemas/fixtures/attestation", destination: "fixtures" },
+      ...[
+        "verification.go",
+        "json.go",
+        "schema.json",
+        "go.mod",
+        "go.sum",
+        "README.md",
+      ].map((name) => ({
+        source: `packages/verification-go/${name}`,
+        destination: `go/${name}`,
+      })),
     ],
   },
   {
@@ -497,58 +510,56 @@ async function runtimeDependencyInventory() {
     dependenciesByBundle.set(bundle.id, bundleDependencies);
   }
 
-  const goMod = await readFile(
-    resolve(repositoryDirectory, "gen/proto/go.mod"),
-    "utf8",
-  );
-  const goSum = await readFile(
-    resolve(repositoryDirectory, "gen/proto/go.sum"),
-    "utf8",
-  );
-  const sums = new Map();
-  for (const line of goSum.trimEnd().split("\n")) {
-    const match = /^(\S+) (\S+) h1:(\S+)$/.exec(line.trim());
-    if (match && !match[2].endsWith("/go.mod")) {
-      sums.set(`${match[1]}@${match[2]}`, match[3]);
-    }
-  }
-  const goRequirements = [];
-  for (const block of goMod.matchAll(/require\s*\(([^)]*)\)/g)) {
-    for (const line of block[1].trim().split("\n")) {
-      const match = /^(\S+)\s+(\S+)/.exec(line.trim());
-      if (match) {
-        goRequirements.push({ name: match[1], version: match[2] });
+  for (const { id: bundleId, goModule: module } of contractBundles.filter(
+    (bundle) => bundle.goModule,
+  )) {
+    const goMod = await readFile(
+      resolve(repositoryDirectory, `${module}/go.mod`),
+      "utf8",
+    );
+    const goSum = await readFile(
+      resolve(repositoryDirectory, `${module}/go.sum`),
+      "utf8",
+    );
+    const sums = new Map();
+    for (const line of goSum.trimEnd().split("\n")) {
+      const match = /^(\S+) (\S+) h1:(\S+)$/.exec(line.trim());
+      if (match && !match[2].endsWith("/go.mod")) {
+        sums.set(`${match[1]}@${match[2]}`, match[3]);
       }
     }
-  }
-  const goDependencies = new Set();
-  for (const requirement of goRequirements) {
-    const packageKey = `${requirement.name}@${requirement.version}`;
-    const sum = sums.get(packageKey);
-    if (!sum) {
-      throw new Error(`go.sum is missing module checksum: ${packageKey}`);
+    const goRequirements = [
+      ...goMod.matchAll(/^\s*(?:require\s+)?([^\s()]+)\s+(v\S+)/gm),
+    ].map((match) => ({ name: match[1], version: match[2] }));
+    const goDependencies = new Set();
+    for (const requirement of goRequirements) {
+      const packageKey = `${requirement.name}@${requirement.version}`;
+      const sum = sums.get(packageKey);
+      if (!sum) {
+        throw new Error(`go.sum is missing module checksum: ${packageKey}`);
+      }
+      const key = `golang:${packageKey}`;
+      components.set(key, {
+        checksum: {
+          algorithm: "SHA256",
+          checksumValue: Buffer.from(sum, "base64").toString("hex"),
+        },
+        ecosystem: "golang",
+        key,
+        license: "NOASSERTION",
+        name: requirement.name,
+        version: requirement.version,
+      });
+      goDependencies.add(key);
     }
-    const key = `golang:${packageKey}`;
-    components.set(key, {
-      checksum: {
-        algorithm: "SHA256",
-        checksumValue: Buffer.from(sum, "base64").toString("hex"),
-      },
-      ecosystem: "golang",
-      key,
-      license: "NOASSERTION",
-      name: requirement.name,
-      version: requirement.version,
-    });
-    goDependencies.add(key);
+    dependenciesByBundle.set(
+      bundleId,
+      new Set([
+        ...(dependenciesByBundle.get(bundleId) ?? []),
+        ...goDependencies,
+      ]),
+    );
   }
-  dependenciesByBundle.set(
-    "runner-protocol",
-    new Set([
-      ...(dependenciesByBundle.get("runner-protocol") ?? []),
-      ...goDependencies,
-    ]),
-  );
 
   const javaDependencies = JSON.parse(
     await readFile(
