@@ -118,6 +118,11 @@ export const contractBundles = [
           "packages/test-fixtures/benign/success/build/libs/success-1.0.0.jar",
         destination: "fixtures/success.jar",
       },
+      {
+        source:
+          "packages/test-fixtures/benign/matrix-compatibility/build/libs/matrix-compatibility-1.0.0.jar",
+        destination: "fixtures/matrix-compatibility.jar",
+      },
     ],
   },
   {

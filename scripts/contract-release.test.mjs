@@ -62,6 +62,7 @@ function runWorkspaceBuild() {
       resolve(import.meta.dirname, "run-gradle.mjs"),
       ":paper-probe:jar",
       ":fixture-success:jar",
+      ":fixture-matrix-compatibility:jar",
     ],
     { cwd: resolve(import.meta.dirname, ".."), encoding: "utf8", shell: false },
   );

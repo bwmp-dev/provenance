@@ -1047,6 +1047,31 @@ async function verifyConsumers(bundleRoots, version) {
       "released Paper metadata inspector result differs",
     );
 
+    const matrixFixture = await inspect(
+      resolve(root, "fixtures/matrix-compatibility.jar"),
+    );
+    exactObject(
+      matrixFixture.document,
+      {
+        schemaVersion: "provenance.paper-metadata/v1",
+        artifactSha256: matrixFixture.expectedHash,
+        status: "valid",
+        issues: [],
+        plugin: {
+          name: "ProvenanceMatrixCompatibility",
+          version: "1.0.0",
+          mainClass: "dev.provenance.fixtures.MatrixCompatibilityPlugin",
+          apiVersion: "1.20.6",
+          requiredDependencies: [],
+          softDependencies: [],
+          loadBeforeDependencies: [],
+          permissions: [],
+          commands: [],
+        },
+      },
+      "released matrix fixture metadata differs",
+    );
+
     const fixtureDirectory = await mkdtemp(
       join(tmpdir(), "provenance-paper-metadata-results-"),
     );

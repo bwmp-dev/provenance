@@ -24,6 +24,7 @@ dependencyResolutionManagement {
 rootProject.name = "provenance-public-toolkit"
 
 include(
+    ":fixture-matrix-compatibility",
     ":paper-api-stubs",
     ":fixture-success",
     ":fixture-on-load-failure",
@@ -45,6 +46,7 @@ include(
 project(":paper-api-stubs").projectDir = file("packages/test-fixtures/paper-api-stubs")
 
 [
+    "matrix-compatibility",
     "success",
     "on-load-failure",
     "on-enable-failure",
