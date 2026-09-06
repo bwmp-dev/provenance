@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, createPublicKey, verify } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import test from "node:test";
 
 import { parse } from "yaml";
@@ -29,6 +30,240 @@ const methods = new Set([
   "put",
 ]);
 const mutations = new Set(["delete", "patch", "post", "put"]);
+
+const githubAuthOperations = new Set([
+  "createGitHubAuthorization",
+  "completeGitHubAuthorization",
+]);
+const verificationRequire = createRequire(
+  new URL("../packages/verification/package.json", import.meta.url),
+);
+const Ajv2020 = verificationRequire("ajv/dist/2020.js");
+const addFormats = verificationRequire("ajv-formats");
+
+test("IFC017 strict auth shapes and canonical PKCE encodings", () => {
+  const ajv = new Ajv2020({ strict: false });
+  addFormats(ajv);
+  ajv.addSchema({ $id: "auth-contract", components: document.components });
+  const validate = (name, value) =>
+    ajv.validate({ $ref: `auth-contract#/components/schemas/${name}` }, value);
+  const opaque = Buffer.alloc(32, 255).toString("base64url");
+  assert.equal(validate("GitHubAuthorizationOpaque32", opaque), true);
+  for (const bad of [
+    opaque + "=",
+    opaque.slice(1),
+    opaque.slice(0, -1) + "9",
+    opaque + "\n",
+  ]) {
+    assert.equal(validate("GitHubAuthorizationOpaque32", bad), false, bad);
+  }
+  // Exhaust every last sextet: exactly the zero-pad-bit encodings are allowed.
+  for (const [index, char] of [
+    ..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+  ].entries()) {
+    assert.equal(
+      validate("GitHubAuthorizationOpaque32", "A".repeat(42) + char),
+      index % 4 === 0,
+    );
+  }
+  const start = {
+    redirectUri: "https://bff.example/callback",
+    codeChallenge: opaque,
+    codeChallengeMethod: "S256",
+  };
+  const finish = {
+    state: opaque,
+    code: "opaque-code",
+    codeVerifier: "a".repeat(43),
+  };
+  for (const [name, value] of [
+    ["CreateGitHubAuthorizationRequest", start],
+    ["CompleteGitHubAuthorizationRequest", finish],
+    [
+      "GitHubAuthorization",
+      {
+        authorizationId: opaque,
+        state: opaque,
+        providerUrl:
+          "https://github.com/login/oauth/authorize?client_id=configured&state=example",
+        expiresAt: "2026-09-06T12:00:00Z",
+      },
+    ],
+    [
+      "GitHubAuthorizationCompletion",
+      { exchangeToken: "platform-only", expiresAt: "2026-09-06T12:00:00Z" },
+    ],
+  ]) {
+    assert.equal(validate(name, value), true, name);
+    assert.equal(
+      validate(name, { ...value, access_token: "forbidden" }),
+      false,
+    );
+    for (const field of Object.keys(value)) {
+      const missing = { ...value };
+      delete missing[field];
+      assert.equal(validate(name, missing), false, field);
+    }
+  }
+  for (const redirectUri of [
+    "http://bff.example/callback",
+    "https://user@bff.example/callback",
+    "https://bff.example/callback#fragment",
+    "https://bff.example/ space",
+    "https://bff.example/" + "a".repeat(2048),
+  ]) {
+    assert.equal(
+      validate("CreateGitHubAuthorizationRequest", { ...start, redirectUri }),
+      false,
+    );
+  }
+  for (const codeChallengeMethod of ["plain", "s256", ""]) {
+    assert.equal(
+      validate("CreateGitHubAuthorizationRequest", {
+        ...start,
+        codeChallengeMethod,
+      }),
+      false,
+    );
+  }
+  for (const codeVerifier of [
+    "a".repeat(42),
+    "a".repeat(129),
+    "a".repeat(42) + "+",
+    "a".repeat(43) + "\n",
+  ]) {
+    assert.equal(
+      validate("CompleteGitHubAuthorizationRequest", {
+        ...finish,
+        codeVerifier,
+      }),
+      false,
+    );
+  }
+  assert.equal(
+    validate("CompleteGitHubAuthorizationRequest", {
+      ...finish,
+      codeVerifier: "a".repeat(128),
+      code: "x".repeat(4096),
+    }),
+    true,
+  );
+  for (const code of [
+    "",
+    "x".repeat(4097),
+    "x\n",
+    "x\u0000",
+    "x\u007f",
+    "x\u0085",
+  ]) {
+    assert.equal(
+      validate("CompleteGitHubAuthorizationRequest", { ...finish, code }),
+      false,
+    );
+  }
+});
+
+test("IFC017 preserves server-only no-store and fail-closed replay semantics", () => {
+  for (const id of githubAuthOperations) {
+    const op = operation(id);
+    assert.deepEqual(op.security, []);
+    assert.equal(op["x-provenance-interface"], "IFC-017");
+    for (const response of Object.values(op.responses)) {
+      const resolved = response.$ref
+        ? document.components.responses[response.$ref.split("/").at(-1)]
+        : response;
+      const header = resolved.headers["Cache-Control"];
+      const value = document.components.headers[header.$ref.split("/").at(-1)];
+      assert.equal(value.required, true);
+      assert.equal(value.schema.const, "no-store");
+    }
+    assert.ok(generatedClient.includes(id));
+  }
+  const complete = operation("completeGitHubAuthorization");
+  const parameter = resolveParameter(complete.parameters[0]);
+  assert.match(parameter.description, /retains only a hash/);
+  for (const code of [
+    "credential_not_replayable",
+    "authorization_completion_uncertain",
+    "authorization_in_progress",
+    "idempotency_key_conflict",
+  ]) {
+    assert.match(parameter.description, new RegExp(code));
+  }
+  assert.match(
+    complete.description,
+    /lease expiry never authorizes retrying the code/,
+  );
+  assert.match(
+    complete.description,
+    /before revealing state-specific outcomes/,
+  );
+  assert.match(complete.description, /unchanged POST \/v1\/auth\/sessions/);
+  assert.equal(
+    document.components.schemas.CompleteGitHubAuthorizationRequest.properties
+      .code.writeOnly,
+    true,
+  );
+  assert.equal(
+    document.components.schemas.CompleteGitHubAuthorizationRequest.properties
+      .codeVerifier.writeOnly,
+    true,
+  );
+  assert.equal(
+    document.components.schemas.CompleteGitHubAuthorizationRequest.properties
+      .state.writeOnly,
+    true,
+  );
+  const startKey = resolveParameter(
+    operation("createGitHubAuthorization").parameters[0],
+  );
+  assert.match(startKey.description, /without extension/);
+});
+
+test("IFC017 problems are closed and cannot carry provider or request secrets", () => {
+  const ajv = new Ajv2020({ strict: false });
+  addFormats(ajv);
+  ajv.addSchema({ $id: "auth-problems", components: document.components });
+  for (const id of githubAuthOperations) {
+    const op = operation(id);
+    for (const [status, response] of Object.entries(op.responses)) {
+      if (!response.$ref) continue;
+      const name = response.$ref.split("/").at(-1);
+      const schema =
+        document.components.responses[name].content["application/problem+json"]
+          .schema;
+      const constraints = schema.allOf[1].properties;
+      const sample = {
+        type: "about:blank",
+        title: constraints.title.const,
+        status: status === "default" ? 500 : Number(status),
+        code: constraints.code.const ?? constraints.code.enum[0],
+      };
+      const validate = ajv.compile({
+        $ref: `auth-problems#/components/responses/${name}/content/application~1problem+json/schema`,
+      });
+      assert.equal(validate(sample), true, name);
+      for (const key of [
+        "detail",
+        "state",
+        "codeVerifier",
+        "access_token",
+        "providerResponse",
+        "instance",
+      ]) {
+        assert.equal(validate({ ...sample, [key]: "forbidden" }), false, key);
+      }
+      assert.equal(
+        validate({ ...sample, title: "raw provider response" }),
+        false,
+      );
+      assert.equal(
+        validate({ ...sample, code: "raw provider response" }),
+        false,
+      );
+    }
+  }
+});
 
 test("IFC016 discovery is anonymous, bounded, public-only and no-store", async () => {
   const route = document.paths["/.well-known/provenance-keys.json"].get;
@@ -140,7 +375,9 @@ test("every operation exposes structured failure responses", () => {
       operation.responses.default?.$ref,
       privateLogOperationIds.has(operation.operationId)
         ? "#/components/responses/PrivateProblem"
-        : "#/components/responses/Problem",
+        : githubAuthOperations.has(operation.operationId)
+          ? "#/components/responses/GitHubAuthProblem"
+          : "#/components/responses/Problem",
       operation.operationId,
     );
   }

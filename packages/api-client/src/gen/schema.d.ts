@@ -4,6 +4,46 @@
  */
 
 export interface paths {
+    "/v1/auth/github/authorizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin server-side GitHub App authorization with S256
+         * @description IFC-017 server-to-server operation. The BFF generates and retains the verifier server-only, binds the returned independent state and authorization ID to its browser session, and enforces same-origin CSRF protection. redirectUri must exactly match a configured HTTPS callback allowlist; userinfo and fragments are forbidden. No caller-selected App/client ID, scopes, provider origin or return URL is permitted. The providerUrl uses https://github.com/login/oauth/authorize with the configured client ID, exact redirectUri, returned state and supplied S256 challenge. Finite server-configured lifetimes are mandatory; expiry is immutable. Never log state, verifier, code, provider URL or credentials.
+         */
+        post: operations["createGitHubAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/github/authorizations/{authorizationId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete GitHub authorization for a one-time platform exchange token
+         * @description IFC-017 server-to-server operation. Validate state and the S256 verifier before revealing state-specific outcomes or exchanging a code. Unknown authorization or invalid proof yields the same invalid_authorization. Durably claim completion before contacting GitHub. PKCE does not replace the configured App client secret. Derive identity from authenticated numeric GitHub user data, never caller assertions. GitHub access/refresh tokens are never returned. The one-time exchangeToken is consumed by the unchanged POST /v1/auth/sessions operation, never by browser JavaScript. Persist only its hash. Successful replay returns credential_not_replayable, not a regenerated credential. Lost upstream response, crash during exchange, or otherwise uncertain code consumption returns authorization_completion_uncertain; lease expiry never authorizes retrying the code. Both outcomes require a fresh authorization. A known pre-exchange failure may return github_auth_unavailable without consuming authorization. Finite configured token expiry is immutable. No sensitive values enter errors or telemetry.
+         */
+        post: operations["completeGitHubAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/sessions": {
         parameters: {
             query?: never;
@@ -901,6 +941,42 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Canonical unpadded base64url encoding of exactly 32 bytes, including zero unused pad bits. */
+        GitHubAuthorizationOpaque32: string;
+        CreateGitHubAuthorizationRequest: {
+            /**
+             * Format: uri
+             * @description Exact configured allowlisted HTTPS callback URI; no userinfo or fragment. URI parsing and allowlist checks are required in addition to schema validation.
+             */
+            redirectUri: string;
+            codeChallenge: components["schemas"]["GitHubAuthorizationOpaque32"];
+            /** @constant */
+            codeChallengeMethod: "S256";
+        };
+        GitHubAuthorization: {
+            authorizationId: components["schemas"]["GitHubAuthorizationOpaque32"];
+            /** @description Independently generated random state; bind server-side to the initiating browser session. */
+            state: components["schemas"]["GitHubAuthorizationOpaque32"];
+            /**
+             * Format: uri
+             * @description Server-constructed URL containing only the configured client ID and frozen authorization parameters. Sensitive state; never log or expose to telemetry.
+             */
+            providerUrl: string;
+            /** @description Immutable finite authorization expiry from required server configuration. */
+            expiresAt: components["schemas"]["BoundedTimestamp"];
+        };
+        CompleteGitHubAuthorizationRequest: {
+            state: components["schemas"]["GitHubAuthorizationOpaque32"];
+            /** @description Opaque GitHub authorization code. This is an API resource bound, not an upstream format guarantee. */
+            code: string;
+            codeVerifier: string;
+        };
+        GitHubAuthorizationCompletion: {
+            /** @description Opaque one-time platform credential, server-only and shown once. Store only its hash. Not a GitHub token or raw authorization code. */
+            exchangeToken: string;
+            /** @description Immutable finite exchange-token expiry from required server configuration. */
+            expiresAt: components["schemas"]["BoundedTimestamp"];
+        };
         /**
          * Format: uuid
          * @description Stable resource identifier.
@@ -1826,6 +1902,138 @@ export interface components {
         };
     };
     responses: {
+        /** @description Invalid request or authorization proof; no sensitive values disclosed. */
+        GitHubInvalidAuthorization: {
+            headers: {
+                "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"] & {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Invalid authorization";
+                    /** @constant */
+                    status: 400;
+                    /** @enum {unknown} */
+                    code: "invalid_authorization";
+                };
+            };
+        };
+        /** @description Initiation idempotency conflict. */
+        GitHubAuthorizationConflict: {
+            headers: {
+                "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"] & {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Authorization conflict";
+                    /** @constant */
+                    status: 409;
+                    /** @enum {unknown} */
+                    code: "idempotency_key_conflict";
+                };
+            };
+        };
+        /** @description Completion idempotency conflict, in-flight operation, unreplayable credential, or uncertain exchange. */
+        GitHubCompletionConflict: {
+            headers: {
+                "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"] & {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Authorization completion conflict";
+                    /** @constant */
+                    status: 409;
+                    /** @enum {unknown} */
+                    code: "idempotency_key_conflict" | "authorization_in_progress" | "credential_not_replayable" | "authorization_completion_uncertain";
+                };
+            };
+        };
+        /** @description Valid proof for an expired authorization. */
+        GitHubAuthorizationExpired: {
+            headers: {
+                "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"] & {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Authorization expired";
+                    /** @constant */
+                    status: 410;
+                    /** @enum {unknown} */
+                    code: "authorization_expired";
+                };
+            };
+        };
+        /** @description Authorization abuse limit exceeded. */
+        GitHubAuthRateLimited: {
+            headers: {
+                "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"] & {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Authorization rate limited";
+                    /** @constant */
+                    status: 429;
+                    /** @enum {unknown} */
+                    code: "rate_limited";
+                };
+            };
+        };
+        /** @description Missing dependency or failure known to precede upstream exchange. */
+        GitHubAuthUnavailable: {
+            headers: {
+                "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"] & {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "GitHub authorization unavailable";
+                    /** @constant */
+                    status: 503;
+                    /** @enum {unknown} */
+                    code: "github_auth_unavailable";
+                };
+            };
+        };
+        /** @description Sanitized failure without request values, provider payloads, state, codes, verifiers or credentials. */
+        GitHubAuthProblem: {
+            headers: {
+                "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"] & {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "GitHub authorization failed";
+                    status: number;
+                    /** @constant */
+                    code: "github_auth_failed";
+                };
+            };
+        };
         /** @description Mutation completed successfully. */
         NoContent: {
             headers: {
@@ -2058,6 +2266,10 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Same key and request returns the original authorization, state, provider URL and expiry without extension. Different request conflicts with idempotency_key_conflict. Keys are scoped to this operation. */
+        GitHubAuthorizationIdempotencyKey: components["schemas"]["IdempotencyKey"];
+        /** @description Bound to authorization ID and exact completion request. Validate proof before revealing replay state. Different request conflicts with idempotency_key_conflict. A matching in-flight request returns authorization_in_progress. The server retains only a hash of the issued exchange token: successful replay returns credential_not_replayable. Uncertain upstream code consumption returns authorization_completion_uncertain. Neither permits repeating the upstream exchange or regenerating the credential; start a new authorization and use new idempotency keys. */
+        GitHubCompletionIdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
         IdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Caller-generated key scoped to browser session creation. Reusing the key with a different request conflicts. After a request succeeds, the platform retains only a hash of the issued credential and cannot reproduce the original Set-Cookie value. Replaying that same request therefore fails closed with HTTP 409 and code `credential_not_replayable`; the caller must obtain a new one-time exchange token and use a new idempotency key. */
@@ -2204,6 +2416,8 @@ export interface components {
         };
     };
     headers: {
+        /** @description Authentication responses must never be cached. */
+        GitHubAuthNoStore: "no-store";
         /** @description HttpOnly, Secure browser session cookie. */
         SessionCookie: string;
         /** @description Private log responses must not be stored by shared or browser caches. */
@@ -2225,6 +2439,75 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    createGitHubAuthorization: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Same key and request returns the original authorization, state, provider URL and expiry without extension. Different request conflicts with idempotency_key_conflict. Keys are scoped to this operation. */
+                "Idempotency-Key": components["parameters"]["GitHubAuthorizationIdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGitHubAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Authorization created, or identical initiation replay without extending expiry. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubAuthorization"];
+                };
+            };
+            400: components["responses"]["GitHubInvalidAuthorization"];
+            409: components["responses"]["GitHubAuthorizationConflict"];
+            429: components["responses"]["GitHubAuthRateLimited"];
+            503: components["responses"]["GitHubAuthUnavailable"];
+            default: components["responses"]["GitHubAuthProblem"];
+        };
+    };
+    completeGitHubAuthorization: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Bound to authorization ID and exact completion request. Validate proof before revealing replay state. Different request conflicts with idempotency_key_conflict. A matching in-flight request returns authorization_in_progress. The server retains only a hash of the issued exchange token: successful replay returns credential_not_replayable. Uncertain upstream code consumption returns authorization_completion_uncertain. Neither permits repeating the upstream exchange or regenerating the credential; start a new authorization and use new idempotency keys. */
+                "Idempotency-Key": components["parameters"]["GitHubCompletionIdempotencyKey"];
+            };
+            path: {
+                authorizationId: components["schemas"]["GitHubAuthorizationOpaque32"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteGitHubAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description One-time platform exchange token, shown only once to the server-side caller. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["GitHubAuthNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubAuthorizationCompletion"];
+                };
+            };
+            400: components["responses"]["GitHubInvalidAuthorization"];
+            409: components["responses"]["GitHubCompletionConflict"];
+            410: components["responses"]["GitHubAuthorizationExpired"];
+            429: components["responses"]["GitHubAuthRateLimited"];
+            503: components["responses"]["GitHubAuthUnavailable"];
+            default: components["responses"]["GitHubAuthProblem"];
+        };
+    };
     createSession: {
         parameters: {
             query?: never;
