@@ -15,9 +15,11 @@ surrogates, non-JSON numbers and trailing input. JSON Schema cannot enforce
 unique key IDs: additionally reject any repeated keyId, even identical entries.
 publicKey is the canonical unpadded base64url encoding of 32 raw Ed25519 bytes;
 it is not PEM, a private seed, a signature, or a JWK. Unknown fields fail closed.
-The reference validation.py is an offline contract helper, not a trust loader.
-It accepts byte strings up to 1 MiB as a defensive parsing limit and requires
-the release's existing Python jsonschema dependency. It performs no network I/O.
+The repository's validation.py is an offline reference/test helper, not a trust
+loader or released library. It uses the repository's requirements-contracts.txt
+and caps input at 1 MiB defensively. This release contains schema, semantics and
+fixtures only; consumers supply their own strict JSON/schema validation and the
+additional semantic checks described here. No Python runtime is shipped.
 
 keyId uses the existing attestation grammar and is matched exactly, with no
 case-folding, URL normalization or fragment stripping. It is bound into the

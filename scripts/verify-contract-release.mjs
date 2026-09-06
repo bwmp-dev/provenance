@@ -505,7 +505,6 @@ async function verifyArchive({
     for (const path of [
       "key-discovery/schema.json",
       "key-discovery/semantics.md",
-      "key-discovery/validation.py",
       "key-discovery-fixtures/valid/initial.json",
       "key-discovery-fixtures/valid/rotated.json",
       "key-discovery-fixtures/invalid/cases.json",
@@ -1313,34 +1312,6 @@ async function verifyConsumers(bundleRoots, version) {
 
   {
     const root = rootFor("attestation-schema");
-    run(
-      process.platform === "win32" ? "python" : "python3",
-      [
-        "-B",
-        "-c",
-        [
-          "import importlib.util,json,sys",
-          "from pathlib import Path",
-          "root=Path(sys.argv[1])",
-          "spec=importlib.util.spec_from_file_location('discovery',root/'key-discovery/validation.py')",
-          "module=importlib.util.module_from_spec(spec)",
-          "spec.loader.exec_module(module)",
-          "initial=(root/'key-discovery-fixtures/valid/initial.json').read_bytes()",
-          "rotated=(root/'key-discovery-fixtures/valid/rotated.json').read_bytes()",
-          "module.validate_transition(initial,rotated)",
-          "for case in json.loads((root/'key-discovery-fixtures/invalid/cases.json').read_text()):",
-          " document=json.loads(initial); target=document",
-          " for part in case['path'][:-1]: target=target[part]",
-          " target[case['path'][-1]]=case['value']",
-          " try: module.validate(json.dumps(document).encode())",
-          " except ValueError: pass",
-          " else: raise RuntimeError('released discovery accepted invalid fixture')",
-        ].join("\n"),
-        root,
-      ],
-      root,
-      "released isolated key discovery contract",
-    );
     await verifyReleasedGoVerifier(root);
     await installNodeConsumer(
       resolve(root, "package"),

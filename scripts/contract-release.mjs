@@ -58,7 +58,14 @@ export const contractBundles = [
       },
       { source: "schemas/attestation/v1", destination: "schema" },
       { source: "schemas/fixtures/attestation", destination: "fixtures" },
-      { source: "schemas/key-discovery/v1", destination: "key-discovery" },
+      {
+        source: "schemas/key-discovery/v1/schema.json",
+        destination: "key-discovery/schema.json",
+      },
+      {
+        source: "schemas/key-discovery/v1/semantics.md",
+        destination: "key-discovery/semantics.md",
+      },
       {
         source: "schemas/fixtures/key-discovery",
         destination: "key-discovery-fixtures",
