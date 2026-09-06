@@ -35,11 +35,254 @@ const githubAuthOperations = new Set([
   "createGitHubAuthorization",
   "completeGitHubAuthorization",
 ]);
+const githubConnectionOperations = new Set([
+  "createGitHubDiscoveryAuthorization",
+  "completeGitHubDiscoveryAuthorization",
+  "createGitHubConnectionAuthorization",
+  "completeGitHubConnectionAuthorization",
+  "listGitHubDiscoveryRepositories",
+]);
 const verificationRequire = createRequire(
   new URL("../packages/verification/package.json", import.meta.url),
 );
 const Ajv2020 = verificationRequire("ajv/dist/2020.js");
 const addFormats = verificationRequire("ajv-formats");
+
+test("IFC018 leaves every released alpha14 path and component unchanged", async () => {
+  const baseline = JSON.parse(
+    await readFile(new URL("alpha14-compat.hashes.json", root), "utf8"),
+  );
+  const hash = (value) =>
+    createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  assert.equal(baseline.source, "d293559778d1bf2e346ddcd63f1089cddb0dbac5");
+  for (const [path, digest] of Object.entries(baseline.paths))
+    assert.equal(hash(document.paths[path]), digest, path);
+  for (const [kind, entries] of Object.entries(baseline.components)) {
+    for (const [name, digest] of Object.entries(entries))
+      assert.equal(
+        hash(document.components[kind][name]),
+        digest,
+        `${kind}/${name}`,
+      );
+  }
+});
+
+test("IFC018 strict selections, safe provider IDs and private snapshot pages", () => {
+  const ajv = new Ajv2020({ strict: false });
+  addFormats(ajv);
+  ajv.addSchema({
+    $id: "connection-contract",
+    components: document.components,
+  });
+  const valid = (name, value) =>
+    ajv.validate(
+      { $ref: `connection-contract#/components/schemas/${name}` },
+      value,
+    );
+  const uuid = "11111111-1111-4111-8111-111111111111";
+  const opaque = Buffer.alloc(32).toString("base64url");
+  const discovery = {
+    organizationId: uuid,
+    projectId: uuid,
+    redirectUri: "https://bff.example/callback",
+    codeChallenge: opaque,
+    codeChallengeMethod: "S256",
+  };
+  const connection = {
+    ...discovery,
+    githubInstallationId: 1,
+    githubRepositoryId: 9007199254740991,
+    repositoryFullName: "owner/repo",
+  };
+  for (const [schema, input] of [
+    ["CreateGitHubDiscoveryAuthorizationRequest", discovery],
+    ["CreateGitHubConnectionAuthorizationRequest", connection],
+  ]) {
+    assert.equal(valid(schema, input), true, JSON.stringify(ajv.errors));
+    for (const key of Object.keys(input)) {
+      const incomplete = { ...input };
+      delete incomplete[key];
+      assert.equal(valid(schema, incomplete), false, key);
+    }
+    for (const extra of [
+      "token",
+      "installationId",
+      "authority",
+      "scope",
+      "clientId",
+      "returnUrl",
+    ])
+      assert.equal(
+        valid(schema, { ...input, [extra]: "forbidden" }),
+        false,
+        extra,
+      );
+    for (const challenge of [opaque + "=", opaque.slice(0, -1) + "B"])
+      assert.equal(
+        valid(schema, { ...input, codeChallenge: challenge }),
+        false,
+      );
+    assert.equal(
+      valid(schema, { ...input, codeChallengeMethod: "plain" }),
+      false,
+    );
+    assert.equal(
+      valid(schema, { ...input, redirectUri: "http://bff.example/callback" }),
+      false,
+    );
+  }
+  for (const id of [0, -1, 1.5, 9007199254740992, "1", uuid])
+    assert.equal(valid("GitHubProviderId", id), false);
+  const row = {
+    githubInstallationId: 1,
+    githubAccountId: 2,
+    githubRepositoryId: 3,
+    accountType: "Organization",
+    accountLogin: "owner",
+    repositoryName: "repo",
+    repositoryFullName: "owner/repo",
+    isPrivate: true,
+  };
+  assert.equal(valid("GitHubDiscoveryRepository", row), true);
+  assert.equal(
+    valid("GitHubDiscoveryRepository", { ...row, accountType: "Enterprise" }),
+    false,
+  );
+  assert.equal(
+    valid("GitHubDiscoveryRepository", { ...row, isPrivate: "true" }),
+    false,
+  );
+  assert.equal(
+    valid("GitHubDiscoveryRepository", { ...row, accessToken: "secret" }),
+    false,
+  );
+  for (const page of [
+    { hasMore: true, nextCursor: "opaque" },
+    { hasMore: false },
+    { hasMore: false, nextCursor: null },
+  ])
+    assert.equal(
+      valid("GitHubDiscoveryRepositoryPage", { items: [row], page }),
+      true,
+      JSON.stringify(ajv.errors),
+    );
+  for (const page of [
+    { hasMore: true },
+    { hasMore: true, nextCursor: null },
+    { hasMore: false, nextCursor: "opaque" },
+    { hasMore: true, nextCursor: "" },
+  ])
+    assert.equal(
+      valid("GitHubDiscoveryRepositoryPage", { items: [row], page }),
+      false,
+    );
+  assert.equal(
+    valid("GitHubDiscoveryRepositoryPage", {
+      items: Array.from({ length: 101 }, (_, i) => ({
+        ...row,
+        githubRepositoryId: i + 1,
+      })),
+      page: { hasMore: false },
+    }),
+    false,
+  );
+  assert.equal(
+    valid("GitHubDiscoverySnapshot", {
+      snapshotId: opaque,
+      expiresAt: "2026-09-06T23:00:00Z",
+    }),
+    true,
+  );
+  assert.equal(
+    valid("GitHubDiscoverySnapshot", {
+      snapshotId: uuid,
+      expiresAt: "2026-09-06T23:00:00Z",
+    }),
+    false,
+  );
+});
+
+test("IFC018 session-only flows retain bounded replay, expiry and no-store failures", () => {
+  const ajv = new Ajv2020({ strict: false });
+  addFormats(ajv);
+  ajv.addSchema({ $id: "connection-errors", components: document.components });
+  for (const id of githubConnectionOperations) {
+    const op = operation(id);
+    assert.deepEqual(op.security, [{ SessionCookie: [] }]);
+    assert.match(op.description, /integrations:manage/);
+    assert.match(op.description, /session/);
+    for (const response of Object.values(op.responses)) {
+      const resolved = response.$ref
+        ? document.components.responses[response.$ref.split("/").at(-1)]
+        : response;
+      assert.equal(
+        resolved.headers["Cache-Control"].$ref,
+        "#/components/headers/GitHubAuthNoStore",
+      );
+      const schema = resolved.content?.["application/problem+json"]?.schema;
+      if (!schema) continue;
+      const status = schema.properties.status.const ?? 500;
+      const code =
+        schema.properties.code.const ?? schema.properties.code.enum[0];
+      const validate = ajv.compile({
+        ...schema,
+        components: document.components,
+      });
+      const problem = {
+        type: "about:blank",
+        title: "GitHub connection authorization failed",
+        status,
+        code,
+      };
+      assert.equal(validate(problem), true, JSON.stringify(validate.errors));
+      for (const key of [
+        "detail",
+        "instance",
+        "token",
+        "codeVerifier",
+        "providerError",
+      ])
+        assert.equal(validate({ ...problem, [key]: "private" }), false);
+      assert.equal(
+        validate({ ...problem, code: "credential_not_replayable" }),
+        false,
+      );
+    }
+    assert.ok(generatedClient.includes(id));
+  }
+  const completion =
+    document.components.parameters.GitHubConnectionCompletionIdempotencyKey;
+  assert.match(completion.description, /Successful nonsecret results replay/);
+  assert.match(
+    completion.description,
+    /After retention expiry return authorization_expired/,
+  );
+  const discover = operation("completeGitHubDiscoveryAuthorization");
+  assert.match(
+    discover.description,
+    /never a partial snapshot or another exchange/,
+  );
+  assert.match(discover.description, /purged without erasing audit/);
+  const connect = operation("completeGitHubConnectionAuthorization");
+  assert.match(
+    connect.description,
+    /Discovery is optional and never authority/,
+  );
+  assert.match(
+    connect.description,
+    /without another exchange, binding or audit/,
+  );
+  assert.equal(
+    connect.responses["200"].content["application/json"].schema.$ref,
+    "#/components/schemas/GitHubConnection",
+  );
+  const list = operation("listGitHubDiscoveryRepositories");
+  assert.deepEqual(list.parameters.slice(1), [
+    { $ref: "#/components/parameters/Cursor" },
+    { $ref: "#/components/parameters/PageSize" },
+  ]);
+  assert.match(list.description, /before revealing expiry/);
+});
 
 test("IFC017 strict auth shapes and canonical PKCE encodings", () => {
   const ajv = new Ajv2020({ strict: false });
@@ -377,7 +620,9 @@ test("every operation exposes structured failure responses", () => {
         ? "#/components/responses/PrivateProblem"
         : githubAuthOperations.has(operation.operationId)
           ? "#/components/responses/GitHubAuthProblem"
-          : "#/components/responses/Problem",
+          : githubConnectionOperations.has(operation.operationId)
+            ? "#/components/responses/GitHubConnectionProblem"
+            : "#/components/responses/Problem",
       operation.operationId,
     );
   }

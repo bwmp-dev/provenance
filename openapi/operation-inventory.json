@@ -1,6 +1,36 @@
 [
   {
     "method": "post",
+    "operationId": "createGitHubDiscoveryAuthorization",
+    "path": "/v1/github/discovery-authorizations",
+    "tag": "github"
+  },
+  {
+    "method": "post",
+    "operationId": "completeGitHubDiscoveryAuthorization",
+    "path": "/v1/github/discovery-authorizations/{authorizationId}/complete",
+    "tag": "github"
+  },
+  {
+    "method": "post",
+    "operationId": "createGitHubConnectionAuthorization",
+    "path": "/v1/github/connection-authorizations",
+    "tag": "github"
+  },
+  {
+    "method": "post",
+    "operationId": "completeGitHubConnectionAuthorization",
+    "path": "/v1/github/connection-authorizations/{authorizationId}/complete",
+    "tag": "github"
+  },
+  {
+    "method": "get",
+    "operationId": "listGitHubDiscoveryRepositories",
+    "path": "/v1/github/discovery-snapshots/{snapshotId}/repositories",
+    "tag": "github"
+  },
+  {
+    "method": "post",
     "operationId": "createGitHubAuthorization",
     "path": "/v1/auth/github/authorizations",
     "tag": "authentication"

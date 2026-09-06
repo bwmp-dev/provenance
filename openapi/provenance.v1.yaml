@@ -442,6 +442,236 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/github/discovery-authorizations:
+    post:
+      operationId: createGitHubDiscoveryAuthorization
+      summary: Start fresh GitHub repository discovery
+      tags: [github]
+      security:
+        - SessionCookie: []
+      description: >-
+        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
+        Freeze session, user, organization/project and the complete request before constructing the configured GitHub authorization URL. Identical initiation replay returns the original authorization without extending expiry; changed content conflicts. Callback allowlist, S256 and confidential client follow IFC017. The caller cannot select App ID, scopes, provider origins or an arbitrary return URL. A missing or revoked session cannot replay.
+      parameters:
+        - $ref: "#/components/parameters/GitHubConnectionInitiationIdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGitHubDiscoveryAuthorizationRequest"
+      responses:
+        "201":
+          description: Start fresh GitHub repository discovery result.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/GitHubAuthNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubAuthorization"
+        "400":
+          $ref: "#/components/responses/GitHubConnection400"
+        "401":
+          $ref: "#/components/responses/GitHubConnection401"
+        "403":
+          $ref: "#/components/responses/GitHubConnection403"
+        "409":
+          $ref: "#/components/responses/GitHubConnection409"
+        "410":
+          $ref: "#/components/responses/GitHubConnection410"
+        "429":
+          $ref: "#/components/responses/GitHubConnection429"
+        "503":
+          $ref: "#/components/responses/GitHubConnection503"
+        default:
+          $ref: "#/components/responses/GitHubConnectionProblem"
+  /v1/github/discovery-authorizations/{authorizationId}/complete:
+    post:
+      operationId: completeGitHubDiscoveryAuthorization
+      summary: Complete fresh GitHub repository discovery
+      tags: [github]
+      security:
+        - SessionCookie: []
+      description: >-
+        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
+        Durably claim before exchanging the code once. Validate state/PKCE before revealing completion state. Verify fresh numeric user identity and provider authority, collect complete bounded metadata and discard the token. Configured total-result/provider-page/byte/deadline overflow returns terminal discovery_limit_exceeded, never a partial snapshot or another exchange. Snapshot expiry is fixed when created, finite and no later than the configured flow deadline; reads/replay never extend it. Expired payload must be purged without erasing audit/idempotency history. Successful replay returns only the original nonsecret snapshot while its expiry and original idempotency-retention window remain live. Pending expiry rejects; unknown code consumption never retries, even after claim expiry. Post-exchange failures without a durable result are uncertain and require fresh authorization.
+      parameters:
+        - $ref: "#/components/parameters/GitHubConnectionCompletionIdempotencyKey"
+        - name: authorizationId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/GitHubAuthorizationOpaque32"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteGitHubAuthorizationRequest"
+      responses:
+        "200":
+          description: Complete fresh GitHub repository discovery result.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/GitHubAuthNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubDiscoverySnapshot"
+        "400":
+          $ref: "#/components/responses/GitHubConnection400"
+        "401":
+          $ref: "#/components/responses/GitHubConnection401"
+        "403":
+          $ref: "#/components/responses/GitHubConnection403"
+        "409":
+          $ref: "#/components/responses/GitHubConnection409"
+        "410":
+          $ref: "#/components/responses/GitHubConnection410"
+        "429":
+          $ref: "#/components/responses/GitHubConnection429"
+        "503":
+          $ref: "#/components/responses/GitHubConnection503"
+        default:
+          $ref: "#/components/responses/GitHubConnectionProblem"
+  /v1/github/connection-authorizations:
+    post:
+      operationId: createGitHubConnectionAuthorization
+      summary: Start fresh GitHub repository connection
+      tags: [github]
+      security:
+        - SessionCookie: []
+      description: >-
+        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
+        Freeze session, user, organization/project and the complete request before constructing the configured GitHub authorization URL. Identical initiation replay returns the original authorization without extending expiry; changed content conflicts. Callback allowlist, S256 and confidential client follow IFC017. The caller cannot select App ID, scopes, provider origins or an arbitrary return URL. A missing or revoked session cannot replay.
+      parameters:
+        - $ref: "#/components/parameters/GitHubConnectionInitiationIdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGitHubConnectionAuthorizationRequest"
+      responses:
+        "201":
+          description: Start fresh GitHub repository connection result.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/GitHubAuthNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubAuthorization"
+        "400":
+          $ref: "#/components/responses/GitHubConnection400"
+        "401":
+          $ref: "#/components/responses/GitHubConnection401"
+        "403":
+          $ref: "#/components/responses/GitHubConnection403"
+        "409":
+          $ref: "#/components/responses/GitHubConnection409"
+        "410":
+          $ref: "#/components/responses/GitHubConnection410"
+        "429":
+          $ref: "#/components/responses/GitHubConnection429"
+        "503":
+          $ref: "#/components/responses/GitHubConnection503"
+        default:
+          $ref: "#/components/responses/GitHubConnectionProblem"
+  /v1/github/connection-authorizations/{authorizationId}/complete:
+    post:
+      operationId: completeGitHubConnectionAuthorization
+      summary: Complete fresh GitHub repository connection
+      tags: [github]
+      security:
+        - SessionCookie: []
+      description: >-
+        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
+        Freeze exact selected provider identities and expected repository full name at initiation. Discovery is optional and never authority: a separate fresh exchange invokes actual installation authority, including session/capability rechecks, numeric user/account/repository proof and global tenant ownership, before discarding the token. No transfer, removal or adoption of another tenant's binding. Durably claim before exchange and validate state/PKCE before revealing completion state. Successful nonsecret connection replay may survive authorization expiry only within the original configured idempotency-retention window and after current session/capability checks, without another exchange, binding or audit. After that window no old code is exchanged again. Pending expiry rejects; unknown consumption remains uncertain even after claim expiry.
+      parameters:
+        - $ref: "#/components/parameters/GitHubConnectionCompletionIdempotencyKey"
+        - name: authorizationId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/GitHubAuthorizationOpaque32"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteGitHubAuthorizationRequest"
+      responses:
+        "200":
+          description: Complete fresh GitHub repository connection result.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/GitHubAuthNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubConnection"
+        "400":
+          $ref: "#/components/responses/GitHubConnection400"
+        "401":
+          $ref: "#/components/responses/GitHubConnection401"
+        "403":
+          $ref: "#/components/responses/GitHubConnection403"
+        "409":
+          $ref: "#/components/responses/GitHubConnection409"
+        "410":
+          $ref: "#/components/responses/GitHubConnection410"
+        "429":
+          $ref: "#/components/responses/GitHubConnection429"
+        "503":
+          $ref: "#/components/responses/GitHubConnection503"
+        default:
+          $ref: "#/components/responses/GitHubConnectionProblem"
+  /v1/github/discovery-snapshots/{snapshotId}/repositories:
+    get:
+      operationId: listGitHubDiscoveryRepositories
+      summary: Read an expiring private discovery snapshot
+      tags: [github]
+      security:
+        - SessionCookie: []
+      description: >-
+        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
+        Return only the complete immutable snapshot's observations, never current or durable provider authority. Authorize the same initiating session and current organization/project capability before revealing expiry. Missing/foreign snapshots return discovery_snapshot_not_found; owned expired snapshots return discovery_snapshot_expired. Cursor is opaque and bound to this snapshot and authorization context; invalid or substituted cursor returns invalid_cursor. Stable ordering and immutable pagination prevent gaps or duplicate items. hasMore is true exactly when a non-null nextCursor exists. Never contact the provider or retain a token to paginate. No payload is available after expiry.
+      parameters:
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/GitHubAuthorizationOpaque32"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Read an expiring private discovery snapshot result.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/GitHubAuthNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubDiscoveryRepositoryPage"
+        "400":
+          $ref: "#/components/responses/GitHubConnection400"
+        "401":
+          $ref: "#/components/responses/GitHubConnection401"
+        "403":
+          $ref: "#/components/responses/GitHubConnection403"
+        "404":
+          $ref: "#/components/responses/GitHubConnection404"
+        "410":
+          $ref: "#/components/responses/GitHubConnection410"
+        "429":
+          $ref: "#/components/responses/GitHubConnection429"
+        "503":
+          $ref: "#/components/responses/GitHubConnection503"
+        default:
+          $ref: "#/components/responses/GitHubConnectionProblem"
   /v1/github/installations:
     get:
       operationId: listGitHubInstallations
@@ -1437,6 +1667,22 @@ components:
         One-time, runner-bound registration token. It authenticates only the
         registration-redemption operation and is atomically consumed there.
   parameters:
+    GitHubConnectionInitiationIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Required key scoped to initiating session, organization/project, HTTP method and route. Same key and exact request returns original authorization/state/provider URL/expiry without extension. Different content conflicts with idempotency_key_conflict. Current session and capability are required for every replay.
+      schema:
+        $ref: "#/components/schemas/IdempotencyKey"
+    GitHubConnectionCompletionIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Required key bound to initiating session, authorization ID and exact completion request. Validate state/PKCE before exposing replay status. Different content conflicts with idempotency_key_conflict. In-flight returns authorization_in_progress; unknown exchange returns authorization_completion_uncertain and never retries the code. Successful nonsecret results replay within the original configured retention window after fresh local access checks, unlike IFC017 credential_not_replayable. Discovery also requires a live snapshot. After retention expiry return authorization_expired without exchanging the code. Discovery overflow is terminal discovery_limit_exceeded; use fresh authorization.
+      schema:
+        $ref: "#/components/schemas/IdempotencyKey"
     GitHubAuthorizationIdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1723,6 +1969,197 @@ components:
         maxLength: 96
         pattern: ^attachment; filename="execution-[0-9a-f-]{36}\.log\.gz"$
   responses:
+    GitHubConnection400:
+      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                const: 400
+              code:
+                enum: [invalid_authorization, invalid_cursor]
+    GitHubConnection401:
+      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                const: 401
+              code:
+                enum: [authentication_required]
+    GitHubConnection403:
+      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                const: 403
+              code:
+                enum: [github_authority_forbidden]
+    GitHubConnection404:
+      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                const: 404
+              code:
+                enum: [discovery_snapshot_not_found]
+    GitHubConnection409:
+      description: Idempotency conflict or terminal/uncertain session-bound flow failure; never echoes request or provider data.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/ProblemDetails"
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                const: 409
+              code:
+                enum:
+                  [
+                    idempotency_key_conflict,
+                    authorization_in_progress,
+                    authorization_completion_uncertain,
+                    discovery_limit_exceeded,
+                    github_connection_conflict,
+                  ]
+    GitHubConnection410:
+      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                const: 410
+              code:
+                enum: [authorization_expired, discovery_snapshot_expired]
+    GitHubConnection429:
+      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                const: 429
+              code:
+                enum: [rate_limited]
+    GitHubConnection503:
+      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data. Only missing dependencies or failures known to precede code exchange permit this outcome.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                const: 503
+              code:
+                enum: [github_auth_unavailable]
+    GitHubConnectionProblem:
+      description: Closed sanitized failure; no raw provider messages or request values.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/GitHubAuthNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: GitHub connection authorization failed
+              status:
+                type: integer
+                minimum: 400
+                maximum: 599
+              code:
+                const: github_connection_failed
     GitHubInvalidAuthorization:
       description: Invalid request or authorization proof; no sensitive values disclosed.
       headers:
@@ -2243,6 +2680,142 @@ components:
           schema:
             $ref: "#/components/schemas/RevokeRunnerCredentialsRequest"
   schemas:
+    GitHubProviderId:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+      description: Positive exact JSON safe integer supplied by GitHub, not a platform StableId.
+    CreateGitHubDiscoveryAuthorizationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          organizationId,
+          projectId,
+          redirectUri,
+          codeChallenge,
+          codeChallengeMethod,
+        ]
+      properties:
+        organizationId:
+          $ref: "#/components/schemas/BoundedStableId"
+        projectId:
+          $ref: "#/components/schemas/BoundedStableId"
+        redirectUri:
+          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/redirectUri"
+        codeChallenge:
+          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeChallenge"
+        codeChallengeMethod:
+          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeChallengeMethod"
+    CreateGitHubConnectionAuthorizationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          organizationId,
+          projectId,
+          redirectUri,
+          codeChallenge,
+          codeChallengeMethod,
+          githubInstallationId,
+          githubRepositoryId,
+          repositoryFullName,
+        ]
+      properties:
+        organizationId:
+          $ref: "#/components/schemas/BoundedStableId"
+        projectId:
+          $ref: "#/components/schemas/BoundedStableId"
+        redirectUri:
+          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/redirectUri"
+        codeChallenge:
+          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeChallenge"
+        codeChallengeMethod:
+          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeChallengeMethod"
+        githubInstallationId:
+          $ref: "#/components/schemas/GitHubProviderId"
+        githubRepositoryId:
+          $ref: "#/components/schemas/GitHubProviderId"
+        repositoryFullName:
+          $ref: "#/components/schemas/CreateGitHubConnectionRequest/properties/repositoryFullName"
+    GitHubDiscoverySnapshot:
+      type: object
+      additionalProperties: false
+      required: [snapshotId, expiresAt]
+      properties:
+        snapshotId:
+          $ref: "#/components/schemas/GitHubAuthorizationOpaque32"
+        expiresAt:
+          $ref: "#/components/schemas/BoundedTimestamp"
+          description: Fixed finite snapshot expiry, no later than the configured flow deadline; never extended by reads or replay.
+    GitHubDiscoveryRepository:
+      type: object
+      additionalProperties: false
+      description: Private immutable observations, never proof authorizing a later connection. All IDs are provider IDs.
+      required:
+        [
+          githubInstallationId,
+          githubAccountId,
+          githubRepositoryId,
+          accountType,
+          accountLogin,
+          repositoryName,
+          repositoryFullName,
+          isPrivate,
+        ]
+      properties:
+        githubInstallationId:
+          $ref: "#/components/schemas/GitHubProviderId"
+        githubAccountId:
+          $ref: "#/components/schemas/GitHubProviderId"
+        githubRepositoryId:
+          $ref: "#/components/schemas/GitHubProviderId"
+        accountType:
+          type: string
+          enum: [User, Organization]
+        accountLogin:
+          type: string
+          minLength: 1
+          maxLength: 255
+        repositoryName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        repositoryFullName:
+          $ref: "#/components/schemas/CreateGitHubConnectionRequest/properties/repositoryFullName"
+        isPrivate:
+          type: boolean
+    GitHubDiscoveryPageInfo:
+      allOf:
+        - $ref: "#/components/schemas/PageInfo"
+        - oneOf:
+            - type: object
+              required: [hasMore, nextCursor]
+              properties:
+                hasMore:
+                  const: true
+                nextCursor:
+                  $ref: "#/components/schemas/Cursor"
+            - type: object
+              required: [hasMore]
+              properties:
+                hasMore:
+                  const: false
+                nextCursor:
+                  type: "null"
+    GitHubDiscoveryRepositoryPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/GitHubDiscoveryRepository"
+        page:
+          $ref: "#/components/schemas/GitHubDiscoveryPageInfo"
     GitHubAuthorizationOpaque32:
       type: string
       minLength: 43
