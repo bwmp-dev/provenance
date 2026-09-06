@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
   createHash,
   createPrivateKey,
@@ -676,49 +677,31 @@ test("verification is bound to bytes, not the signed filename", async () => {
   await verifyAttestedArtifact(document, publicKey, chunks(bytes, [4, 9]));
 });
 
-test("large generated artifacts are verified with bounded memory", async () => {
-  const original = await readJson("valid/hosted.json");
-  const vector = await readJson("vectors/hosted.json");
-  const publicKey = Buffer.from(vector.publicKeyHex, "hex");
-  const privateKey = privateKeyFromVector(vector);
-  const sizeBytes = 128 * 1024 * 1024;
-  const chunkSize = 256 * 1024;
-  const chunkCount = sizeBytes / chunkSize;
-  const template = Buffer.alloc(chunkSize, 0xa5);
-  const expectedHash = createHash("sha256");
-  for (let index = 0; index < chunkCount; index += 1) {
-    expectedHash.update(template);
-  }
-
-  const document = structuredClone(original);
-  document.statement.subject.sizeBytes = sizeBytes;
-  document.statement.subject.digest.value = expectedHash.digest("hex");
-  signDocument(document, privateKey);
-
-  const baselineArrayBuffers = process.memoryUsage().arrayBuffers;
-  let maximumArrayBuffers = baselineArrayBuffers;
-  let generatedChunks = 0;
-  async function* generatedArtifact() {
-    for (let index = 0; index < chunkCount; index += 1) {
-      const chunk = Buffer.alloc(chunkSize, 0xa5);
-      generatedChunks += 1;
-      yield chunk;
-      maximumArrayBuffers = Math.max(
-        maximumArrayBuffers,
-        process.memoryUsage().arrayBuffers,
-      );
+for (const mode of ["streaming", "retaining-negative-control"]) {
+  test(`large artifact live memory: ${mode}`, () => {
+    const child = spawnSync(
+      process.execPath,
+      [
+        "--expose-gc",
+        resolve(packageDirectory, "test/helpers/artifact-memory.mjs"),
+        mode,
+      ],
+      { encoding: "utf8", timeout: 30_000 },
+    );
+    assert.ifError(child.error);
+    assert.equal(child.signal, null);
+    assert.equal(child.stderr, "");
+    const measurement = JSON.parse(child.stdout);
+    assert.equal(measurement.generatedChunks, 512);
+    assert.equal(measurement.activeSamples, 32);
+    assert.equal(measurement.sizeBytes, 128 * 1024 * 1024);
+    assert.equal(measurement.boundBytes, 96 * 1024 * 1024);
+    assert.equal(measurement.signatureRejectedBeforeReading, true);
+    assert.equal(measurement.verified, true);
+    assert.equal(child.status, mode === "streaming" ? 0 : 1);
+    assert.equal(measurement.withinBound, mode === "streaming");
+    if (mode === "retaining-negative-control") {
+      assert.ok(measurement.growthBytes >= measurement.boundBytes);
     }
-  }
-
-  const result = await verifyAttestedArtifact(
-    document,
-    publicKey,
-    generatedArtifact(),
-  );
-  assert.equal(result.sizeBytes, sizeBytes);
-  assert.equal(generatedChunks, chunkCount);
-  assert.ok(
-    maximumArrayBuffers - baselineArrayBuffers < 96 * 1024 * 1024,
-    `array-buffer growth was ${maximumArrayBuffers - baselineArrayBuffers} bytes`,
-  );
-});
+  });
+}
