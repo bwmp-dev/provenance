@@ -1495,6 +1495,13 @@ async function verifyConsumers(bundleRoots, version) {
         'const path: keyof paths = "/v1/organizations";',
         'const client = createProvenanceClient({ baseUrl: "https://api.example.test" });',
         "void client.GET(path);",
+        'void client.POST("/v1/auth/github/authorizations", { params: { header: { "Idempotency-Key": "fixture-start-key" } }, body: { redirectUri: "https://bff.example/callback", codeChallenge: "A".repeat(43), codeChallengeMethod: "S256" } });',
+        'void client.POST("/v1/auth/github/authorizations/{authorizationId}/complete", { params: { path: { authorizationId: "A".repeat(43) }, header: { "Idempotency-Key": "fixture-complete-key" } }, body: { state: "A".repeat(43), code: "fixture-code", codeVerifier: "a".repeat(43) } });',
+        'type Completion = paths["/v1/auth/github/authorizations/{authorizationId}/complete"]["post"]["responses"][200]["content"]["application/json"];',
+        'const completion: Completion = { exchangeToken: "platform-exchange-only", expiresAt: "2026-09-06T12:00:00Z" };',
+        "void completion;",
+        "// @ts-expect-error GitHub credentials are never returned",
+        "void completion.access_token;",
         "",
       ].join("\n"),
     );

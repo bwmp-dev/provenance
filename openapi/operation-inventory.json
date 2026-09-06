@@ -1,5 +1,17 @@
 [
   {
+    "method": "post",
+    "operationId": "createGitHubAuthorization",
+    "path": "/v1/auth/github/authorizations",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "completeGitHubAuthorization",
+    "path": "/v1/auth/github/authorizations/{authorizationId}/complete",
+    "tag": "authentication"
+  },
+  {
     "method": "get",
     "operationId": "getProvenanceKeys",
     "path": "/.well-known/provenance-keys.json",
