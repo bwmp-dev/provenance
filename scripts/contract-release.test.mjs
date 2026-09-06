@@ -16,7 +16,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
-import { Header } from "tar";
+import { Header, extract as extractTar } from "tar";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { gzipSync } from "node:zlib";
 
@@ -500,10 +500,51 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     const sbom = JSON.parse(
       await readFile(resolve(firstDirectory, manifest.sbom.filename), "utf8"),
     );
-    assert.equal(sbom.packages.length, 24);
+    const attestation = manifest.artifacts.find(
+      (artifact) => artifact.bundle === "attestation-schema",
+    );
+    const attestationRoot = attestation.filename.slice(0, -".tar.gz".length);
+    const attestationEntries = await archiveEntries(
+      resolve(firstDirectory, attestation.filename),
+      attestationRoot,
+    );
+    assert.deepEqual(
+      attestationEntries
+        .filter((path) => path.startsWith(`${attestationRoot}/go/`))
+        .sort(),
+      [
+        "LICENSE",
+        "README.md",
+        "go.mod",
+        "go.sum",
+        "json.go",
+        "schema.json",
+        "verification.go",
+      ]
+        .map((name) => `${attestationRoot}/go/${name}`)
+        .sort(),
+    );
+    for (const name of [
+      "github.com/dlclark/regexp2",
+      "github.com/santhosh-tekuri/jsonschema/v6",
+      "golang.org/x/text",
+    ]) {
+      const dependency = sbom.packages.find((entry) => entry.name === name);
+      assert.ok(dependency, `Go verifier dependency missing: ${name}`);
+      assert.ok(
+        sbom.relationships.some(
+          (entry) =>
+            entry.spdxElementId === "SPDXRef-Package-attestation-schema" &&
+            entry.relatedSpdxElement === dependency.SPDXID &&
+            entry.relationshipType === "DEPENDS_ON",
+        ),
+        `Go verifier SBOM relationship missing: ${name}`,
+      );
+    }
+    assert.equal(sbom.packages.length, 26);
     assert.equal(
       sbom.packages.filter(({ filesAnalyzed }) => !filesAnalyzed).length,
-      18,
+      20,
     );
     assert(
       sbom.relationships.some(
@@ -512,7 +553,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     );
     assert(sbom.packages.every(({ checksums }) => checksums?.length > 0));
     t.diagnostic(
-      `SPDX 2.3 SBOM covers ${sbom.packages.length} packages, including 18 runtime dependencies, and ${sbom.files.length} archived files`,
+      `SPDX 2.3 SBOM covers ${sbom.packages.length} packages, including 20 runtime dependencies, and ${sbom.files.length} archived files`,
     );
     assert.deepEqual(manifest.compatibility, {
       action: "not-released",
@@ -589,7 +630,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     const sbomPath = resolve(sbomMutation, sbomFilename);
     const tamperedSbom = JSON.parse(await readFile(sbomPath, "utf8"));
     const removedDependency = tamperedSbom.packages.find(
-      ({ filesAnalyzed }) => !filesAnalyzed,
+      ({ name }) => name === "github.com/dlclark/regexp2",
     ).SPDXID;
     tamperedSbom.packages = tamperedSbom.packages.filter(
       ({ SPDXID }) => SPDXID !== removedDependency,
@@ -611,6 +652,51 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       /SPDX (?:dependency|package inventory) differs/,
     );
     assertPrivilegedBoundaryRejects(sbomMutation);
+
+    const extracted = resolve(mutationsDirectory, "go-source-extracted");
+    await mkdir(extracted);
+    await extractTar({
+      file: resolve(firstDirectory, attestation.filename),
+      cwd: extracted,
+    });
+    for (const [name, omitted, changed] of [
+      ["missing-go-source", "go/verification.go", null],
+      ["missing-go-schema", "go/schema.json", null],
+      ["tampered-go-schema", null, "go/schema.json"],
+      ["tampered-go-module", null, "go/go.mod"],
+    ]) {
+      const directory = await mutationDirectory(
+        firstDirectory,
+        mutationsDirectory,
+        name,
+      );
+      const entries = [];
+      for (const path of attestationEntries) {
+        if (path === `${attestationRoot}/${omitted}`) continue;
+        entries.push({
+          path,
+          contents:
+            path === `${attestationRoot}/${changed}`
+              ? Buffer.from("tampered")
+              : await readFile(resolve(extracted, path)),
+        });
+      }
+      const contents = gzipSync(tarFixture(entries), { mtime: 0 });
+      await writeFile(resolve(directory, attestation.filename), contents);
+      await mutateManifest(directory, (document) => {
+        const artifact = document.artifacts.find(
+          (entry) => entry.bundle === "attestation-schema",
+        );
+        artifact.sha256 = digest(contents);
+        artifact.size = contents.length;
+      });
+      await replaceChecksum(directory, attestation.filename, contents);
+      await assert.rejects(
+        verifyContractRelease({ directory, version }),
+        /entries differ|bundle (?:size|digest) differs/,
+      );
+      assertPrivilegedBoundaryRejects(directory);
+    }
 
     const unsafeArtifact = manifest.artifacts.find(
       ({ bundle }) => bundle === "config-schema",

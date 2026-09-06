@@ -3,8 +3,15 @@
 Module: `github.com/bwmp-dev/provenance/packages/verification-go`
 
 This source module implements independent attestation v1 and local-byte verification.
-It is not yet included in the contract release archives and has no separately
-published module version. It does not issue attestations or resolve trusted keys.
+The attestation contract archive layout includes this module under `go/`, with
+its embedded schema, module checksums and license. Check the actual published
+version's manifest before claiming delivery; source-tree inclusion alone is not
+release evidence. There is no separately published module version. It does not
+issue attestations or resolve trusted keys.
+
+Release acceptance builds an external consumer against only the extracted module
+with `GOWORK=off`. Dependency-cache provisioning happens before offline consumer
+execution; this does not promise an offline cold installation.
 
 ```go
 import (
