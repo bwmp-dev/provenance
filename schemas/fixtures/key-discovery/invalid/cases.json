@@ -1,0 +1,49 @@
+[
+  {
+    "name": "private key",
+    "path": ["keys", 0, "privateKey"],
+    "value": "hostile-secret"
+  },
+  {
+    "name": "JWK private scalar",
+    "path": ["keys", 0, "d"],
+    "value": "hostile-secret"
+  },
+  {
+    "name": "custody URI",
+    "path": ["keys", 0, "custody"],
+    "value": "hostile-secret"
+  },
+  { "name": "unknown root", "path": ["unexpected"], "value": true },
+  { "name": "wrong version", "path": ["version"], "value": 2 },
+  { "name": "boolean version", "path": ["version"], "value": true },
+  {
+    "name": "wrong algorithm",
+    "path": ["keys", 0, "algorithm"],
+    "value": "RSA"
+  },
+  {
+    "name": "revoked is not retired",
+    "path": ["keys", 0, "status"],
+    "value": "revoked"
+  },
+  { "name": "empty ID", "path": ["keys", 0, "keyId"], "value": "" },
+  { "name": "newline ID", "path": ["keys", 0, "keyId"], "value": "key\n" },
+  { "name": "Unicode ID", "path": ["keys", 0, "keyId"], "value": "kéy" },
+  {
+    "name": "padding",
+    "path": ["keys", 0, "publicKey"],
+    "value": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg="
+  },
+  {
+    "name": "noncanonical pad bits",
+    "path": ["keys", 0, "publicKey"],
+    "value": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbh"
+  },
+  {
+    "name": "wrong key length",
+    "path": ["keys", 0, "publicKey"],
+    "value": "AA"
+  },
+  { "name": "empty snapshot", "path": ["keys"], "value": [] }
+]

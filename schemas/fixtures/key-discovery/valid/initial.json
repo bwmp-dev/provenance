@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "keys": [
+    {
+      "keyId": "https://api.provenance.dev/.well-known/provenance-keys.json#test-hosted-2026",
+      "algorithm": "Ed25519",
+      "publicKey": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg",
+      "status": "active"
+    }
+  ]
+}

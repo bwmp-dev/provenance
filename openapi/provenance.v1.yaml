@@ -1267,6 +1267,47 @@ paths:
                 $ref: "#/components/schemas/Usage"
         default:
           $ref: "#/components/responses/Problem"
+  /.well-known/provenance-keys.json:
+    get:
+      operationId: getProvenanceKeys
+      summary: Read the complete public attestation key snapshot
+      description: >-
+        Public-only discovery, not trust bootstrap or revocation. Match key IDs
+        exactly; never fetch envelope-supplied URLs. Retired keys remain valid for
+        historical verification. Every response uses Cache-Control no-store.
+        Invalid or unavailable snapshots return 503, never an empty successful set.
+      tags: [verification]
+      security: []
+      responses:
+        "200":
+          description: Complete active and retired public key snapshot.
+          headers:
+            Cache-Control:
+              required: true
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/key-discovery/v1/schema.json"
+        "503":
+          description: Public key snapshot unavailable.
+          headers:
+            Cache-Control:
+              required: true
+              schema: { type: string, const: no-store }
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [type, title, status, code]
+                properties:
+                  type: { type: string, const: "about:blank" }
+                  title: { type: string, const: "Public keys unavailable" }
+                  status: { type: integer, const: 503 }
+                  code: { type: string, const: public_keys_unavailable }
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     BearerAuth:

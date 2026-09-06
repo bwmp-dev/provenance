@@ -502,6 +502,18 @@ async function verifyArchive({
     }
   }
   if (archive.bundle === "attestation-schema") {
+    for (const path of [
+      "key-discovery/schema.json",
+      "key-discovery/semantics.md",
+      "key-discovery-fixtures/valid/initial.json",
+      "key-discovery-fixtures/valid/rotated.json",
+      "key-discovery-fixtures/invalid/cases.json",
+    ]) {
+      invariant(
+        embeddedManifest.files.some((file) => file.path === path),
+        `released key discovery file missing: ${path}`,
+      );
+    }
     equalStringSets(
       embeddedManifest.files
         .filter((file) => file.path.startsWith("go/"))
@@ -1324,6 +1336,21 @@ async function verifyConsumers(bundleRoots, version) {
         Buffer.from(vector.publicKeyHex, "hex"),
       ),
       "released attestation consumer rejected the hosted signature vector",
+    );
+    const discovery = await readJson(
+      resolve(root, "key-discovery-fixtures/valid/rotated.json"),
+      "released rotated discovery fixture",
+    );
+    const retired = discovery.keys.find(
+      (key) => key.keyId === document.signature.keyId,
+    );
+    invariant(
+      retired?.status === "retired" &&
+        verification.verifyAttestationSignature(
+          document,
+          Buffer.from(retired.publicKey, "base64url"),
+        ),
+      "released discovery retirement invalidated historical verification",
     );
   }
 
