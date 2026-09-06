@@ -13,7 +13,7 @@
     "check:java": "node scripts/run-gradle.mjs :check",
     "format": "prettier --write \"**/*.{js,json,md,mjs,ts,yaml,yml}\" && buf format --write proto/provenance/runner/v1",
     "format:check": "prettier --check \"**/*.{js,json,md,mjs,ts,yaml,yml}\" && buf format --diff --exit-code proto/provenance/runner/v1",
-    "generate": "buf generate --template buf.gen.yaml && pnpm --filter @bwmp-dev/api-client generate",
+    "generate": "node scripts/generate-protobuf.mjs && pnpm --filter @bwmp-dev/api-client generate",
     "generate:check": "pnpm run generate && git diff --exit-code -- gen/proto packages/runner-protocol/src/gen packages/api-client/src/gen",
     "lint:contracts": "buf lint proto/provenance/runner/v1 && pnpm run lint:openapi",
     "lint:openapi": "redocly lint --config openapi/redocly.yaml",

@@ -31,6 +31,13 @@ document so endpoint groups cannot silently disappear. `pnpm generate`
 reproduces the Protobuf stubs and the typed fetch client; generated artifacts
 must never be edited directly.
 
+Protobuf generation uses local Go plugins pinned to `protoc-gen-go` v1.36.12
+and `protoc-gen-go-grpc` v1.6.2, alongside the locked TypeScript generator.
+`pnpm generate` bootstraps them into a fresh temporary directory with the Go
+toolchain in `.go-version`; no Buf remote-generation quota or credentials are
+required. A cold bootstrap still needs access to the Go module proxy/checksum
+service (and toolchain download if absent); this is not an offline cold build.
+
 `pnpm-lock.yaml` is generated only by the pinned pnpm release and is validated
 with a frozen install in CI; general-purpose formatters do not rewrite it.
 
