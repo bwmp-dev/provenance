@@ -17,6 +17,8 @@ jobs:
   contracts:
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
+    env:
+      npm_config_store_dir: ${{ runner.temp }}/provenance-pnpm-store
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,6 +46,8 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-contracts.txt
       - run: python -m pip install --requirement requirements-contracts.txt
+      - name: Populate the locked store for isolated offline consumers
+        run: pnpm fetch --frozen-lockfile --ignore-scripts
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - name: Check Protobuf compatibility

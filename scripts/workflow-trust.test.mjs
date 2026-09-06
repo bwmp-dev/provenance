@@ -57,3 +57,28 @@ test("release workflows remain manual-only", async () => {
     assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
   }
 });
+
+test("offline consumer jobs populate and share an explicit per-runner store", async () => {
+  for (const [name, jobName] of [
+    ["ci.yml", "contracts"],
+    ["release-contracts.yml", "build"],
+  ]) {
+    const workflow = parse(
+      await readFile(new URL(name, workflowDirectory), "utf8"),
+    );
+    const job = workflow.jobs[jobName];
+    assert.equal(
+      job.env.npm_config_store_dir,
+      "${{ runner.temp }}/provenance-pnpm-store",
+    );
+    const fetchIndex = job.steps.findIndex(
+      (step) => step.run === "pnpm fetch --frozen-lockfile --ignore-scripts",
+    );
+    const installIndex = job.steps.findIndex(
+      (step) => step.run === "pnpm install --frozen-lockfile",
+    );
+    const checkIndex = job.steps.findIndex((step) => step.run === "pnpm check");
+    assert.ok(fetchIndex >= 0 && fetchIndex < installIndex);
+    assert.ok(installIndex < checkIndex);
+  }
+});
