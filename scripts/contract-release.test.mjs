@@ -803,6 +803,41 @@ test("contract release rejects invalid identities and non-empty output", async (
   }
 });
 
+test("release bootstraps Node before pnpm and enables its cache only afterward", async () => {
+  const workflow = parseYaml(
+    await readFile(
+      resolve(
+        import.meta.dirname,
+        "../.github/workflows/release-contracts.yml",
+      ),
+      "utf8",
+    ),
+  );
+  const steps = workflow.jobs.build.steps;
+  const checkout = steps.findIndex((step) =>
+    step.uses?.startsWith("actions/checkout@"),
+  );
+  const pnpm = steps.findIndex((step) => step.uses === "pnpm/action-setup@v6");
+  const nodeSteps = steps
+    .map((step, index) => ({ step, index }))
+    .filter(({ step }) => step.uses?.startsWith("actions/setup-node@"));
+  assert.equal(nodeSteps.length, 2);
+  const [bootstrap, cache] = nodeSteps;
+  assert.ok(checkout >= 0 && checkout < bootstrap.index);
+  assert.ok(bootstrap.index < pnpm && pnpm < cache.index);
+  assert.equal(bootstrap.step.uses, "actions/setup-node@v7");
+  assert.equal(bootstrap.step.with["node-version-file"], ".node-version");
+  assert.equal(bootstrap.step.with["package-manager-cache"], false);
+  assert.equal(bootstrap.step.with.cache, undefined);
+  assert.equal(cache.step.uses, "actions/setup-node@v7");
+  assert.equal(cache.step.with["node-version-file"], ".node-version");
+  assert.equal(cache.step.with.cache, "pnpm");
+  assert.equal(steps[pnpm].with.version, "11.20.0");
+  assert.equal(steps[pnpm].with.run_install, false);
+  for (const step of steps.slice(0, pnpm))
+    assert.notEqual(step.with?.cache, "pnpm");
+});
+
 test("contract release provisions the audited GitHub CLI before API calls", async () => {
   const workflow = parseYaml(
     await readFile(

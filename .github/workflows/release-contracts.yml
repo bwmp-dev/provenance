@@ -113,6 +113,11 @@ jobs:
           ref: ${{ needs.validate.outputs.source_sha }}
       - name: Select the shared store for isolated offline consumers
         run: echo "pnpm_config_store_dir=$RUNNER_TEMP/provenance-pnpm-store" >> "$GITHUB_ENV"
+      - name: Bootstrap Node before the pnpm npm installer
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
       - uses: pnpm/action-setup@v6
         with:
           dest: ${{ runner.temp }}/provenance-pnpm
