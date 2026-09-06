@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 5
     outputs:
       policy_sha: ${{ steps.release.outputs.policy_sha }}
@@ -110,7 +110,7 @@ jobs:
 
   build:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
     steps:
       - name: Check out reviewed release policy
@@ -189,7 +189,7 @@ jobs:
 
   release:
     needs: [validate, build]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     permissions:
       contents: write

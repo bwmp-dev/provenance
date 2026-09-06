@@ -2,10 +2,9 @@ name: CI
 
 on:
   workflow_dispatch:
-  pull_request:
   push:
     branches:
-      - main
+      - "**"
 
 permissions:
   contents: read
@@ -16,14 +15,17 @@ concurrency:
 
 jobs:
   contracts:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Select the shared store for isolated offline consumers
+        run: echo "pnpm_config_store_dir=$RUNNER_TEMP/provenance-pnpm-store" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v4
         with:
+          dest: ${{ runner.temp }}/provenance-pnpm
           version: 11.20.0
           run_install: false
       - uses: actions/setup-node@v4
@@ -45,10 +47,12 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-contracts.txt
       - run: python -m pip install --requirement requirements-contracts.txt
+      - name: Populate the locked store for isolated offline consumers
+        run: pnpm fetch --frozen-lockfile --ignore-scripts
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - name: Check Protobuf compatibility
-        if: github.event_name == 'pull_request'
+        if: github.ref_name != github.event.repository.default_branch
         run: >-
           pnpm exec buf breaking proto/provenance/runner/v1
-          --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }},subdir=proto/provenance/runner/v1"
+          --against "https://github.com/${{ github.repository }}.git#branch=${{ github.event.repository.default_branch }},subdir=proto/provenance/runner/v1"

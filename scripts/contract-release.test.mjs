@@ -251,6 +251,36 @@ test("released Node consumers use the exact audited dependency graph offline", a
       packageContents,
     );
     await writeFile(resolve(consumerDirectory, "pnpm-lock.yaml"), firstLock);
+    const storePaths = [repositoryRoot, consumerDirectory].map((cwd) => {
+      const versionResult = spawnSync("pnpm", ["--version"], {
+        cwd,
+        encoding: "utf8",
+        env: process.env,
+        shell: false,
+      });
+      assert.equal(versionResult.status, 0, versionResult.stderr);
+      assert.equal(versionResult.stdout.trim(), "11.20.0");
+      const result = spawnSync("pnpm", ["store", "path", "--silent"], {
+        cwd,
+        encoding: "utf8",
+        env: process.env,
+        shell: false,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    });
+    assert.equal(
+      storePaths[1],
+      storePaths[0],
+      "isolated consumer store differs",
+    );
+    if (process.env.pnpm_config_store_dir) {
+      assert.equal(
+        storePaths[0],
+        resolve(process.env.pnpm_config_store_dir, "v11"),
+        "pnpm did not use the explicitly populated store",
+      );
+    }
     const installation = spawnSync(
       "pnpm",
       ["install", "--offline", "--ignore-scripts", "--frozen-lockfile"],
