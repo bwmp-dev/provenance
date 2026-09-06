@@ -1,8 +1,8 @@
 # Paper test fixtures
 
 `pnpm check` invokes the default Gradle check, which builds and hash-verifies all
-14 benign and hostile fixture JARs and runs the focused `fork-pid-bomb` unit
-suite:
+15 benign and hostile fixture JARs and runs the focused `fork-pid-bomb` and
+`matrix-compatibility` unit suites:
 
 ```text
 node scripts/run-gradle.mjs :check
@@ -44,4 +44,33 @@ summary under `build/paper-behavioral/`.
 
 This command is intentionally outside the default check because it downloads a
 Paper runtime and starts six Minecraft servers. Its allowlist is fixed to the
-six directories under `benign/`; it cannot select or execute a hostile fixture.
+six original directories under `benign/`; it cannot select or execute a hostile fixture.
+
+## Same-artifact matrix producer proof
+
+`matrix-compatibility` is a separate benign acceptance fixture. Its single JAR
+loads on the supported API floor (1.20.6), deliberately throws from `onEnable`
+on 1.20.6 and 1.21.4, and enables on exactly 1.21.8. Unknown versions fail closed.
+A fixed ten-second fixture-only observation window precedes classification so
+the hosted restart driver can observe the already-running attempt. Interruption
+is preserved; no runner, startup, or gate deadline is extended.
+
+Build the probe and fixture, then run the opt-in producer proof:
+
+```text
+node scripts/run-gradle.mjs :paper-probe:jar verifySafeFixtureArtifacts
+pnpm paper:matrix /path/to/assets /path/to/temurin-21.0.8+9/bin/java /new/evidence/path
+```
+
+The asset directory contains the three exact `runtime-VERSION.tar.gz` prepared
+archives and `paper-VERSION-BUILD.jar` files pinned in
+`scripts/run-matrix-behavioral.mjs`. The command verifies their hashes, uses the
+same fixture/probe bytes for every environment, binds only loopback on an
+ephemeral port, limits each process to 180 seconds and four MiB of console
+output, and validates structured lifecycle evidence rather than log prose.
+The summary retains artifact/runtime identities and bounded classifications;
+raw probe/log files remain local to the owner-only evidence directory.
+
+This proves producer behavior, not gVisor isolation, component restarts, remote
+storage, or the Plan 05/06 hosted exit gate. Release bundles add this fixture
+without replacing or changing the existing success fixture.

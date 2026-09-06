@@ -1,5 +1,10 @@
 # Provenance Paper probe
 
+The probe declares and compiles against Paper API 1.20.6 (Java 21). Its compile
+API artifact is hash-pinned; the opt-in same-artifact matrix producer proof
+exercises the built probe on Paper 1.20.6, 1.21.4, and 1.21.8. The probe floor
+does not change a target plugin's declared compatibility.
+
 Install the probe JAR beside the plugin under test and set:
 
 ```text

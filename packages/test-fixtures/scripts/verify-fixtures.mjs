@@ -14,6 +14,7 @@ if (write && !includeHostile) {
 }
 
 const benign = [
+  "matrix-compatibility",
   "success",
   "on-load-failure",
   "on-enable-failure",
@@ -53,6 +54,7 @@ if (!build.includes('tasks.register("hostileFixtures")')) {
   );
 }
 const allowedDefaultCheckDependencies = [
+  ":fixture-matrix-compatibility:test",
   ":paper-probe:check",
   ":paper-probe:verifyPaperApiArtifact",
   "verifySafeFixtureArtifacts",

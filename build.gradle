@@ -14,6 +14,7 @@ group = "dev.provenance"
 version = "0.1.0-alpha.1"
 
 def safeFixtures = [
+	":fixture-matrix-compatibility",
     ":fixture-success",
     ":fixture-on-load-failure",
     ":fixture-on-enable-failure",
@@ -104,6 +105,15 @@ project(":fixture-fork-pid-bomb") {
     }
 }
 
+project(":fixture-matrix-compatibility") {
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:6.0.3")
+        testImplementation "org.junit.jupiter:junit-jupiter"
+        testImplementation files(rootProject.project(":paper-api-stubs").sourceSets.main.output)
+        testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    }
+}
+
 project(":paper-api-stubs") {
     tasks.named("jar") {
         enabled = false
@@ -113,7 +123,7 @@ project(":paper-api-stubs") {
 project(":paper-probe") {
     version = "0.1.0"
 
-    def paperApiVersion = "1.21.8-R0.1-SNAPSHOT"
+    def paperApiVersion = "1.20.6-R0.1-SNAPSHOT"
     def paperApiArtifact = configurations.create("paperApiArtifact") {
         canBeConsumed = false
         transitive = false
@@ -210,7 +220,7 @@ project(":paper-probe") {
             "node",
             rootProject.file("scripts/verify-paper-api.mjs"),
             stagedPaperApi.get().asFile,
-            "aab18363ca5a1aaadd4e2716ee0de50bc26f352901af962177d86484baff7478",
+            "1e2c006933df7f688133140f05dec5ae7d28e64d761d9aadcf92d616b849bda2",
         )
     }
     tasks.named("check") {
@@ -266,6 +276,7 @@ tasks.register("resolveAndLockAll") {
 
 tasks.named("check") {
     dependsOn(
+        ":fixture-matrix-compatibility:test",
         ":fixture-fork-pid-bomb:test",
         ":paper-probe:check",
         ":paper-probe:verifyPaperApiArtifact",
