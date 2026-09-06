@@ -104,9 +104,10 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.validate.outputs.source_sha }}
       - name: Select the shared store for isolated offline consumers
-        run: echo "npm_config_store_dir=$RUNNER_TEMP/provenance-pnpm-store" >> "$GITHUB_ENV"
+        run: echo "pnpm_config_store_dir=$RUNNER_TEMP/provenance-pnpm-store" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v6
         with:
+          dest: ${{ runner.temp }}/provenance-pnpm
           version: 11.20.0
           run_install: false
       - uses: actions/setup-node@v7
