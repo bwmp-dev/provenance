@@ -67,10 +67,15 @@ test("offline consumer jobs populate and share an explicit per-runner store", as
       await readFile(new URL(name, workflowDirectory), "utf8"),
     );
     const job = workflow.jobs[jobName];
-    assert.equal(
-      job.env.npm_config_store_dir,
-      "${{ runner.temp }}/provenance-pnpm-store",
+    const storeIndex = job.steps.findIndex(
+      (step) =>
+        step.run ===
+        'echo "npm_config_store_dir=$RUNNER_TEMP/provenance-pnpm-store" >> "$GITHUB_ENV"',
     );
+    const setupIndex = job.steps.findIndex((step) =>
+      step.uses?.startsWith("pnpm/action-setup@"),
+    );
+    assert.ok(storeIndex >= 0 && storeIndex < setupIndex);
     const fetchIndex = job.steps.findIndex(
       (step) => step.run === "pnpm fetch --frozen-lockfile --ignore-scripts",
     );
