@@ -717,6 +717,173 @@ test("contract release rejects invalid identities and non-empty output", async (
   }
 });
 
+test("contract release provisions the audited GitHub CLI before API calls", async () => {
+  const workflow = parseYaml(
+    await readFile(
+      resolve(
+        import.meta.dirname,
+        "../.github/workflows/release-contracts.yml",
+      ),
+      "utf8",
+    ),
+  );
+  for (const name of ["validate", "release"]) {
+    const steps = workflow.jobs[name].steps;
+    const install = steps.findIndex(
+      (step) => step.run === "bash scripts/install-github-cli.sh",
+    );
+    const checkout = steps.findIndex((step) =>
+      step.uses?.startsWith("actions/checkout@"),
+    );
+    assert.ok(
+      checkout >= 0 && install > checkout,
+      `${name} installs from checked-out policy`,
+    );
+    const calls = steps
+      .map((step, index) =>
+        /\bgh (?:api|release)\b/.test(step.run ?? "") ? index : -1,
+      )
+      .filter((index) => index >= 0);
+    assert.ok(calls.length > 0, `${name} actually invokes GitHub CLI`);
+    assert.ok(
+      install < calls[0],
+      `${name} installs before its first GitHub CLI call`,
+    );
+    const firstRun = steps[calls[0]].run;
+    assert.match(
+      firstRun,
+      /expected_gh="\$RUNNER_TEMP\/gh_2\.96\.0_linux_amd64\/bin\/gh"/,
+    );
+    const guard = firstRun.indexOf(
+      'if [[ "$(command -v gh)" != "$expected_gh" ]]; then',
+    );
+    const firstCall = firstRun.search(/\bgh (?:api|release)\b/);
+    assert.ok(
+      guard >= 0 && guard < firstCall,
+      `${name} rejects an unpinned CLI before use`,
+    );
+    assert.match(firstRun.slice(guard, firstCall), /exit 1/);
+  }
+});
+
+test("release discovery reuses drafts and rejects ambiguity before creation", async () => {
+  const workflow = parseYaml(
+    await readFile(
+      resolve(
+        import.meta.dirname,
+        "../.github/workflows/release-contracts.yml",
+      ),
+      "utf8",
+    ),
+  );
+  const run = workflow.jobs.release.steps.find(
+    (step) => step.name === "Reconcile and publish GitHub release",
+  ).run;
+  const discovery = run.slice(
+    run.indexOf("find_release() {"),
+    run.indexOf('release_id="$(jq'),
+  );
+  assert.ok(discovery.startsWith("find_release() {"));
+  const draft = { id: 123, tag_name: "v0.1.0-alpha.11", draft: true };
+  const published = { ...draft, draft: false };
+  const cases = [
+    { name: "existing draft", pages: [[draft]], expected: draft },
+    { name: "published release", pages: [[published]], expected: published },
+    {
+      name: "later page",
+      pages: [[{ tag_name: "other" }], [draft]],
+      expected: draft,
+    },
+    { name: "absent", pages: [[]], creates: true, expected: draft },
+    { name: "ambiguous", pages: [[draft], [published]], fails: true },
+    { name: "API error", pages: [[]], apiError: true, fails: true },
+    { name: "malformed", pages: "invalid", fails: true },
+    {
+      name: "creation race",
+      pages: [[]],
+      creates: true,
+      createError: true,
+      fallback: [[draft]],
+      expected: draft,
+    },
+    {
+      name: "ambiguous creation race",
+      pages: [[]],
+      creates: true,
+      createError: true,
+      fallback: [[draft, published]],
+      fails: true,
+    },
+  ];
+  for (const entry of cases) {
+    const directory = await mkdtemp(join(tmpdir(), "release-discovery-"));
+    try {
+      const result = spawnSync(
+        "bash",
+        [
+          "-euo",
+          "pipefail",
+          "-c",
+          `
+        verify_release_identity() { :; }
+        validate_release_metadata() { :; }
+        gh() {
+          if [[ " $* " == *" --method POST "* ]]; then
+            touch "$RUNNER_TEMP/created"
+            printf '%s' "$CREATED_JSON"
+            return "$CREATE_ERROR"
+          fi
+          [[ "$*" == "api --paginate repos/example/repo/releases?per_page=100 --slurp" ]] || return 99
+          if [[ -f "$RUNNER_TEMP/created" ]]; then
+            printf '%s' "$FALLBACK_PAGES"
+          else
+            printf '%s' "$RELEASE_PAGES"
+          fi
+          return "$API_ERROR"
+        }
+        ${discovery}
+        printf '%s' "$release_json"
+      `,
+        ],
+        {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            RUNNER_TEMP: directory,
+            GITHUB_REPOSITORY: "example/repo",
+            TAG: draft.tag_name,
+            SOURCE_SHA: "source",
+            title: "title",
+            compatibility: "body",
+            PRERELEASE: "true",
+            RELEASE_PAGES:
+              typeof entry.pages === "string"
+                ? entry.pages
+                : JSON.stringify(entry.pages),
+            FALLBACK_PAGES: JSON.stringify(entry.fallback ?? [[]]),
+            CREATED_JSON: JSON.stringify(draft),
+            API_ERROR: entry.apiError ? "1" : "0",
+            CREATE_ERROR: entry.createError ? "1" : "0",
+          },
+        },
+      );
+      assert.ifError(result.error);
+      if (entry.fails) assert.notEqual(result.status, 0, entry.name);
+      else {
+        assert.equal(result.status, 0, `${entry.name}: ${result.stderr}`);
+        assert.deepEqual(JSON.parse(result.stdout), entry.expected, entry.name);
+      }
+      const created = await access(join(directory, "created")).then(
+        () => true,
+        () => false,
+      );
+      assert.equal(created, entry.creates ?? false, entry.name);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+});
+
 test("release workflow reconciles a verified draft without overwriting assets", async () => {
   const workflow = await readFile(
     resolve(import.meta.dirname, "../.github/workflows/release-contracts.yml"),

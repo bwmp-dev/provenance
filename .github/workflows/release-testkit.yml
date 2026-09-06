@@ -34,6 +34,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
       - name: Install pinned GitHub CLI
         shell: bash
         run: bash scripts/install-github-cli.sh
