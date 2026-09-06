@@ -13,15 +13,17 @@ import {
 import { basename, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const testkitSourceCommit = "98d5f07f173a9e3f1b365add24b81c934d7e3c61";
+// Audited source and bytes move together. This policy does not relabel assets
+// from the previous source or add newer fixtures to the legacy 17-asset release.
+export const testkitSourceCommit = "f82dcbf8244354059731ba533f73909ed5528bbd";
 
 export const testkitMatrix = Object.freeze([
   artifact(
     "paper-probe",
     "probe",
     "plugins/paper-probe/build/libs/paper-probe-0.1.0.jar",
-    "abbccf45831ef998466542b19169731b9ec4f8a6c3525fce4d7a2c0b5f4b4b43",
-    478837,
+    "040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868",
+    478853,
   ),
   artifact(
     "success",
@@ -90,8 +92,8 @@ export const testkitMatrix = Object.freeze([
     "fork-pid-bomb",
     "hostile",
     "packages/test-fixtures/hostile/fork-pid-bomb/build/libs/fork-pid-bomb-1.0.0.jar",
-    "35159ca9338e5d5aa12f8167b3ce9e63a14030011b8632679ac4ab2c274e0ca6",
-    2778,
+    "b4d936c12370892047839396786b6e65b1b5ccf65c6ddae70e283b43fe3e8e16",
+    7593,
   ),
   artifact(
     "disk-fill",
