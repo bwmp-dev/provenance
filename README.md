@@ -12,6 +12,7 @@ Public contracts and clients for submitting, inspecting, testing, releasing, and
 - `packages/test-fixtures`: Paper test and hostile-sandbox fixtures.
 - `packages/typescript-sdk`: supported TypeScript SDK.
 - `packages/verification`: attestation verification tooling.
+- `packages/verification-go`: [offline Go envelope and artifact verification](packages/verification-go/README.md), supplied with a trusted public key and caller-owned byte reader.
 - `plugins/paper-probe`: trusted Paper lifecycle and command probe.
 - `schemas`: authoritative JSON Schemas.
 - `proto`: authoritative public runner protocol.

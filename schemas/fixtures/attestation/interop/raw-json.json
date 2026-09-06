@@ -1,0 +1,76 @@
+[
+  {
+    "name": "UTF16 ordering and ECMAScript escaping",
+    "json": "{\"\\ue000\":\"<>&\\u2028\\u2029\",\"😀\":\"é\",\"a\":\"\\u0000\\b\\t\\n\\f\\r\\\\\\\"\"}",
+    "valid": true,
+    "canonical": "{\"a\":\"\\u0000\\b\\t\\n\\f\\r\\\\\\\"\",\"😀\":\"é\",\"\":\"<>&  \"}"
+  },
+  {
+    "name": "integer JSON representations",
+    "json": "[1.0,1e3,-0,9007199254740991]",
+    "valid": true,
+    "canonical": "[1,1000,0,9007199254740991]"
+  },
+  {
+    "name": "escaped surrogate pair",
+    "json": "{\"value\":\"\\ud83d\\ude00\"}",
+    "valid": true,
+    "canonical": "{\"value\":\"😀\"}"
+  },
+  {
+    "name": "escaped backslash not surrogate",
+    "json": "{\"value\":\"\\\\ud800\"}",
+    "valid": true,
+    "canonical": "{\"value\":\"\\\\ud800\"}"
+  },
+  {
+    "name": "duplicate key",
+    "json": "{\"a\":1,\"a\":2}",
+    "valid": false
+  },
+  {
+    "name": "escaped duplicate key",
+    "json": "{\"a\":1,\"\\u0061\":2}",
+    "valid": false
+  },
+  {
+    "name": "nested duplicate key",
+    "json": "{\"x\":{\"a\":1,\"a\":2}}",
+    "valid": false
+  },
+  {
+    "name": "lone high surrogate",
+    "json": "{\"a\":\"\\ud800\"}",
+    "valid": false
+  },
+  {
+    "name": "lone low surrogate key",
+    "json": "{\"\\udfff\":1}",
+    "valid": false
+  },
+  {
+    "name": "high followed by nonlow",
+    "json": "{\"a\":\"\\ud800\\u0061\"}",
+    "valid": false
+  },
+  {
+    "name": "BOM",
+    "json": "﻿{}",
+    "valid": false
+  },
+  {
+    "name": "trailing JSON",
+    "json": "{} []",
+    "valid": false
+  },
+  {
+    "name": "NaN",
+    "json": "[NaN]",
+    "valid": false
+  },
+  {
+    "name": "trailing comma",
+    "json": "[1,]",
+    "valid": false
+  }
+]
