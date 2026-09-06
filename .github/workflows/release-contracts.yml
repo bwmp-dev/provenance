@@ -34,6 +34,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.sha }}
+      - name: Install pinned GitHub CLI
+        shell: bash
+        run: bash scripts/install-github-cli.sh
       - name: Validate release request
         id: release
         env:
@@ -41,6 +44,11 @@ jobs:
           VERSION: ${{ inputs.version }}
         shell: bash
         run: |
+          expected_gh="$RUNNER_TEMP/gh_2.96.0_linux_amd64/bin/gh"
+          if [[ "$(command -v gh)" != "$expected_gh" ]]; then
+            echo "Pinned GitHub CLI is not first on PATH." >&2
+            exit 1
+          fi
           if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
             echo "Contract releases must be dispatched from refs/heads/main." >&2
             exit 1
@@ -169,6 +177,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ needs.validate.outputs.policy_sha }}
+      - name: Install pinned GitHub CLI
+        shell: bash
+        run: bash scripts/install-github-cli.sh
       - name: Revalidate reviewed main commit and release destination
         env:
           GH_TOKEN: ${{ github.token }}
@@ -177,6 +188,11 @@ jobs:
           TAG: ${{ needs.validate.outputs.tag }}
         shell: bash
         run: |
+          expected_gh="$RUNNER_TEMP/gh_2.96.0_linux_amd64/bin/gh"
+          if [[ "$(command -v gh)" != "$expected_gh" ]]; then
+            echo "Pinned GitHub CLI is not first on PATH." >&2
+            exit 1
+          fi
           if [[ "$(git rev-parse HEAD)" != "$POLICY_SHA" ]]; then
             echo "Privileged release checkout does not match the reviewed policy commit." >&2
             exit 1
@@ -475,10 +491,37 @@ jobs:
             fi
           }
 
+          find_release() {
+            local release_pages matches count
+            if ! release_pages="$(gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/releases?per_page=100" --slurp)"; then
+              echo "Unable to discover existing releases." >&2
+              return 2
+            fi
+            if ! matches="$(jq --compact-output --arg tag "$TAG" \
+              '[.[][] | select(.tag_name == $tag)]' <<<"$release_pages")"; then
+              echo "Invalid release discovery response." >&2
+              return 2
+            fi
+            count="$(jq 'length' <<<"$matches")"
+            if [[ "$count" -gt 1 ]]; then
+              echo "Multiple releases match the requested tag." >&2
+              return 2
+            fi
+            if [[ "$count" -eq 0 ]]; then
+              return 1
+            fi
+            release_json="$(jq --compact-output '.[0]' <<<"$matches")"
+          }
+
           verify_release_identity
-          if release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/dev/null)"; then
+          if find_release; then
             validate_release_metadata
           else
+            discovery_status="$?"
+            if [[ "$discovery_status" -ne 1 ]]; then
+              exit "$discovery_status"
+            fi
             verify_release_identity
             if ! release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases" \
               --method POST \
@@ -489,7 +532,7 @@ jobs:
               --field draft=true \
               --field generate_release_notes=true \
               --field prerelease="$PRERELEASE" 2>"$RUNNER_TEMP/create-release.err")"; then
-              if ! release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/dev/null)"; then
+              if ! find_release; then
                 cat "$RUNNER_TEMP/create-release.err" >&2
                 exit 1
               fi
