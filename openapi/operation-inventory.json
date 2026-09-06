@@ -1,5 +1,11 @@
 [
   {
+    "method": "get",
+    "operationId": "getProvenanceKeys",
+    "path": "/.well-known/provenance-keys.json",
+    "tag": "verification"
+  },
+  {
     "method": "post",
     "operationId": "completeArtifactUpload",
     "path": "/v1/artifacts/{artifactId}/complete",

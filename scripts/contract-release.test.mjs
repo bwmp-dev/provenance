@@ -508,6 +508,19 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       resolve(firstDirectory, attestation.filename),
       attestationRoot,
     );
+    for (const path of [
+      "key-discovery/schema.json",
+      "key-discovery/semantics.md",
+      "key-discovery/validation.py",
+      "key-discovery-fixtures/valid/initial.json",
+      "key-discovery-fixtures/valid/rotated.json",
+      "key-discovery-fixtures/invalid/cases.json",
+    ]) {
+      assert.ok(
+        attestationEntries.includes(`${attestationRoot}/${path}`),
+        path,
+      );
+    }
     assert.deepEqual(
       attestationEntries
         .filter((path) => path.startsWith(`${attestationRoot}/go/`))
@@ -661,6 +674,9 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     });
     for (const [name, omitted, changed] of [
       ["missing-go-source", "go/verification.go", null],
+      ["missing-discovery-schema", "key-discovery/schema.json", null],
+      ["missing-discovery-validator", "key-discovery/validation.py", null],
+      ["tampered-discovery-schema", null, "key-discovery/schema.json"],
       ["missing-go-schema", "go/schema.json", null],
       ["tampered-go-schema", null, "go/schema.json"],
       ["tampered-go-module", null, "go/go.mod"],

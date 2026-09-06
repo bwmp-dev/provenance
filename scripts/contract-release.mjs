@@ -58,6 +58,11 @@ export const contractBundles = [
       },
       { source: "schemas/attestation/v1", destination: "schema" },
       { source: "schemas/fixtures/attestation", destination: "fixtures" },
+      { source: "schemas/key-discovery/v1", destination: "key-discovery" },
+      {
+        source: "schemas/fixtures/key-discovery",
+        destination: "key-discovery-fixtures",
+      },
       ...[
         "verification.go",
         "json.go",

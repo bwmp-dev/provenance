@@ -29,6 +29,58 @@ const methods = new Set([
   "put",
 ]);
 const mutations = new Set(["delete", "patch", "post", "put"]);
+
+test("IFC016 discovery is anonymous, bounded, public-only and no-store", async () => {
+  const route = document.paths["/.well-known/provenance-keys.json"].get;
+  assert.equal(route.operationId, "getProvenanceKeys");
+  assert.deepEqual(route.security, []);
+  assert.equal(
+    route.responses["200"].content["application/json"].schema.$ref,
+    "../schemas/key-discovery/v1/schema.json",
+  );
+  for (const code of ["200", "503"]) {
+    assert.equal(
+      route.responses[code].headers["Cache-Control"].schema.const,
+      "no-store",
+    );
+    assert.equal(route.responses[code].headers["Cache-Control"].required, true);
+  }
+  const failure =
+    route.responses["503"].content["application/problem+json"].schema;
+  assert.equal(failure.additionalProperties, false);
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.entries(failure.properties).map(([key, value]) => [
+        key,
+        value.const,
+      ]),
+    ),
+    {
+      type: "about:blank",
+      title: "Public keys unavailable",
+      status: 503,
+      code: "public_keys_unavailable",
+    },
+  );
+  const schema = JSON.parse(
+    await readFile(
+      new URL("../schemas/key-discovery/v1/schema.json", root),
+      "utf8",
+    ),
+  );
+  assert.equal(schema.properties.keys.minItems, 1);
+  assert.equal(schema.properties.keys.maxItems, 1024);
+  assert.equal(schema.additionalProperties, false);
+  assert.equal(schema.properties.keys.items.additionalProperties, false);
+  assert.deepEqual(schema.properties.keys.items.required, [
+    "keyId",
+    "algorithm",
+    "publicKey",
+    "status",
+  ]);
+  assert.ok(generatedClient.includes('"/.well-known/provenance-keys.json"'));
+  assert.ok(generatedClient.includes("getProvenanceKeys"));
+});
 const privateLogOperationIds = new Set([
   "listReleaseCandidateExecutions",
   "readExecutionLogs",
@@ -57,7 +109,15 @@ test("operation and path inventory matches the public v1 skeleton", () => {
     new Set(actual.map(({ operationId }) => operationId)).size,
     actual.length,
   );
-  assert.ok(actual.every(({ path }) => path.startsWith("/v1/")));
+  assert.ok(
+    actual.every(
+      ({ path, method, operationId }) =>
+        path.startsWith("/v1/") ||
+        (path === "/.well-known/provenance-keys.json" &&
+          method === "get" &&
+          operationId === "getProvenanceKeys"),
+    ),
+  );
   assert.deepEqual(
     new Set(actual.map(({ tag }) => tag)),
     new Set([
