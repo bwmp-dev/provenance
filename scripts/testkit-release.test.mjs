@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 
 import {
   checksumFilename,
@@ -156,6 +157,47 @@ test("release workflow is pinned, build-only, and fail-closed", async () => {
   assert.match(workflow, /contents: write/);
   assert.equal(workflow.match(/Install pinned GitHub CLI/g)?.length, 2);
   assert.equal(workflow.match(/command -v gh/g)?.length, 2);
+});
+
+test("every release job provisions pinned Node before invoking it", async () => {
+  const workflow = parse(
+    await readFile(
+      new URL("../.github/workflows/release-testkit.yml", import.meta.url),
+      "utf8",
+    ),
+  );
+  for (const [name, versionFile] of [
+    ["validate", ".node-version"],
+    ["build", "source/.node-version"],
+    ["release", "policy/.node-version"],
+  ]) {
+    const steps = workflow.jobs[name].steps;
+    const setup = steps.findIndex((step) =>
+      step.uses?.startsWith("actions/setup-node@"),
+    );
+    assert.ok(setup >= 0, `${name} must provision Node explicitly`);
+    assert.equal(
+      steps[setup].uses,
+      "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+    );
+    assert.equal(steps[setup].with["node-version-file"], versionFile);
+    const checkout = steps.findIndex(
+      (step) =>
+        step.uses?.startsWith("actions/checkout@") &&
+        (step.with?.path ?? ".") ===
+          (versionFile.includes("/") ? versionFile.split("/")[0] : "."),
+    );
+    assert.ok(
+      checkout >= 0 && checkout < setup,
+      `${name} must check out the version file first`,
+    );
+    const invocations = steps
+      .map((step, index) => (/^\s*node\s/m.test(step.run ?? "") ? index : -1))
+      .filter((index) => index >= 0);
+    assert.ok(invocations.length > 0, `${name} must actually exercise Node`);
+    for (const index of invocations)
+      assert.ok(setup < index, `${name} invokes Node before setup`);
+  }
 });
 
 test("release jobs bootstrap the reviewed GitHub CLI bytes", async () => {
