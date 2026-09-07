@@ -55,6 +55,11 @@ func TestStatusRejectsOversizeAndCursorCycles(t *testing.T) {
 					reply(w, 200, map[string]any{"id": "candidate", "state": "failed"})
 					return
 				}
+				want := ""
+				if calls > 2 {
+					want = "same"
+				}
+				assertReleasedPagination(t, r, want)
 				reply(w, 200, map[string]any{"items": []any{}, "page": map[string]any{"hasMore": true, "nextCursor": "same"}})
 			}))
 			defer s.Close()

@@ -24,7 +24,7 @@ func (a App) status(ctx context.Context, api *api, id string) error {
 			if pages >= 100 {
 				return ErrFailed
 			}
-			path := root + "/" + kind + "?pageSize=100"
+			path := root + "/" + kind + "?limit=100"
 			if cursor != "" {
 				path += "&cursor=" + url.QueryEscape(cursor)
 			}

@@ -2,12 +2,33 @@ package command_test
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"testing"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"go.yaml.in/yaml/v3"
 )
+
+func assertReleasedPagination(t *testing.T, r *http.Request, wantCursor string) {
+	t.Helper()
+	query := r.URL.Query()
+	for name, values := range query {
+		if (name != "limit" && name != "cursor") || len(values) != 1 {
+			t.Errorf("unexpected pagination parameter %q", name)
+		}
+	}
+	if len(query["limit"]) != 1 || query.Get("limit") != "100" {
+		t.Error("released bounded limit=100 missing")
+	}
+	if wantCursor == "" {
+		if _, present := query["cursor"]; present {
+			t.Error("initial page must omit cursor")
+		}
+	} else if len(query["cursor"]) != 1 || query.Get("cursor") != wantCursor {
+		t.Error("continuation did not preserve exact nextCursor")
+	}
+}
 
 func assertReleasedShape(t *testing.T, name string, value any) {
 	t.Helper()

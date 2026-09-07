@@ -304,6 +304,7 @@ func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 }
 func TestStatusPaginationAndOriginIsolation(t *testing.T) {
 	pages := 0
+	perPath := map[string]int{}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Cookie") == "" {
 			t.Error("missing session")
@@ -313,8 +314,15 @@ func TestStatusPaginationAndOriginIsolation(t *testing.T) {
 			return
 		}
 		pages++
-		more := r.URL.Query().Get("cursor") == ""
-		reply(w, 200, map[string]any{"items": []any{map[string]string{"id": "item", "state": "failed"}}, "page": map[string]any{"hasMore": more, "nextCursor": "next"}})
+		perPath[r.URL.Path]++
+		next := "opaque:/+?=& " + r.URL.Path
+		want := ""
+		if perPath[r.URL.Path] > 1 {
+			want = next
+		}
+		assertReleasedPagination(t, r, want)
+		more := perPath[r.URL.Path] == 1
+		reply(w, 200, map[string]any{"items": []any{map[string]string{"id": "item", "state": "failed"}}, "page": map[string]any{"hasMore": more, "nextCursor": next}})
 	}))
 	defer server.Close()
 	var out, errs bytes.Buffer
@@ -322,6 +330,9 @@ func TestStatusPaginationAndOriginIsolation(t *testing.T) {
 	app := command.App{Out: &out, Err: &errs, Store: s, Transport: server.Client().Transport}
 	if app.Run(context.Background(), []string{"status", "--origin", server.URL, "--timeout", "3s", "--candidate", "candidate"}) != 0 || pages != 4 {
 		t.Fatalf("pagination %d %s", pages, errs.String())
+	}
+	if perPath["/v1/release-candidates/candidate/executions"] != 2 || perPath["/v1/release-candidates/candidate/events"] != 2 {
+		t.Fatal("both released pagination endpoints must continue")
 	}
 	if app.Run(context.Background(), []string{"status", "--origin", "https://other.invalid", "--timeout", "3s", "--candidate", "candidate"}) == 0 {
 		t.Fatal("cross-origin store adoption")
