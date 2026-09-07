@@ -1,0 +1,72 @@
+name: Provenance submission
+description: Submit exact artifact bytes with a short-lived, repository-bound Actions grant.
+inputs:
+  artifact:
+    description: Path to one regular JAR file.
+    required: true
+  configuration:
+    description: Path to provenance.yml; mode is preserved.
+    required: true
+  version:
+    description: Exact candidate version.
+    required: true
+  changelog:
+    description: Optional private submission changelog, never printed.
+    required: false
+  project:
+    description: Explicit project UUID.
+    required: true
+  platform-origin:
+    description: Explicit trusted HTTPS platform origin, with no path or credentials.
+    required: true
+  audience:
+    description: Explicit platform OIDC audience.
+    required: true
+  repository:
+    description: Exact originating owner/repository; must match GitHub context.
+    required: true
+  source-commit:
+    description: Exact GitHub context commit, not a workflow or PR-head substitute.
+    required: true
+  source-ref:
+    description: Exact GitHub context source ref.
+    required: true
+  max-artifact-bytes:
+    description: Explicit positive bounded memory/upload budget, maximum 2147483647 bytes.
+    required: true
+  wait:
+    description: Observe only this grant's candidate until result, approval, deadline or expiry.
+    default: "false"
+  report:
+    description: none or status; status requires a separate ephemeral GitHub token with statuses write.
+    default: none
+  github-token:
+    description: Explicit ephemeral repository token for opt-in reporting; never a platform credential.
+    required: false
+  request-timeout-ms:
+    description: Per-request safety timeout, at most 120000.
+    default: "30000"
+  timeout-ms:
+    description: Total client safety timeout, at most 3600000; does not extend grant expiry.
+    default: "600000"
+  poll-interval-ms:
+    description: Bounded polling/retry interval, at most 60000.
+    default: "2000"
+  request-attempts:
+    description: Same-key resource attempts, at most 5; grant issuance is never retried.
+    default: "2"
+  max-event-pages:
+    description: Maximum pages per observation and event-memory budget in hundreds, at most 100.
+    default: "10"
+outputs:
+  outcome:
+    description: submitted, approval_required, published, failed, canceled or incomplete.
+  reason:
+    description: Closed nonsecret incomplete reason, if any.
+  candidateId:
+    description: Known candidate UUID; never an assertion of success.
+  artifactId:
+    description: Known artifact UUID; never proof of completion.
+runs:
+  using: node24
+  main: dist/index.cjs
