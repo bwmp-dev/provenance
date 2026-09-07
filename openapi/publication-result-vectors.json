@@ -1,0 +1,589 @@
+{
+  "contract": "IFC-021",
+  "version": 1,
+  "runtimeEvidence": false,
+  "cases": [
+    {
+      "name": "pending aggregate claim is not send",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "informational",
+            "waiting": "indefinite"
+          },
+          "aggregate": null,
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "active",
+              "providerState": "preflight",
+              "remoteKnowledge": "not_observed",
+              "requiredPrimaryTargets": []
+            }
+          ]
+        }
+      },
+      "evidence": ["claimed"]
+    },
+    {
+      "name": "retryable preflight is not remote uncertainty",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "informational",
+            "waiting": "indefinite"
+          },
+          "aggregate": null,
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "active",
+              "providerState": "retryable",
+              "remoteKnowledge": "not_observed",
+              "requiredPrimaryTargets": []
+            }
+          ]
+        }
+      },
+      "evidence": ["custody_unavailable"]
+    },
+    {
+      "name": "primary mutation in flight",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "informational",
+            "waiting": "indefinite"
+          },
+          "aggregate": null,
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "active",
+              "providerState": "uploading",
+              "remoteKnowledge": "uncertain",
+              "requiredPrimaryTargets": []
+            }
+          ]
+        }
+      },
+      "evidence": ["mutation_started"]
+    },
+    {
+      "name": "continue remaining partial success with conflict",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "informational",
+            "waiting": "indefinite"
+          },
+          "aggregate": {
+            "outcome": "failed",
+            "code": "primary_failed",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "mod",
+              "type": "modrinth",
+              "disposition": "failed",
+              "providerState": "conflict",
+              "remoteKnowledge": "conflict",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "hangar",
+              "type": "hangar",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            }
+          ]
+        }
+      },
+      "evidence": []
+    },
+    {
+      "name": "stop remaining skips unstarted primary",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "stop_remaining",
+            "secondaryFulfillment": "informational",
+            "waiting": "indefinite"
+          },
+          "aggregate": {
+            "outcome": "failed",
+            "code": "primary_failed",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "failed",
+              "providerState": "conflict",
+              "remoteKnowledge": "conflict",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "mod",
+              "type": "modrinth",
+              "disposition": "skipped",
+              "providerState": null,
+              "remoteKnowledge": "not_observed",
+              "requiredPrimaryTargets": []
+            }
+          ]
+        }
+      },
+      "evidence": []
+    },
+    {
+      "name": "failed primary blocks dependent secondary",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "required_for_success",
+            "waiting": "indefinite"
+          },
+          "aggregate": {
+            "outcome": "failed",
+            "code": "primary_failed",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "failed",
+              "providerState": "permanent",
+              "remoteKnowledge": "not_observed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "notice",
+              "type": "discord",
+              "disposition": "dependency_blocked",
+              "providerState": null,
+              "remoteKnowledge": "not_observed",
+              "requiredPrimaryTargets": ["release"]
+            }
+          ]
+        }
+      },
+      "evidence": []
+    },
+    {
+      "name": "required secondary pending",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "required_for_success",
+            "waiting": "indefinite"
+          },
+          "aggregate": null,
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "notice",
+              "type": "discord",
+              "disposition": "pending",
+              "providerState": null,
+              "remoteKnowledge": "not_observed",
+              "requiredPrimaryTargets": ["release"]
+            }
+          ]
+        }
+      },
+      "evidence": []
+    },
+    {
+      "name": "required secondary confirmed",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "required_for_success",
+            "waiting": "indefinite"
+          },
+          "aggregate": {
+            "outcome": "succeeded",
+            "code": "confirmed",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "notice",
+              "type": "discord",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": ["release"]
+            }
+          ]
+        }
+      },
+      "evidence": []
+    },
+    {
+      "name": "informational secondary pending after success",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "informational",
+            "waiting": "indefinite"
+          },
+          "aggregate": {
+            "outcome": "succeeded",
+            "code": "confirmed",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "notice",
+              "type": "discord",
+              "disposition": "pending",
+              "providerState": null,
+              "remoteKnowledge": "not_observed",
+              "requiredPrimaryTargets": ["release"]
+            }
+          ]
+        }
+      },
+      "evidence": []
+    },
+    {
+      "name": "informational secondary unknown after success",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "informational",
+            "waiting": "indefinite"
+          },
+          "aggregate": {
+            "outcome": "succeeded",
+            "code": "confirmed",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "notice",
+              "type": "discord",
+              "disposition": "active",
+              "providerState": "retryable",
+              "remoteKnowledge": "uncertain",
+              "requiredPrimaryTargets": ["release"]
+            }
+          ]
+        }
+      },
+      "evidence": ["send_intent", "uncertain"]
+    },
+    {
+      "name": "finite exhaustion in flight",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "required_for_success",
+            "waiting": "finite"
+          },
+          "aggregate": {
+            "outcome": "requirement_unfulfilled",
+            "code": "budget_exhausted",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "notice",
+              "type": "discord",
+              "disposition": "budget_exhausted",
+              "providerState": "active",
+              "remoteKnowledge": "uncertain",
+              "requiredPrimaryTargets": ["release"]
+            }
+          ]
+        }
+      },
+      "evidence": ["send_intent"]
+    },
+    {
+      "name": "finite exhaustion later known",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "required_for_success",
+            "waiting": "finite"
+          },
+          "aggregate": {
+            "outcome": "requirement_unfulfilled",
+            "code": "budget_exhausted",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "notice",
+              "type": "discord",
+              "disposition": "budget_exhausted",
+              "providerState": "retryable",
+              "remoteKnowledge": "known",
+              "requiredPrimaryTargets": ["release"]
+            }
+          ]
+        }
+      },
+      "evidence": ["send_intent", "message_known", "unavailable"]
+    },
+    {
+      "name": "finite exhaustion later confirmed",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "admitted",
+        "composition": {
+          "id": "00000005-1111-4111-8111-111111111111",
+          "policy": {
+            "primaryFailure": "continue_remaining",
+            "secondaryFulfillment": "required_for_success",
+            "waiting": "finite"
+          },
+          "aggregate": {
+            "outcome": "requirement_unfulfilled",
+            "code": "budget_exhausted",
+            "decidedAt": "2026-09-07T01:00:00Z"
+          },
+          "targets": [
+            {
+              "identifier": "release",
+              "type": "github",
+              "disposition": "succeeded",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": []
+            },
+            {
+              "identifier": "notice",
+              "type": "discord",
+              "disposition": "budget_exhausted",
+              "providerState": "succeeded",
+              "remoteKnowledge": "confirmed",
+              "requiredPrimaryTargets": ["release"]
+            }
+          ]
+        }
+      },
+      "evidence": ["send_intent", "message_known", "confirmed"]
+    },
+    {
+      "name": "no admitted composition",
+      "response": {
+        "version": 1,
+        "candidateId": "00000001-1111-4111-8111-111111111111",
+        "projectId": "00000002-1111-4111-8111-111111111111",
+        "generation": 0,
+        "artifactId": "00000003-1111-4111-8111-111111111111",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "configurationSnapshotId": "00000004-1111-4111-8111-111111111111",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "not_admitted",
+        "composition": null
+      },
+      "evidence": []
+    }
+  ]
+}

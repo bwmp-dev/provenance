@@ -121,6 +121,14 @@ export const contractBundles = [
       },
       { source: "openapi/redocly.yaml", destination: "redocly.yaml" },
       {
+        source: "openapi/publication-result-semantics.md",
+        destination: "publication-result-semantics.md",
+      },
+      {
+        source: "openapi/publication-result-vectors.json",
+        destination: "publication-result-vectors.json",
+      },
+      {
         source: "openapi/device-login-semantics.md",
         destination: "device-login-semantics.md",
       },

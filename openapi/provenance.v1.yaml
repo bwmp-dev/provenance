@@ -36,6 +36,155 @@ tags:
   - name: usage
     description: Organization usage observations.
 paths:
+  /v1/release-candidates/{candidateId}/publication-result:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    get:
+      operationId: getReleaseCandidatePublicationResult
+      summary: Read the exact candidate generation publication result
+      description: "IFC-021. Authenticated read using existing tenant/project
+        release-candidate read capability. Foreign or missing candidate/generation
+        is indistinguishable (404); visible but insufficient authority is 403.
+        GitHub Actions grants do not authorize this operation. Read one coherent
+        database snapshot without provider calls, reconciliation, writes or
+        custody access. Preserve immutable aggregate decisions independently of
+        target dispositions and later remote knowledge. All responses are
+        Cache-Control: no-store. See publication-result-semantics.md; no history
+        or cursor is exposed."
+      tags:
+        - release-candidates
+      x-provenance-interface: IFC-021
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - name: generation
+          in: query
+          required: true
+          description:
+            Exact retained candidate execution generation; never substituted
+            with the current generation.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+      responses:
+        "200":
+          description:
+            One coherent current publication snapshot. Maximum encoded JSON
+            body 16384 bytes.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicationResult"
+        "400":
+          description: Invalid generation or request.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
+        "401":
+          description: Authentication required.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
+        "403":
+          description:
+            Visible candidate but insufficient read capability, or unsupported
+            automation grant.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
+        "404":
+          description: Candidate or generation missing or outside caller visibility.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
+        "405":
+          description: Method not allowed. Closed prehandler failure; no-store.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
+        "413":
+          description: Request too large. Closed prehandler failure; no-store.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
+        "429":
+          description: Too many requests. Closed prehandler failure; no-store.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
+        "500":
+          description: Internal server error. Closed prehandler failure; no-store.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
+        "503":
+          description:
+            Implementation or authoritative projection unavailable; no
+            fabricated results.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/PublicationResultProblem"
   /v1/auth/github/authorizations:
     post:
       operationId: createGitHubAuthorization
@@ -3340,6 +3489,515 @@ components:
           schema:
             $ref: "#/components/schemas/RevokeRunnerCredentialsRequest"
   schemas:
+    PublicationResult:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required":
+          [
+            "version",
+            "candidateId",
+            "projectId",
+            "generation",
+            "artifactId",
+            "artifactSha256",
+            "configurationSnapshotId",
+            "configurationSha256",
+            "status",
+            "composition",
+          ],
+        "properties":
+          {
+            "version": { "type": "integer", "const": 1 },
+            "candidateId":
+              { "type": "string", "format": "uuid", "maxLength": 36 },
+            "projectId":
+              { "type": "string", "format": "uuid", "maxLength": 36 },
+            "generation":
+              { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "artifactId":
+              { "type": "string", "format": "uuid", "maxLength": 36 },
+            "artifactSha256":
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$",
+                "minLength": 64,
+                "maxLength": 64,
+              },
+            "configurationSnapshotId":
+              { "type": "string", "format": "uuid", "maxLength": 36 },
+            "configurationSha256":
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$",
+                "minLength": 64,
+                "maxLength": 64,
+              },
+            "status":
+              { "type": "string", "enum": ["not_admitted", "admitted"] },
+            "composition":
+              {
+                "oneOf":
+                  [
+                    { "type": "null" },
+                    {
+                      "$ref": "#/components/schemas/PublicationCompositionResult",
+                    },
+                  ],
+              },
+          },
+        "allOf":
+          [
+            {
+              "if": { "properties": { "status": { "const": "not_admitted" } } },
+              "then": { "properties": { "composition": { "type": "null" } } },
+              "else":
+                {
+                  "properties":
+                    {
+                      "composition":
+                        {
+                          "$ref": "#/components/schemas/PublicationCompositionResult",
+                        },
+                    },
+                },
+            },
+          ],
+      }
+    PublicationCompositionResult:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "policy", "aggregate", "targets"],
+        "properties":
+          {
+            "id": { "type": "string", "format": "uuid", "maxLength": 36 },
+            "policy":
+              { "$ref": "#/components/schemas/PublicationResultPolicy" },
+            "aggregate":
+              {
+                "oneOf":
+                  [
+                    { "type": "null" },
+                    {
+                      "$ref": "#/components/schemas/PublicationAggregateDecision",
+                    },
+                  ],
+              },
+            "targets":
+              {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4,
+                "items":
+                  { "$ref": "#/components/schemas/PublicationTargetResult" },
+              },
+          },
+      }
+    PublicationResultPolicy:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["primaryFailure", "secondaryFulfillment", "waiting"],
+        "properties":
+          {
+            "primaryFailure":
+              {
+                "type": "string",
+                "enum": ["stop_remaining", "continue_remaining"],
+              },
+            "secondaryFulfillment":
+              {
+                "type": "string",
+                "enum": ["required_for_success", "informational"],
+              },
+            "waiting": { "type": "string", "enum": ["finite", "indefinite"] },
+          },
+      }
+    PublicationAggregateDecision:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["outcome", "code", "decidedAt"],
+        "properties":
+          {
+            "outcome":
+              {
+                "type": "string",
+                "enum": ["succeeded", "failed", "requirement_unfulfilled"],
+              },
+            "code":
+              {
+                "type": "string",
+                "enum":
+                  [
+                    "confirmed",
+                    "primary_failed",
+                    "dependency_blocked",
+                    "budget_exhausted",
+                  ],
+              },
+            "decidedAt": { "$ref": "#/components/schemas/BoundedTimestamp" },
+          },
+        "allOf":
+          [
+            {
+              "if": { "properties": { "outcome": { "const": "succeeded" } } },
+              "then": { "properties": { "code": { "const": "confirmed" } } },
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then":
+                { "properties": { "code": { "const": "primary_failed" } } },
+            },
+            {
+              "if":
+                {
+                  "properties":
+                    { "outcome": { "const": "requirement_unfulfilled" } },
+                },
+              "then":
+                {
+                  "properties":
+                    {
+                      "code":
+                        { "enum": ["dependency_blocked", "budget_exhausted"] },
+                    },
+                },
+            },
+          ],
+      }
+    PublicationTargetResult:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required":
+          [
+            "identifier",
+            "type",
+            "disposition",
+            "providerState",
+            "remoteKnowledge",
+            "requiredPrimaryTargets",
+          ],
+        "properties":
+          {
+            "identifier":
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 63,
+                "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+              },
+            "type":
+              {
+                "type": "string",
+                "enum": ["github", "modrinth", "hangar", "discord"],
+              },
+            "disposition":
+              {
+                "type": "string",
+                "enum":
+                  [
+                    "pending",
+                    "active",
+                    "succeeded",
+                    "failed",
+                    "skipped",
+                    "dependency_blocked",
+                    "budget_exhausted",
+                  ],
+              },
+            "providerState":
+              {
+                "type": ["string", "null"],
+                "enum":
+                  [
+                    null,
+                    "pending",
+                    "preflight",
+                    "uploading",
+                    "publishing",
+                    "retryable",
+                    "succeeded",
+                    "permanent",
+                    "conflict",
+                    "active",
+                  ],
+              },
+            "remoteKnowledge":
+              {
+                "type": "string",
+                "enum":
+                  [
+                    "not_observed",
+                    "uncertain",
+                    "known",
+                    "confirmed",
+                    "conflict",
+                  ],
+              },
+            "requiredPrimaryTargets":
+              {
+                "type": "array",
+                "maxItems": 3,
+                "uniqueItems": true,
+                "items":
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 63,
+                    "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+                  },
+              },
+          },
+        "allOf":
+          [
+            {
+              "if": { "properties": { "type": { "const": "discord" } } },
+              "then":
+                {
+                  "properties":
+                    {
+                      "providerState":
+                        {
+                          "enum":
+                            [
+                              null,
+                              "pending",
+                              "active",
+                              "retryable",
+                              "succeeded",
+                            ],
+                        },
+                      "disposition":
+                        {
+                          "enum":
+                            [
+                              "pending",
+                              "active",
+                              "succeeded",
+                              "dependency_blocked",
+                              "budget_exhausted",
+                            ],
+                        },
+                      "remoteKnowledge":
+                        {
+                          "enum":
+                            ["not_observed", "uncertain", "known", "confirmed"],
+                        },
+                      "requiredPrimaryTargets": { "minItems": 1 },
+                    },
+                },
+              "else":
+                {
+                  "properties":
+                    {
+                      "providerState":
+                        {
+                          "enum":
+                            [
+                              null,
+                              "pending",
+                              "preflight",
+                              "uploading",
+                              "publishing",
+                              "retryable",
+                              "succeeded",
+                              "permanent",
+                              "conflict",
+                            ],
+                        },
+                      "disposition":
+                        {
+                          "enum":
+                            [
+                              "pending",
+                              "active",
+                              "succeeded",
+                              "failed",
+                              "skipped",
+                            ],
+                        },
+                      "remoteKnowledge":
+                        {
+                          "enum":
+                            [
+                              "not_observed",
+                              "uncertain",
+                              "confirmed",
+                              "conflict",
+                            ],
+                        },
+                      "requiredPrimaryTargets": { "maxItems": 0 },
+                    },
+                },
+            },
+            {
+              "if": { "properties": { "providerState": { "type": "null" } } },
+              "then":
+                {
+                  "properties":
+                    { "remoteKnowledge": { "const": "not_observed" } },
+                },
+            },
+            {
+              "if":
+                { "properties": { "providerState": { "const": "succeeded" } } },
+              "then":
+                {
+                  "properties": { "remoteKnowledge": { "const": "confirmed" } },
+                },
+            },
+            {
+              "if":
+                { "properties": { "providerState": { "const": "conflict" } } },
+              "then":
+                {
+                  "properties": { "remoteKnowledge": { "const": "conflict" } },
+                },
+            },
+          ],
+      }
+    PublicationResultProblem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          enum:
+            - Invalid publication result request
+            - Authentication required
+            - Forbidden
+            - Not found
+            - Publication result unavailable
+            - Method not allowed
+            - Request too large
+            - Too many requests
+            - Internal server error
+        status:
+          type: integer
+          enum:
+            - 400
+            - 401
+            - 403
+            - 404
+            - 503
+            - 405
+            - 413
+            - 429
+            - 500
+        code:
+          type: string
+          enum:
+            - invalid_request
+            - unauthorized
+            - forbidden
+            - not_found
+            - publication_result_unavailable
+            - method_not_allowed
+            - request_too_large
+            - rate_limited
+            - internal_error
+      allOf:
+        - if:
+            properties:
+              code:
+                const: invalid_request
+          then:
+            properties:
+              status:
+                const: 400
+              title:
+                const: Invalid publication result request
+        - if:
+            properties:
+              code:
+                const: unauthorized
+          then:
+            properties:
+              status:
+                const: 401
+              title:
+                const: Authentication required
+        - if:
+            properties:
+              code:
+                const: forbidden
+          then:
+            properties:
+              status:
+                const: 403
+              title:
+                const: Forbidden
+        - if:
+            properties:
+              code:
+                const: not_found
+          then:
+            properties:
+              status:
+                const: 404
+              title:
+                const: Not found
+        - if:
+            properties:
+              code:
+                const: publication_result_unavailable
+          then:
+            properties:
+              status:
+                const: 503
+              title:
+                const: Publication result unavailable
+        - if:
+            properties:
+              code:
+                const: method_not_allowed
+          then:
+            properties:
+              status:
+                const: 405
+              title:
+                const: Method not allowed
+        - if:
+            properties:
+              code:
+                const: request_too_large
+          then:
+            properties:
+              status:
+                const: 413
+              title:
+                const: Request too large
+        - if:
+            properties:
+              code:
+                const: rate_limited
+          then:
+            properties:
+              status:
+                const: 429
+              title:
+                const: Too many requests
+        - if:
+            properties:
+              code:
+                const: internal_error
+          then:
+            properties:
+              status:
+                const: 500
+              title:
+                const: Internal server error
     DeviceLoginSecret:
       type: string
       minLength: 43

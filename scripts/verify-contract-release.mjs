@@ -1469,6 +1469,23 @@ async function verifyConsumers(bundleRoots, version) {
       resolve(root, "device-login-states.json"),
       "released device login states",
     );
+    const publicationSemantics = await readFile(
+      resolve(root, "publication-result-semantics.md"),
+      "utf8",
+    );
+    const publicationVectors = await readJson(
+      resolve(root, "publication-result-vectors.json"),
+      "released publication state vectors",
+    );
+    invariant(
+      publicationSemantics.includes(
+        "# IFC-021 candidate-qualified publication results",
+      ) &&
+        publicationVectors.contract === "IFC-021" &&
+        publicationVectors.runtimeEvidence === false &&
+        publicationVectors.cases.length >= 14,
+      "released publication result semantics/vectors missing or invalid",
+    );
     invariant(
       deviceSemantics.includes("# IFC-020 device login") &&
         deviceStates.contract === "IFC-020" &&
@@ -1556,6 +1573,13 @@ async function verifyConsumers(bundleRoots, version) {
         'const path: keyof paths = "/v1/organizations";',
         'const client = createProvenanceClient({ baseUrl: "https://api.example.test" });',
         "void client.GET(path);",
+        'void client.GET("/v1/release-candidates/{candidateId}/publication-result", { params: { path: { candidateId: "11111111-1111-4111-8111-111111111111" }, query: { generation: 0 } } });',
+        'type Publication = paths["/v1/release-candidates/{candidateId}/publication-result"]["get"]["responses"][200]["content"]["application/json"];',
+        "declare const publication: Publication;",
+        'const knowledge: "not_observed" | "uncertain" | "known" | "confirmed" | "conflict" | undefined = publication.composition?.targets[0]?.remoteKnowledge;',
+        "void knowledge;",
+        "// @ts-expect-error provider credentials are never exposed",
+        "void publication.composition?.targets[0]?.credentialId;",
         'void client.POST("/v1/auth/github/authorizations", { params: { header: { "Idempotency-Key": "fixture-start-key" } }, body: { redirectUri: "https://bff.example/callback", codeChallenge: "A".repeat(43), codeChallengeMethod: "S256" } });',
         'void client.POST("/v1/auth/github/authorizations/{authorizationId}/complete", { params: { path: { authorizationId: "A".repeat(43) }, header: { "Idempotency-Key": "fixture-complete-key" } }, body: { state: "A".repeat(43), code: "fixture-code", codeVerifier: "a".repeat(43) } });',
         'type Completion = paths["/v1/auth/github/authorizations/{authorizationId}/complete"]["post"]["responses"][200]["content"]["application/json"];',

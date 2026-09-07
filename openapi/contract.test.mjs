@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import test from "node:test";
 import "./device-login.test.mjs";
 import "./actions-grant.test.mjs";
+import "./publication-result.test.mjs";
 
 import { parse } from "yaml";
 
@@ -634,7 +635,8 @@ test("every operation exposes structured failure responses", () => {
   for (const { operation } of operations) {
     if (
       deviceOperations.has(operation.operationId) ||
-      operation.operationId === "createGitHubActionsGrant"
+      operation.operationId === "createGitHubActionsGrant" ||
+      operation.operationId === "getReleaseCandidatePublicationResult"
     ) {
       assert.equal(
         operation.responses.default,

@@ -4,6 +4,28 @@
  */
 
 export interface paths {
+    "/v1/release-candidates/{candidateId}/publication-result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the exact candidate generation publication result
+         * @description IFC-021. Authenticated read using existing tenant/project release-candidate read capability. Foreign or missing candidate/generation is indistinguishable (404); visible but insufficient authority is 403. GitHub Actions grants do not authorize this operation. Read one coherent database snapshot without provider calls, reconciliation, writes or custody access. Preserve immutable aggregate decisions independently of target dispositions and later remote knowledge. All responses are Cache-Control: no-store. See publication-result-semantics.md; no history or cursor is exposed.
+         */
+        get: operations["getReleaseCandidatePublicationResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/github/authorizations": {
         parameters: {
             query?: never;
@@ -1104,6 +1126,68 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        PublicationResult: {
+            /** @constant */
+            version: 1;
+            /** Format: uuid */
+            candidateId: string;
+            /** Format: uuid */
+            projectId: string;
+            generation: number;
+            /** Format: uuid */
+            artifactId: string;
+            artifactSha256: string;
+            /** Format: uuid */
+            configurationSnapshotId: string;
+            configurationSha256: string;
+            /** @enum {string} */
+            status: "not_admitted" | "admitted";
+            composition: null | components["schemas"]["PublicationCompositionResult"];
+        } & unknown;
+        PublicationCompositionResult: {
+            /** Format: uuid */
+            id: string;
+            policy: components["schemas"]["PublicationResultPolicy"];
+            aggregate: null | components["schemas"]["PublicationAggregateDecision"];
+            targets: components["schemas"]["PublicationTargetResult"][];
+        };
+        PublicationResultPolicy: {
+            /** @enum {string} */
+            primaryFailure: "stop_remaining" | "continue_remaining";
+            /** @enum {string} */
+            secondaryFulfillment: "required_for_success" | "informational";
+            /** @enum {string} */
+            waiting: "finite" | "indefinite";
+        };
+        PublicationAggregateDecision: {
+            /** @enum {string} */
+            outcome: "succeeded" | "failed" | "requirement_unfulfilled";
+            /** @enum {string} */
+            code: "confirmed" | "primary_failed" | "dependency_blocked" | "budget_exhausted";
+            decidedAt: components["schemas"]["BoundedTimestamp"];
+        } & (unknown & unknown & unknown);
+        PublicationTargetResult: {
+            identifier: string;
+            /** @enum {string} */
+            type: "github" | "modrinth" | "hangar" | "discord";
+            /** @enum {string} */
+            disposition: "pending" | "active" | "succeeded" | "failed" | "skipped" | "dependency_blocked" | "budget_exhausted";
+            /** @enum {string|null} */
+            providerState: null | "pending" | "preflight" | "uploading" | "publishing" | "retryable" | "succeeded" | "permanent" | "conflict" | "active";
+            /** @enum {string} */
+            remoteKnowledge: "not_observed" | "uncertain" | "known" | "confirmed" | "conflict";
+            requiredPrimaryTargets: string[];
+        } & (unknown & unknown & unknown & unknown);
+        PublicationResultProblem: {
+            /** @constant */
+            type: "about:blank";
+            /** @enum {string} */
+            title: "Invalid publication result request" | "Authentication required" | "Forbidden" | "Not found" | "Publication result unavailable" | "Method not allowed" | "Request too large" | "Too many requests" | "Internal server error";
+            /** @enum {integer} */
+            status: 400 | 401 | 403 | 404 | 503 | 405 | 413 | 429 | 500;
+            /** @enum {string} */
+            code: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "publication_result_unavailable" | "method_not_allowed" | "request_too_large" | "rate_limited" | "internal_error";
+        } & (unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown);
         /** @description Canonical unpadded base64url encoding of 32 cryptographically random bytes. */
         DeviceLoginSecret: string;
         /** @description Unpredictable confirmation code; not a redemption credential. Exact uppercase spelling, no normalization. */
@@ -3257,6 +3341,122 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getReleaseCandidatePublicationResult: {
+        parameters: {
+            query: {
+                /** @description Exact retained candidate execution generation; never substituted with the current generation. */
+                generation: number;
+            };
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One coherent current publication snapshot. Maximum encoded JSON body 16384 bytes. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationResult"];
+                };
+            };
+            /** @description Invalid generation or request. */
+            400: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+            /** @description Visible candidate but insufficient read capability, or unsupported automation grant. */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+            /** @description Candidate or generation missing or outside caller visibility. */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+            /** @description Method not allowed. Closed prehandler failure; no-store. */
+            405: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+            /** @description Request too large. Closed prehandler failure; no-store. */
+            413: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+            /** @description Too many requests. Closed prehandler failure; no-store. */
+            429: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+            /** @description Internal server error. Closed prehandler failure; no-store. */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+            /** @description Implementation or authoritative projection unavailable; no fabricated results. */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["PublicationResultProblem"];
+                };
+            };
+        };
+    };
     createGitHubAuthorization: {
         parameters: {
             query?: never;
