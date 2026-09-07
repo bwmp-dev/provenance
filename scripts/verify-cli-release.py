@@ -201,9 +201,11 @@ def verify(directory, version, source, repository):
             pins = LICENSE_PINS[component["name"]]
         elif component["id"] == "go-toolchain":
             require(component["kind"] == "toolchain" and component["name"] == "Go" and component["version"] == "go1.25.13", "toolchain component differs")
+            require(component["sourceCommit"] is None and component["goSum"] is None, "toolchain provenance differs")
             pins = LICENSE_PINS["golang.org/x/text"]
         elif component["id"] == "regexpp":
             require(component["kind"] == "vendored-javascript" and component["name"] == "@eslint-community/regexpp", "vendor component differs")
+            require(component["sourceCommit"] is None and component["goSum"] is None, "vendor provenance differs")
             pins = {"LICENSE": "fcf6eabf68ca96988a6b506b4fdc6cc32535d80eb2e11c79724af5ac6f50262b"}
         else:
             raise ValueError("unknown component")
@@ -218,6 +220,8 @@ def verify(directory, version, source, repository):
     regex = next(c for c in components if c["id"] == "regexpp")
     require(regex["sourceSha256"] == "8f9526195a26cb0d47a48528e61f0083596d397092296a44fc1c1ac470aba336" and regex["version"] == "4.12.2", "vendor source differs")
     sbom = parse(assets[sbom_name])
+    require(set(sbom) == {"spdxVersion", "dataLicense", "SPDXID", "name", "documentNamespace", "creationInfo", "packages", "files", "relationships"}, "SBOM shape differs")
+    require(sbom["SPDXID"] == "SPDXRef-DOCUMENT" and sbom["name"] == f"provenance-cli-{version}" and sbom["creationInfo"] == {"created": created, "creators": ["Tool: provenance-cli-release"]}, "SBOM document differs")
     require(sbom["spdxVersion"] == "SPDX-2.3" and sbom["dataLicense"] == "CC0-1.0" and sbom["creationInfo"]["created"] == created, "SBOM identity differs")
     require(sbom["documentNamespace"] == f"https://github.com/bwmp-dev/provenance/cli/{version}/{source}", "SBOM source differs")
     require(len(sbom["packages"]) == len(components) + 1 and {p["SPDXID"] for p in sbom["packages"]} == {"SPDXRef-CLI"} | {"SPDXRef-" + c["id"] for c in components}, "SBOM package inventory differs")
@@ -235,6 +239,7 @@ def verify(directory, version, source, repository):
     require(len(sbom["files"]) == len(files), "SBOM file count differs")
     for index, item in enumerate(files):
         entry = sbom["files"][index]
+        require(set(entry) == {"SPDXID", "fileName", "checksums", "licenseConcluded", "licenseInfoInFiles", "copyrightText"} and entry["licenseConcluded"] == "NOASSERTION" and entry["licenseInfoInFiles"] == ["NOASSERTION"] and entry["copyrightText"] == "NOASSERTION", "SBOM file license classification differs")
         require(entry["SPDXID"] == f"SPDXRef-File-{index}" and entry["fileName"] == f"./{root}/{item['path']}" and entry["checksums"] == [{"algorithm": "SHA256", "checksumValue": item["sha256"]}, {"algorithm": "SHA1", "checksumValue": hashlib.sha1(contents[item["path"]]).hexdigest()}], "SBOM file differs")
     relationships = [{"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-CLI"}]
     relationships += [{"spdxElementId": "SPDXRef-CLI", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-" + c["id"]} for c in components]

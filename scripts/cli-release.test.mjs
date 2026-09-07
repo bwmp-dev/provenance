@@ -177,6 +177,13 @@ test(
       writeFileSync(path, JSON.stringify(m));
       rehash(dir);
     });
+    await reject("false-file-license", (dir) => {
+      const path = join(dir, n.sbom);
+      const m = JSON.parse(readFileSync(path));
+      m.files[0].licenseConcluded = "MIT";
+      writeFileSync(path, JSON.stringify(m));
+      rehash(dir);
+    });
     await reject("duplicate-json", (dir) => {
       const path = join(dir, n.manifest);
       writeFileSync(
