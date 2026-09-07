@@ -3,6 +3,7 @@ import { createHash, createPublicKey, verify } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
+import "./device-login.test.mjs";
 
 import { parse } from "yaml";
 
@@ -30,6 +31,14 @@ const methods = new Set([
   "put",
 ]);
 const mutations = new Set(["delete", "patch", "post", "put"]);
+const deviceOperations = new Set([
+  "createDeviceAuthorization",
+  "decideDeviceAuthorization",
+  "exchangeDeviceAuthorization",
+]);
+const deviceInitiationBaseline = JSON.parse(
+  await readFile(new URL("device-initiation-baseline.json", root), "utf8"),
+);
 
 const githubAuthOperations = new Set([
   "createGitHubAuthorization",
@@ -56,7 +65,15 @@ test("IFC018 leaves every released alpha14 path and component unchanged", async 
     createHash("sha256").update(JSON.stringify(value)).digest("hex");
   assert.equal(baseline.source, "d293559778d1bf2e346ddcd63f1089cddb0dbac5");
   for (const [path, digest] of Object.entries(baseline.paths))
-    assert.equal(hash(document.paths[path]), digest, path);
+    assert.equal(
+      hash(
+        path === "/v1/auth/device-authorizations"
+          ? deviceInitiationBaseline
+          : document.paths[path],
+      ),
+      digest,
+      path,
+    );
   for (const [kind, entries] of Object.entries(baseline.components)) {
     for (const [name, digest] of Object.entries(entries))
       assert.equal(
@@ -614,6 +631,14 @@ test("operation and path inventory matches the public v1 skeleton", () => {
 
 test("every operation exposes structured failure responses", () => {
   for (const { operation } of operations) {
+    if (deviceOperations.has(operation.operationId)) {
+      assert.equal(
+        operation.responses.default,
+        undefined,
+        "device statuses are explicitly closed and separately tested",
+      );
+      continue;
+    }
     assert.equal(
       operation.responses.default?.$ref,
       privateLogOperationIds.has(operation.operationId)
@@ -642,6 +667,18 @@ test("every mutation has deterministic idempotency semantics", () => {
   for (const { method, operation, path } of operations.filter(({ method }) =>
     mutations.has(method),
   )) {
+    if (operation.operationId === "exchangeDeviceAuthorization") {
+      assert.equal(
+        operation.parameters,
+        undefined,
+        "polling is bound by device secret, not an idempotency header",
+      );
+      assert.equal(
+        operation.responses["409"].$ref,
+        "#/components/responses/DeviceLogin409",
+      );
+      continue;
+    }
     const parameter = operation.parameters
       ?.map(resolveParameter)
       .find(({ name }) => name === "Idempotency-Key");
@@ -658,6 +695,15 @@ test("every mutation has deterministic idempotency semantics", () => {
     const conflict =
       document.components.responses[conflictReference.split("/").at(-1)];
     assert.match(conflict.description, /idempotency/i, operation.operationId);
+    if (deviceOperations.has(operation.operationId)) {
+      assert.equal(parameter.required, true);
+      assert.equal(
+        conflict.content["application/problem+json"].schema
+          .additionalProperties,
+        false,
+      );
+      continue;
+    }
     assert.equal(
       problemBaseSchema(conflict),
       "#/components/schemas/ProblemDetails",
@@ -1435,7 +1481,12 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
     compatibilityHash(
       alpha5Compatibility.operations.names.map((name) => [
         name,
-        operationById.get(name),
+        name === "createDeviceAuthorization"
+          ? {
+              ...operationById.get(name),
+              operation: deviceInitiationBaseline.post,
+            }
+          : operationById.get(name),
       ]),
     ),
     alpha5Compatibility.operations.sha256,

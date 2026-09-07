@@ -1461,6 +1461,21 @@ async function verifyConsumers(bundleRoots, version) {
 
   {
     const root = rootFor("openapi");
+    const deviceSemantics = await readFile(
+      resolve(root, "device-login-semantics.md"),
+      "utf8",
+    );
+    const deviceStates = await readJson(
+      resolve(root, "device-login-states.json"),
+      "released device login states",
+    );
+    invariant(
+      deviceSemantics.includes("# IFC-020 device login") &&
+        deviceStates.contract === "IFC-020" &&
+        deviceStates.runtimeEvidence === false &&
+        deviceStates.cases.length >= 20,
+      "released device login semantics/states missing or invalid",
+    );
     const specification = parseYaml(
       await readFile(resolve(root, "provenance.v1.yaml"), "utf8"),
     );

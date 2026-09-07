@@ -1,0 +1,186 @@
+{
+  "contract": "IFC-020",
+  "runtimeEvidence": false,
+  "cases": [
+    {
+      "id": "init-new",
+      "operation": "initiation",
+      "state": "absent",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 201,
+      "outcome": "created"
+    },
+    {
+      "id": "init-replay",
+      "operation": "initiation",
+      "state": "same",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 409,
+      "outcome": "credential_not_replayable"
+    },
+    {
+      "id": "init-expired-replay",
+      "operation": "initiation",
+      "state": "same",
+      "deadline": "expired",
+      "admission": "allowed",
+      "status": 409,
+      "outcome": "credential_not_replayable"
+    },
+    {
+      "id": "init-conflict",
+      "operation": "initiation",
+      "state": "different",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 409,
+      "outcome": "idempotency_conflict"
+    },
+    {
+      "id": "decision-new",
+      "operation": "decision",
+      "state": "pending",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 200,
+      "outcome": "approved"
+    },
+    {
+      "id": "decision-deny",
+      "operation": "decision",
+      "state": "pending-deny",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 200,
+      "outcome": "denied"
+    },
+    {
+      "id": "decision-replay",
+      "operation": "decision",
+      "state": "same",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 200,
+      "outcome": "original_decision"
+    },
+    {
+      "id": "decision-after-consumed",
+      "operation": "decision",
+      "state": "consumed-same",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 200,
+      "outcome": "original_decision"
+    },
+    {
+      "id": "decision-expired",
+      "operation": "decision",
+      "state": "same",
+      "deadline": "expired",
+      "admission": "allowed",
+      "status": 410,
+      "outcome": "authorization_expired"
+    },
+    {
+      "id": "decision-foreign-expired",
+      "operation": "decision",
+      "state": "foreign",
+      "deadline": "expired",
+      "admission": "allowed",
+      "status": 403,
+      "outcome": "authorization_denied"
+    },
+    {
+      "id": "decision-conflict",
+      "operation": "decision",
+      "state": "bound-new-key",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 409,
+      "outcome": "decision_conflict"
+    },
+    {
+      "id": "decision-key-conflict",
+      "operation": "decision",
+      "state": "different",
+      "deadline": "expired",
+      "admission": "allowed",
+      "status": 409,
+      "outcome": "idempotency_conflict"
+    },
+    {
+      "id": "exchange-pending",
+      "operation": "exchange",
+      "state": "pending",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 202,
+      "outcome": "pending"
+    },
+    {
+      "id": "exchange-early",
+      "operation": "exchange",
+      "state": "approved",
+      "deadline": "live",
+      "admission": "early",
+      "status": 429,
+      "outcome": "rate_limited"
+    },
+    {
+      "id": "exchange-approved",
+      "operation": "exchange",
+      "state": "approved",
+      "deadline": "live",
+      "admission": "allowed",
+      "status": 200,
+      "outcome": "credential"
+    },
+    {
+      "id": "exchange-consumed",
+      "operation": "exchange",
+      "state": "consumed",
+      "deadline": "expired",
+      "admission": "early",
+      "status": 409,
+      "outcome": "credential_not_replayable"
+    },
+    {
+      "id": "exchange-expired",
+      "operation": "exchange",
+      "state": "approved",
+      "deadline": "expired",
+      "admission": "early",
+      "status": 410,
+      "outcome": "authorization_expired"
+    },
+    {
+      "id": "exchange-denied",
+      "operation": "exchange",
+      "state": "denied",
+      "deadline": "live",
+      "admission": "early",
+      "status": 403,
+      "outcome": "authorization_denied"
+    },
+    {
+      "id": "exchange-unknown",
+      "operation": "exchange",
+      "state": "unknown",
+      "deadline": "expired",
+      "admission": "early",
+      "status": 400,
+      "outcome": "invalid_authorization"
+    },
+    {
+      "id": "global-rate",
+      "operation": "exchange",
+      "state": "consumed",
+      "deadline": "expired",
+      "admission": "global-limit",
+      "status": 429,
+      "outcome": "rate_limited"
+    }
+  ]
+}

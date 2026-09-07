@@ -199,23 +199,146 @@ paths:
     post:
       operationId: createDeviceAuthorization
       summary: Begin a one-time device authorization
+      description: >-
+        IFC-020 explicitly changes identical successful initiation replay to
+        HTTP 409 credential_not_replayable; no recoverable secret receipts.
+        Existing fields are preserved. Issued deviceCode and userCode satisfy
+        DeviceLoginSecret and DeviceLoginUserCode; intervalSeconds is 1..86400,
+        verificationUri is a configured HTTPS URI of at most 2048 characters.
+        JSON body is at most 4096 UTF-8 bytes. Reject any Origin header before
+        credential lookup. See device-login-semantics.md for exact precedence.
       tags: [authentication]
       security: []
       parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/DeviceLoginIdempotencyKey"
       requestBody:
         $ref: "#/components/requestBodies/CreateDeviceAuthorization"
       responses:
         "201":
           description: Device authorization created.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/DeviceLoginNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeviceAuthorization"
+        "400":
+          $ref: "#/components/responses/DeviceLogin400"
+        "403":
+          $ref: "#/components/responses/DeviceLogin403"
         "409":
-          $ref: "#/components/responses/IdempotencyConflict"
-        default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/DeviceLogin409"
+        "410":
+          $ref: "#/components/responses/DeviceLogin410"
+        "413":
+          $ref: "#/components/responses/DeviceLogin413"
+        "415":
+          $ref: "#/components/responses/DeviceLogin415"
+        "429":
+          $ref: "#/components/responses/DeviceLogin429"
+        "503":
+          $ref: "#/components/responses/DeviceLogin503"
+  /v1/auth/device-authorizations/decisions:
+    post:
+      operationId: decideDeviceAuthorization
+      summary: Explicitly approve or deny a device login
+      description: >-
+        IFC-020; see device-login-semantics.md for normative state and timing precedence.
+        JSON request body is at most 4096 UTF-8 bytes. Reject any Origin header,
+        including null or empty, before credential lookup. Server-only callers;
+        never send device or exchange secrets in URLs, logs or error details.
+      tags: [authentication]
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/DeviceLoginIdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceLoginDecisionRequest"
+      responses:
+        "200":
+          description: Nonsecret decision bound to the current user; never a credential.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/DeviceLoginNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceLoginDecision"
+        "400":
+          $ref: "#/components/responses/DeviceLogin400"
+        "401":
+          $ref: "#/components/responses/DeviceLogin401"
+        "403":
+          $ref: "#/components/responses/DeviceLogin403"
+        "409":
+          $ref: "#/components/responses/DeviceLogin409"
+        "410":
+          $ref: "#/components/responses/DeviceLogin410"
+        "413":
+          $ref: "#/components/responses/DeviceLogin413"
+        "415":
+          $ref: "#/components/responses/DeviceLogin415"
+        "429":
+          $ref: "#/components/responses/DeviceLogin429"
+        "503":
+          $ref: "#/components/responses/DeviceLogin503"
+  /v1/auth/device-authorizations/exchanges:
+    post:
+      operationId: exchangeDeviceAuthorization
+      summary: Poll and redeem a secret-bound device login
+      description: >-
+        IFC-020; see device-login-semantics.md for normative state and timing precedence.
+        JSON request body is at most 4096 UTF-8 bytes. Reject any Origin header,
+        including null or empty, before credential lookup. Server-only callers;
+        never send device or exchange secrets in URLs, logs or error details.
+      tags: [authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceLoginExchangeRequest"
+      responses:
+        "202":
+          description: Authorization pending; respect intervalSeconds and unchanged expiresAt.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/DeviceLoginNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceLoginPending"
+        "200":
+          description: Platform exchange credential shown once; redeem through unchanged session creation.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/DeviceLoginNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceLoginExchange"
+        "400":
+          $ref: "#/components/responses/DeviceLogin400"
+        "403":
+          $ref: "#/components/responses/DeviceLogin403"
+        "409":
+          $ref: "#/components/responses/DeviceLogin409"
+        "410":
+          $ref: "#/components/responses/DeviceLogin410"
+        "413":
+          $ref: "#/components/responses/DeviceLogin413"
+        "415":
+          $ref: "#/components/responses/DeviceLogin415"
+        "429":
+          $ref: "#/components/responses/DeviceLogin429"
+        "503":
+          $ref: "#/components/responses/DeviceLogin503"
   /v1/auth/github-oidc/exchanges:
     post:
       operationId: exchangeGitHubOidcToken
@@ -1667,6 +1790,18 @@ components:
         One-time, runner-bound registration token. It authenticates only the
         registration-redemption operation and is atomically consumed there.
   parameters:
+    DeviceLoginIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        IFC-020 device initiation/decision key. Different payload reuse conflicts.
+        Successful initiation retains only hashes: identical replay returns
+        credential_not_replayable, never the original device secret. Decisions
+        replay only the matching nonsecret outcome for the same currently active
+        user identity. See device-login-semantics.md for deadline precedence.
+      schema:
+        $ref: "#/components/schemas/IdempotencyKey"
     GitHubConnectionInitiationIdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1908,6 +2043,16 @@ components:
       schema:
         $ref: "#/components/schemas/Timestamp"
   headers:
+    DeviceLoginNoStore:
+      description: Required for every device-login response, including errors.
+      schema:
+        type: string
+        const: no-store
+    DeviceLoginRetryAfter:
+      description: Required on 429; positive integer seconds, never an HTTP date.
+      schema:
+        type: string
+        pattern: '^(?:[1-9][0-9]{0,3}|[1-7][0-9]{4}|8[0-5][0-9]{3}|86[0-3][0-9]{2}|86400)(?![\s\S])'
     GitHubAuthNoStore:
       required: true
       description: Authentication responses must never be cached.
@@ -1969,6 +2114,193 @@ components:
         maxLength: 96
         pattern: ^attachment; filename="execution-[0-9a-f-]{36}\.log\.gz"$
   responses:
+    DeviceLogin400:
+      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 400
+              code:
+                enum: [invalid_authorization]
+    DeviceLogin401:
+      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 401
+              code:
+                enum: [authentication_required]
+    DeviceLogin403:
+      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 403
+              code:
+                enum: [authorization_denied]
+    DeviceLogin409:
+      description: Fixed idempotency or consumed-credential conflict; no submitted codes or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 409
+              code:
+                enum:
+                  [
+                    idempotency_conflict,
+                    credential_not_replayable,
+                    decision_conflict,
+                  ]
+    DeviceLogin410:
+      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 410
+              code:
+                enum: [authorization_expired]
+    DeviceLogin413:
+      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 413
+              code:
+                enum: [request_too_large]
+    DeviceLogin415:
+      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 415
+              code:
+                enum: [unsupported_media_type]
+    DeviceLogin429:
+      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+        Retry-After:
+          $ref: "#/components/headers/DeviceLoginRetryAfter"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 429
+              code:
+                enum: [rate_limited]
+    DeviceLogin503:
+      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/DeviceLoginNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                const: about:blank
+              title:
+                const: Device authorization failed
+              status:
+                const: 503
+              code:
+                enum: [authorization_unavailable]
     GitHubConnection400:
       description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
       headers:
@@ -2680,6 +3012,70 @@ components:
           schema:
             $ref: "#/components/schemas/RevokeRunnerCredentialsRequest"
   schemas:
+    DeviceLoginSecret:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+      description: Canonical unpadded base64url encoding of 32 cryptographically random bytes.
+    DeviceLoginUserCode:
+      type: string
+      minLength: 9
+      maxLength: 9
+      pattern: "^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$"
+      description: Unpredictable confirmation code; not a redemption credential. Exact uppercase spelling, no normalization.
+    DeviceLoginInterval:
+      type: integer
+      minimum: 1
+      maximum: 86400
+    DeviceLoginDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [userCode, decision]
+      properties:
+        userCode:
+          $ref: "#/components/schemas/DeviceLoginUserCode"
+        decision:
+          type: string
+          enum: [approve, deny]
+    DeviceLoginDecision:
+      type: object
+      additionalProperties: false
+      required: [state, expiresAt]
+      properties:
+        state:
+          type: string
+          enum: [approved, denied]
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+    DeviceLoginExchangeRequest:
+      type: object
+      additionalProperties: false
+      required: [deviceCode]
+      properties:
+        deviceCode:
+          $ref: "#/components/schemas/DeviceLoginSecret"
+    DeviceLoginPending:
+      type: object
+      additionalProperties: false
+      required: [state, intervalSeconds, expiresAt]
+      properties:
+        state:
+          type: string
+          const: pending
+        intervalSeconds:
+          $ref: "#/components/schemas/DeviceLoginInterval"
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+    DeviceLoginExchange:
+      type: object
+      additionalProperties: false
+      required: [exchangeToken, expiresAt]
+      properties:
+        exchangeToken:
+          $ref: "#/components/schemas/DeviceLoginSecret"
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
     GitHubProviderId:
       type: integer
       minimum: 1

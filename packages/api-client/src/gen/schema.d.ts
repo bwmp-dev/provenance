@@ -88,8 +88,51 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Begin a one-time device authorization */
+        /**
+         * Begin a one-time device authorization
+         * @description IFC-020 explicitly changes identical successful initiation replay to HTTP 409 credential_not_replayable; no recoverable secret receipts. Existing fields are preserved. Issued deviceCode and userCode satisfy DeviceLoginSecret and DeviceLoginUserCode; intervalSeconds is 1..86400, verificationUri is a configured HTTPS URI of at most 2048 characters. JSON body is at most 4096 UTF-8 bytes. Reject any Origin header before credential lookup. See device-login-semantics.md for exact precedence.
+         */
         post: operations["createDeviceAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/device-authorizations/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explicitly approve or deny a device login
+         * @description IFC-020; see device-login-semantics.md for normative state and timing precedence. JSON request body is at most 4096 UTF-8 bytes. Reject any Origin header, including null or empty, before credential lookup. Server-only callers; never send device or exchange secrets in URLs, logs or error details.
+         */
+        post: operations["decideDeviceAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/device-authorizations/exchanges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll and redeem a secret-bound device login
+         * @description IFC-020; see device-login-semantics.md for normative state and timing precedence. JSON request body is at most 4096 UTF-8 bytes. Reject any Origin header, including null or empty, before credential lookup. Server-only callers; never send device or exchange secrets in URLs, logs or error details.
+         */
+        post: operations["exchangeDeviceAuthorization"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1041,6 +1084,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Canonical unpadded base64url encoding of 32 cryptographically random bytes. */
+        DeviceLoginSecret: string;
+        /** @description Unpredictable confirmation code; not a redemption credential. Exact uppercase spelling, no normalization. */
+        DeviceLoginUserCode: string;
+        DeviceLoginInterval: number;
+        DeviceLoginDecisionRequest: {
+            userCode: components["schemas"]["DeviceLoginUserCode"];
+            /** @enum {string} */
+            decision: "approve" | "deny";
+        };
+        DeviceLoginDecision: {
+            /** @enum {string} */
+            state: "approved" | "denied";
+            expiresAt: components["schemas"]["Timestamp"];
+        };
+        DeviceLoginExchangeRequest: {
+            deviceCode: components["schemas"]["DeviceLoginSecret"];
+        };
+        DeviceLoginPending: {
+            /** @constant */
+            state: "pending";
+            intervalSeconds: components["schemas"]["DeviceLoginInterval"];
+            expiresAt: components["schemas"]["Timestamp"];
+        };
+        DeviceLoginExchange: {
+            exchangeToken: components["schemas"]["DeviceLoginSecret"];
+            expiresAt: components["schemas"]["Timestamp"];
+        };
         /** @description Positive exact JSON safe integer supplied by GitHub, not a platform StableId. */
         GitHubProviderId: number;
         CreateGitHubDiscoveryAuthorizationRequest: {
@@ -2051,6 +2122,178 @@ export interface components {
         };
     };
     responses: {
+        /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
+        DeviceLogin400: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 400;
+                    /** @enum {unknown} */
+                    code: "invalid_authorization";
+                };
+            };
+        };
+        /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
+        DeviceLogin401: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 401;
+                    /** @enum {unknown} */
+                    code: "authentication_required";
+                };
+            };
+        };
+        /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
+        DeviceLogin403: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 403;
+                    /** @enum {unknown} */
+                    code: "authorization_denied";
+                };
+            };
+        };
+        /** @description Fixed idempotency or consumed-credential conflict; no submitted codes or provider details. */
+        DeviceLogin409: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 409;
+                    /** @enum {unknown} */
+                    code: "idempotency_conflict" | "credential_not_replayable" | "decision_conflict";
+                };
+            };
+        };
+        /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
+        DeviceLogin410: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 410;
+                    /** @enum {unknown} */
+                    code: "authorization_expired";
+                };
+            };
+        };
+        /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
+        DeviceLogin413: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 413;
+                    /** @enum {unknown} */
+                    code: "request_too_large";
+                };
+            };
+        };
+        /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
+        DeviceLogin415: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 415;
+                    /** @enum {unknown} */
+                    code: "unsupported_media_type";
+                };
+            };
+        };
+        /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
+        DeviceLogin429: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                "Retry-After": components["headers"]["DeviceLoginRetryAfter"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 429;
+                    /** @enum {unknown} */
+                    code: "rate_limited";
+                };
+            };
+        };
+        /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
+        DeviceLogin503: {
+            headers: {
+                "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Device authorization failed";
+                    /** @constant */
+                    status: 503;
+                    /** @enum {unknown} */
+                    code: "authorization_unavailable";
+                };
+            };
+        };
         /** @description Sanitized session-bound GitHub flow failure; never echoes request or provider data. */
         GitHubConnection400: {
             headers: {
@@ -2585,6 +2828,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description IFC-020 device initiation/decision key. Different payload reuse conflicts. Successful initiation retains only hashes: identical replay returns credential_not_replayable, never the original device secret. Decisions replay only the matching nonsecret outcome for the same currently active user identity. See device-login-semantics.md for deadline precedence. */
+        DeviceLoginIdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Required key scoped to initiating session, organization/project, HTTP method and route. Same key and exact request returns original authorization/state/provider URL/expiry without extension. Different content conflicts with idempotency_key_conflict. Current session and capability are required for every replay. */
         GitHubConnectionInitiationIdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Required key bound to initiating session, authorization ID and exact completion request. Validate state/PKCE before exposing replay status. Different content conflicts with idempotency_key_conflict. In-flight returns authorization_in_progress; unknown exchange returns authorization_completion_uncertain and never retries the code. Successful nonsecret results replay within the original configured retention window after fresh local access checks, unlike IFC017 credential_not_replayable. Discovery also requires a live snapshot. After retention expiry return authorization_expired without exchanging the code. Discovery overflow is terminal discovery_limit_exceeded; use fresh authorization. */
@@ -2739,6 +2984,10 @@ export interface components {
         };
     };
     headers: {
+        /** @description Required for every device-login response, including errors. */
+        DeviceLoginNoStore: "no-store";
+        /** @description Required on 429; positive integer seconds, never an HTTP date. */
+        DeviceLoginRetryAfter: string;
         /** @description Authentication responses must never be cached. */
         GitHubAuthNoStore: "no-store";
         /** @description HttpOnly, Secure browser session cookie. */
@@ -2899,8 +3148,8 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /** @description IFC-020 device initiation/decision key. Different payload reuse conflicts. Successful initiation retains only hashes: identical replay returns credential_not_replayable, never the original device secret. Decisions replay only the matching nonsecret outcome for the same currently active user identity. See device-login-semantics.md for deadline precedence. */
+                "Idempotency-Key": components["parameters"]["DeviceLoginIdempotencyKey"];
             };
             path?: never;
             cookie?: never;
@@ -2910,14 +3159,101 @@ export interface operations {
             /** @description Device authorization created. */
             201: {
                 headers: {
+                    "Cache-Control": components["headers"]["DeviceLoginNoStore"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceAuthorization"];
                 };
             };
-            409: components["responses"]["IdempotencyConflict"];
-            default: components["responses"]["Problem"];
+            400: components["responses"]["DeviceLogin400"];
+            403: components["responses"]["DeviceLogin403"];
+            409: components["responses"]["DeviceLogin409"];
+            410: components["responses"]["DeviceLogin410"];
+            413: components["responses"]["DeviceLogin413"];
+            415: components["responses"]["DeviceLogin415"];
+            429: components["responses"]["DeviceLogin429"];
+            503: components["responses"]["DeviceLogin503"];
+        };
+    };
+    decideDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description IFC-020 device initiation/decision key. Different payload reuse conflicts. Successful initiation retains only hashes: identical replay returns credential_not_replayable, never the original device secret. Decisions replay only the matching nonsecret outcome for the same currently active user identity. See device-login-semantics.md for deadline precedence. */
+                "Idempotency-Key": components["parameters"]["DeviceLoginIdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceLoginDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Nonsecret decision bound to the current user; never a credential. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceLoginDecision"];
+                };
+            };
+            400: components["responses"]["DeviceLogin400"];
+            401: components["responses"]["DeviceLogin401"];
+            403: components["responses"]["DeviceLogin403"];
+            409: components["responses"]["DeviceLogin409"];
+            410: components["responses"]["DeviceLogin410"];
+            413: components["responses"]["DeviceLogin413"];
+            415: components["responses"]["DeviceLogin415"];
+            429: components["responses"]["DeviceLogin429"];
+            503: components["responses"]["DeviceLogin503"];
+        };
+    };
+    exchangeDeviceAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceLoginExchangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Platform exchange credential shown once; redeem through unchanged session creation. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceLoginExchange"];
+                };
+            };
+            /** @description Authorization pending; respect intervalSeconds and unchanged expiresAt. */
+            202: {
+                headers: {
+                    "Cache-Control": components["headers"]["DeviceLoginNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceLoginPending"];
+                };
+            };
+            400: components["responses"]["DeviceLogin400"];
+            403: components["responses"]["DeviceLogin403"];
+            409: components["responses"]["DeviceLogin409"];
+            410: components["responses"]["DeviceLogin410"];
+            413: components["responses"]["DeviceLogin413"];
+            415: components["responses"]["DeviceLogin415"];
+            429: components["responses"]["DeviceLogin429"];
+            503: components["responses"]["DeviceLogin503"];
         };
     };
     exchangeGitHubOidcToken: {

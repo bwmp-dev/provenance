@@ -776,6 +776,61 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       assertPrivilegedBoundaryRejects(directory);
     }
 
+    const deviceArtifact = manifest.artifacts.find(
+      ({ bundle }) => bundle === "openapi",
+    );
+    const deviceExtracted = resolve(mutationsDirectory, "device-extracted");
+    await mkdir(deviceExtracted);
+    await extractTar({
+      file: resolve(firstDirectory, deviceArtifact.filename),
+      cwd: deviceExtracted,
+    });
+    const deviceRoot = deviceArtifact.filename.slice(0, -".tar.gz".length);
+    const deviceEntries = await archiveEntries(
+      resolve(firstDirectory, deviceArtifact.filename),
+      deviceRoot,
+    );
+    for (const file of [
+      "device-login-semantics.md",
+      "device-login-states.json",
+    ]) {
+      assert.ok(deviceEntries.includes(`${deviceRoot}/${file}`));
+      for (const mutation of ["missing", "tampered"]) {
+        const directory = await mutationDirectory(
+          firstDirectory,
+          mutationsDirectory,
+          `device-${mutation}-${file}`,
+        );
+        const entries = [];
+        for (const path of deviceEntries) {
+          if (path === `${deviceRoot}/${file}` && mutation === "missing")
+            continue;
+          entries.push({
+            path,
+            contents:
+              path === `${deviceRoot}/${file}`
+                ? Buffer.from("tampered")
+                : await readFile(resolve(deviceExtracted, path)),
+          });
+        }
+        const contents = gzipSync(tarFixture(entries), { mtime: 0 });
+        await writeFile(resolve(directory, deviceArtifact.filename), contents);
+        await mutateManifest(directory, (document) => {
+          const artifact = document.artifacts.find(
+            ({ filename }) => filename === deviceArtifact.filename,
+          );
+          artifact.sha256 = digest(contents);
+          artifact.size = contents.length;
+        });
+        await replaceChecksum(directory, deviceArtifact.filename, contents);
+        await assert.rejects(
+          verifyContractRelease({ directory, version }),
+          /entries differ|bundle (?:size|digest) differs/,
+        );
+        assertPrivilegedBoundaryRejects(directory);
+      }
+    }
+
     const unsafeArtifact = manifest.artifacts.find(
       ({ bundle }) => bundle === "config-schema",
     );
