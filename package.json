@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm --recursive --if-present run build && pnpm run build:go",
-    "build:go": "go -C gen/proto build ./... && go -C packages/verification-go build ./...",
+    "build:go": "go -C gen/proto build ./... && go -C packages/verification-go build ./... && go -C packages/cli-go build ./...",
     "check": "pnpm run format:check && pnpm run lint:contracts && pnpm run generate:check && pnpm run test && pnpm run check:java && pnpm run security:check",
     "check:java": "node scripts/run-gradle.mjs :check",
     "format": "prettier --write \"**/*.{js,json,md,mjs,ts,yaml,yml}\" && buf format --write proto/provenance/runner/v1",
@@ -19,7 +19,8 @@
     "lint:openapi": "redocly lint --config openapi/redocly.yaml",
     "release:contracts": "node scripts/run-gradle.mjs :paper-probe:jar :fixture-success:jar :fixture-matrix-compatibility:jar && node scripts/contract-release.mjs",
     "release:verify": "node scripts/verify-contract-release.mjs",
-    "test": "pnpm run build && pnpm run test:go-verifier && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:openapi && pnpm run test:proto && pnpm run test:release && pnpm run test:paper-harness",
+    "test": "pnpm run build && pnpm run test:go-verifier && pnpm run test:cli && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:openapi && pnpm run test:proto && pnpm run test:release && pnpm run test:paper-harness",
+    "test:cli": "test -z \"$(gofmt -l packages/cli-go)\" && go -C packages/cli-go test -race ./... && go -C packages/cli-go vet ./... && go -C packages/cli-go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
     "test:openapi": "node --test openapi/contract.test.mjs",
     "test:proto": "node --test proto/provenance/runner/v1/contract.test.mjs",
     "test:release": "node --test scripts/*.test.mjs",
