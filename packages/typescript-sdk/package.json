@@ -1,0 +1,32 @@
+{
+  "name": "@bwmp-dev/typescript-sdk",
+  "version": "0.1.0-alpha.1",
+  "description": "Explicit-trust typed client, configuration and verification facade for Provenance",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@bwmp-dev/api-client": "workspace:*",
+    "@bwmp-dev/config-schema": "workspace:*",
+    "@bwmp-dev/verification": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "license": "Apache-2.0"
+}
