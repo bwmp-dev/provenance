@@ -12,6 +12,7 @@ test("repository workflows use only trusted Linux x64 self-hosted jobs", async (
     .sort();
   assert.deepEqual(names, [
     "ci.yml",
+    "release-cli.yml",
     "release-contracts.yml",
     "release-testkit.yml",
   ]);
@@ -50,7 +51,11 @@ test("CI runs for every trusted upstream branch and never for pull requests", as
 });
 
 test("release workflows remain manual-only", async () => {
-  for (const name of ["release-contracts.yml", "release-testkit.yml"]) {
+  for (const name of [
+    "release-cli.yml",
+    "release-contracts.yml",
+    "release-testkit.yml",
+  ]) {
     const workflow = parse(
       await readFile(new URL(name, workflowDirectory), "utf8"),
     );
