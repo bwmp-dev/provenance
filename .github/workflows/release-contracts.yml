@@ -384,6 +384,9 @@ jobs:
             '- CLI: not released' \
             '- GitHub Action: not released' \
             "- TypeScript SDK client: $VERSION")"
+          if [[ "$(jq --raw-output .schemaVersion "dist/contracts/provenance-contracts-$VERSION.manifest.json")" == 2 ]]; then
+            compatibility="$compatibility"$'\n'"- TypeScript SDK facade: $VERSION (archive-only; no npm publication)"
+          fi
           title="Provenance contracts $TAG"
 
           verify_release_identity() {
