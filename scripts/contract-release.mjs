@@ -128,6 +128,14 @@ export const contractBundles = [
         source: "openapi/device-login-states.json",
         destination: "device-login-states.json",
       },
+      {
+        source: "openapi/actions-grant-semantics.md",
+        destination: "actions-grant-semantics.md",
+      },
+      {
+        source: "openapi/actions-grant-vectors.json",
+        destination: "actions-grant-vectors.json",
+      },
     ],
   },
   {

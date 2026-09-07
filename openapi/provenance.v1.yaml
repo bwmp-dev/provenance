@@ -339,6 +339,65 @@ paths:
           $ref: "#/components/responses/DeviceLogin429"
         "503":
           $ref: "#/components/responses/DeviceLogin503"
+  /v1/auth/github-actions/grants:
+    post:
+      operationId: createGitHubActionsGrant
+      summary: Issue a shown-once GitHub Actions automation grant
+      description: >-
+        IFC-022: a distinct automation principal, never a human session or API token.
+        Normative rules are in actions-grant-semantics.md and actions-grant-vectors.json
+        shipped with this OpenAPI bundle. The legacy github-oidc/exchanges operation
+        and its original-outcome replay promise are unchanged.
+        Accept at most 32768 UTF-8 request bytes and exactly one Idempotency-Key.
+        Reject Authorization, Cookie and Origin headers; this is not a browser flow.
+        Validate bounded syntax, configured verification policy, assertion signature
+        and claims, then current connection/project policy before issuance replay checks.
+        An identical successful issuance replay returns credential_not_replayable;
+        different-request key reuse returns idempotency_conflict; a spent assertion
+        under another key returns assertion_replayed. No conflict mints a credential.
+        All responses, including router, rate, size and recovery errors, are no-store
+        closed four-field problems. No raw assertion, credential, claims, provider
+        response or private source text may appear in logs or errors.
+      tags: [authentication]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ActionsGrantIdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGitHubActionsGrantRequest"
+      responses:
+        "201":
+          description: One durable grant; credential shown once, never recoverable.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/ActionsGrantNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubActionsGrant"
+        "400":
+          $ref: "#/components/responses/ActionsGrant400"
+        "401":
+          $ref: "#/components/responses/ActionsGrant401"
+        "403":
+          $ref: "#/components/responses/ActionsGrant403"
+        "405":
+          $ref: "#/components/responses/ActionsGrant405"
+        "408":
+          $ref: "#/components/responses/ActionsGrant408"
+        "409":
+          $ref: "#/components/responses/ActionsGrant409"
+        "413":
+          $ref: "#/components/responses/ActionsGrant413"
+        "415":
+          $ref: "#/components/responses/ActionsGrant415"
+        "429":
+          $ref: "#/components/responses/ActionsGrant429"
+        "503":
+          $ref: "#/components/responses/ActionsGrant503"
   /v1/auth/github-oidc/exchanges:
     post:
       operationId: exchangeGitHubOidcToken
@@ -1843,6 +1902,20 @@ components:
         credential; start a new authorization and use new idempotency keys.
       schema:
         $ref: "#/components/schemas/IdempotencyKey"
+    ActionsGrantIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Dedicated shown-once issuance semantics: identical successful replay yields
+        credential_not_replayable, different request reuse idempotency_conflict.
+        Scope is the verified issuer and numeric repository, HTTP method and route.
+        Assertion replay identity is checked globally per issuer, not per key.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        pattern: ^[A-Za-z0-9._:-]{8,128}$
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -2043,6 +2116,11 @@ components:
       schema:
         $ref: "#/components/schemas/Timestamp"
   headers:
+    ActionsGrantNoStore:
+      description: Confidential issuance and all failures must not be cached.
+      schema:
+        type: string
+        const: no-store
     DeviceLoginNoStore:
       description: Required for every device-login response, including errors.
       schema:
@@ -2114,6 +2192,256 @@ components:
         maxLength: 96
         pattern: ^attachment; filename="execution-[0-9a-f-]{36}\.log\.gz"$
   responses:
+    ActionsGrant405:
+      description: Closed request admission failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+        Allow:
+          description: Only this method is admitted.
+          schema:
+            type: string
+            const: POST
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 405
+              code:
+                type: string
+                enum: [method_not_allowed]
+    ActionsGrant408:
+      description: Closed request admission failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 408
+              code:
+                type: string
+                enum: [request_timeout]
+    ActionsGrant400:
+      description: Closed automation grant failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 400
+              code:
+                type: string
+                enum: [invalid_request]
+    ActionsGrant401:
+      description: Closed automation grant failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 401
+              code:
+                type: string
+                enum: [invalid_assertion]
+    ActionsGrant403:
+      description: Closed automation grant failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 403
+              code:
+                type: string
+                enum: [policy_denied]
+    ActionsGrant409:
+      description: Confidential idempotency or assertion replay conflict; never a new token.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 409
+              code:
+                type: string
+                enum:
+                  [
+                    idempotency_conflict,
+                    credential_not_replayable,
+                    assertion_replayed,
+                  ]
+    ActionsGrant413:
+      description: Closed automation grant failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 413
+              code:
+                type: string
+                enum: [request_too_large]
+    ActionsGrant415:
+      description: Closed automation grant failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 415
+              code:
+                type: string
+                enum: [unsupported_media_type]
+    ActionsGrant429:
+      description: Closed automation grant failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 429
+              code:
+                type: string
+                enum: [rate_limited]
+    ActionsGrant503:
+      description: Closed automation grant failure.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/ActionsGrantNoStore"
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [type, title, status, code]
+            properties:
+              type:
+                type: string
+                const: about:blank
+              title:
+                type: string
+                const: Automation grant failed
+              status:
+                type: integer
+                const: 503
+              code:
+                type: string
+                enum: [unavailable]
     DeviceLogin400:
       description: Fixed device-login failure; no submitted codes, credentials or provider details.
       headers:
@@ -3772,6 +4100,98 @@ components:
         intervalSeconds:
           type: integer
           minimum: 1
+    CreateGitHubActionsGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [assertion]
+      properties:
+        assertion:
+          type: string
+          minLength: 16
+          maxLength: 16384
+          pattern: ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$
+          writeOnly: true
+          description: Bounded compact signed JWT; syntax is not signature validation.
+    ActionsGrantProviderId:
+      type: string
+      minLength: 1
+      maxLength: 20
+      pattern: ^[1-9][0-9]{0,19}$
+      description: Canonical positive decimal numeric GitHub identity, never a login.
+    ActionsGrantSourceCommit:
+      type: string
+      minLength: 40
+      maxLength: 64
+      pattern: ^(?:[a-f0-9]{40}|[a-f0-9]{64})$
+    GitHubActionsGrantScope:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          organizationId,
+          projectId,
+          appId,
+          installationId,
+          repositoryId,
+          repositoryOwnerId,
+          sourceCommit,
+          sourceRef,
+          workflowRef,
+        ]
+      properties:
+        organizationId:
+          $ref: "#/components/schemas/BoundedStableId"
+        projectId:
+          $ref: "#/components/schemas/BoundedStableId"
+        appId:
+          $ref: "#/components/schemas/ActionsGrantProviderId"
+        installationId:
+          $ref: "#/components/schemas/ActionsGrantProviderId"
+        repositoryId:
+          $ref: "#/components/schemas/ActionsGrantProviderId"
+        repositoryOwnerId:
+          $ref: "#/components/schemas/ActionsGrantProviderId"
+        sourceCommit:
+          $ref: "#/components/schemas/ActionsGrantSourceCommit"
+        sourceRef:
+          type: string
+          minLength: 1
+          maxLength: 512
+          pattern: ^[^\r\n\x00]+$
+        workflowRef:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          pattern: ^[^\r\n\x00]+$
+      description: >-
+        Server-derived verified scope, not requested authority. The implementation
+        retains the full selected workflow policy and verified claim binding privately.
+        Same-grant resource admission further narrows every operation; this is not
+        general project or repository access.
+    GitHubActionsGrant:
+      type: object
+      additionalProperties: false
+      required:
+        [grantId, principalType, accessToken, tokenType, expiresAt, scope]
+      properties:
+        grantId:
+          $ref: "#/components/schemas/BoundedStableId"
+        principalType:
+          type: string
+          const: github-actions
+        accessToken:
+          type: string
+          minLength: 47
+          maxLength: 47
+          pattern: ^pva_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$
+          description: Independent 32-byte CSPRNG credential, canonical base64url without padding after pva_. Persist only its hash.
+        tokenType:
+          type: string
+          const: Bearer
+        expiresAt:
+          $ref: "#/components/schemas/BoundedTimestamp"
+        scope:
+          $ref: "#/components/schemas/GitHubActionsGrantScope"
     ExchangeGitHubOidcTokenRequest:
       type: object
       additionalProperties: false

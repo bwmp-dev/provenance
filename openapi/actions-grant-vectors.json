@@ -1,0 +1,549 @@
+{
+  "schemaVersion": 1,
+  "contract": "IFC-022",
+  "disclaimer": "Normative contract examples, not cryptographic or PostgreSQL acceptance evidence.",
+  "issuance": [
+    {
+      "id": "method-before-body",
+      "input": { "method": false, "bodyTooLarge": true },
+      "expected": { "status": 405, "code": "method_not_allowed" }
+    },
+    {
+      "id": "request-read-deadline",
+      "input": { "requestTimeout": true, "syntax": false },
+      "expected": { "status": 408, "code": "request_timeout" }
+    },
+    {
+      "id": "valid-first-issuance",
+      "input": {},
+      "expected": {
+        "status": 201,
+        "code": "issued"
+      }
+    },
+    {
+      "id": "invalid-signature",
+      "input": {
+        "assertionValid": false
+      },
+      "expected": {
+        "status": 401,
+        "code": "invalid_assertion"
+      }
+    },
+    {
+      "id": "wrong-issuer",
+      "input": {
+        "assertionValid": false
+      },
+      "expected": {
+        "status": 401,
+        "code": "invalid_assertion"
+      }
+    },
+    {
+      "id": "wrong-audience",
+      "input": {
+        "assertionValid": false
+      },
+      "expected": {
+        "status": 401,
+        "code": "invalid_assertion"
+      }
+    },
+    {
+      "id": "missing-workflow-claim",
+      "input": {
+        "assertionValid": false
+      },
+      "expected": {
+        "status": 401,
+        "code": "invalid_assertion"
+      }
+    },
+    {
+      "id": "algorithm-confusion",
+      "input": {
+        "assertionValid": false
+      },
+      "expected": {
+        "status": 401,
+        "code": "invalid_assertion"
+      }
+    },
+    {
+      "id": "expired-assertion-hides-replay",
+      "input": {
+        "assertionValid": false,
+        "key": "identical"
+      },
+      "expected": {
+        "status": 401,
+        "code": "invalid_assertion"
+      }
+    },
+    {
+      "id": "future-issued-at",
+      "input": {
+        "assertionValid": false
+      },
+      "expected": {
+        "status": 401,
+        "code": "invalid_assertion"
+      }
+    },
+    {
+      "id": "assertion-key-url-injection",
+      "input": {
+        "assertionValid": false
+      },
+      "expected": {
+        "status": 401,
+        "code": "invalid_assertion"
+      }
+    },
+    {
+      "id": "key-fetch-unavailable",
+      "input": {
+        "ready": false
+      },
+      "expected": {
+        "status": 503,
+        "code": "unavailable"
+      }
+    },
+    {
+      "id": "key-fetch-overflow",
+      "input": {
+        "ready": false
+      },
+      "expected": {
+        "status": 503,
+        "code": "unavailable"
+      }
+    },
+    {
+      "id": "missing-explicit-policy",
+      "input": {
+        "ready": false
+      },
+      "expected": {
+        "status": 503,
+        "code": "unavailable"
+      }
+    },
+    {
+      "id": "revoked-connection-hides-replay",
+      "input": {
+        "policyAllowed": false,
+        "key": "identical"
+      },
+      "expected": {
+        "status": 403,
+        "code": "policy_denied"
+      }
+    },
+    {
+      "id": "cross-repository-policy",
+      "input": {
+        "policyAllowed": false
+      },
+      "expected": {
+        "status": 403,
+        "code": "policy_denied"
+      }
+    },
+    {
+      "id": "owner-transfer",
+      "input": {
+        "policyAllowed": false
+      },
+      "expected": {
+        "status": 403,
+        "code": "policy_denied"
+      }
+    },
+    {
+      "id": "wrong-ref-policy",
+      "input": {
+        "policyAllowed": false
+      },
+      "expected": {
+        "status": 403,
+        "code": "policy_denied"
+      }
+    },
+    {
+      "id": "wrong-reusable-workflow",
+      "input": {
+        "policyAllowed": false
+      },
+      "expected": {
+        "status": 403,
+        "code": "policy_denied"
+      }
+    },
+    {
+      "id": "expired-while-awaiting-commit-lock",
+      "input": {
+        "commitCurrent": false
+      },
+      "expected": {
+        "status": 403,
+        "code": "policy_denied"
+      }
+    },
+    {
+      "id": "identical-successful-replay",
+      "input": {
+        "key": "identical",
+        "assertionSpent": true
+      },
+      "expected": {
+        "status": 409,
+        "code": "credential_not_replayable"
+      }
+    },
+    {
+      "id": "changed-request-key-reuse",
+      "input": {
+        "key": "different",
+        "assertionSpent": true
+      },
+      "expected": {
+        "status": 409,
+        "code": "idempotency_conflict"
+      }
+    },
+    {
+      "id": "same-assertion-different-key",
+      "input": {
+        "assertionSpent": true
+      },
+      "expected": {
+        "status": 409,
+        "code": "assertion_replayed"
+      }
+    },
+    {
+      "id": "fresh-authorized-assertion-and-key",
+      "input": {},
+      "expected": {
+        "status": 201,
+        "code": "issued"
+      }
+    },
+    {
+      "id": "response-lost-after-commit",
+      "input": {
+        "key": "identical",
+        "assertionSpent": true
+      },
+      "expected": {
+        "status": 409,
+        "code": "credential_not_replayable"
+      }
+    },
+    {
+      "id": "transaction-rolled-back",
+      "input": {},
+      "expected": {
+        "status": 201,
+        "code": "issued"
+      }
+    },
+    {
+      "id": "body-limit-before-media-syntax",
+      "input": {
+        "bodyTooLarge": true,
+        "mediaType": false,
+        "syntax": false
+      },
+      "expected": {
+        "status": 413,
+        "code": "request_too_large"
+      }
+    },
+    {
+      "id": "media-before-malformed",
+      "input": {
+        "mediaType": false,
+        "syntax": false
+      },
+      "expected": {
+        "status": 415,
+        "code": "unsupported_media_type"
+      }
+    },
+    {
+      "id": "duplicate-json-property",
+      "input": {
+        "syntax": false
+      },
+      "expected": {
+        "status": 400,
+        "code": "invalid_request"
+      }
+    },
+    {
+      "id": "caller-project-injection",
+      "input": {
+        "syntax": false
+      },
+      "expected": {
+        "status": 400,
+        "code": "invalid_request"
+      }
+    },
+    {
+      "id": "ambient-cookie",
+      "input": {
+        "syntax": false
+      },
+      "expected": {
+        "status": 400,
+        "code": "invalid_request"
+      }
+    },
+    {
+      "id": "admission-limit-before-verification",
+      "input": {
+        "limited": true,
+        "assertionValid": false
+      },
+      "expected": {
+        "status": 429,
+        "code": "rate_limited"
+      }
+    }
+  ],
+  "concurrency": [
+    {
+      "id": "same-assertion-same-key",
+      "requests": 2,
+      "committed": true,
+      "outcomes": ["issued", "credential_not_replayable"],
+      "grants": 1
+    },
+    {
+      "id": "same-assertion-different-keys",
+      "requests": 2,
+      "committed": true,
+      "outcomes": ["issued", "assertion_replayed"],
+      "grants": 1
+    },
+    {
+      "id": "same-key-different-valid-assertions",
+      "requests": 2,
+      "committed": true,
+      "outcomes": ["issued", "idempotency_conflict"],
+      "grants": 1
+    }
+  ],
+  "resources": [
+    {
+      "id": "allow-createProjectConfigSnapshot",
+      "operation": "createProjectConfigSnapshot",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": true
+    },
+    {
+      "id": "allow-createArtifactUpload",
+      "operation": "createArtifactUpload",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": true
+    },
+    {
+      "id": "allow-completeArtifactUpload",
+      "operation": "completeArtifactUpload",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": true
+    },
+    {
+      "id": "allow-createReleaseCandidate",
+      "operation": "createReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": true
+    },
+    {
+      "id": "allow-getArtifact",
+      "operation": "getArtifact",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": true
+    },
+    {
+      "id": "allow-getReleaseCandidate",
+      "operation": "getReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": true
+    },
+    {
+      "id": "allow-listReleaseCandidateEvents",
+      "operation": "listReleaseCandidateEvents",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": true
+    },
+    {
+      "id": "deny-listProjects",
+      "operation": "listProjects",
+      "expected": false
+    },
+    {
+      "id": "deny-listReleaseCandidates",
+      "operation": "listReleaseCandidates",
+      "expected": false
+    },
+    {
+      "id": "deny-readExecutionLogs",
+      "operation": "readExecutionLogs",
+      "expected": false
+    },
+    {
+      "id": "deny-approveReleaseCandidate",
+      "operation": "approveReleaseCandidate",
+      "expected": false
+    },
+    {
+      "id": "deny-retryReleaseCandidate",
+      "operation": "retryReleaseCandidate",
+      "expected": false
+    },
+    {
+      "id": "deny-cancelReleaseCandidate",
+      "operation": "cancelReleaseCandidate",
+      "expected": false
+    },
+    {
+      "id": "deny-updateIntegration",
+      "operation": "updateIntegration",
+      "expected": false
+    },
+    {
+      "id": "deny-getCurrentSession",
+      "operation": "getCurrentSession",
+      "expected": false
+    },
+    {
+      "id": "deny-getPublicRelease",
+      "operation": "getPublicRelease",
+      "expected": false
+    },
+    {
+      "id": "deny-publishRelease",
+      "operation": "publishRelease",
+      "expected": false
+    },
+    {
+      "id": "expired-grant",
+      "operation": "createReleaseCandidate",
+      "grantCurrent": false,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": false
+    },
+    {
+      "id": "revoked-grant-replay",
+      "operation": "createReleaseCandidate",
+      "grantCurrent": false,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": false
+    },
+    {
+      "id": "other-project",
+      "operation": "createReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": false,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": false
+    },
+    {
+      "id": "other-grant-same-project",
+      "operation": "createReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": false,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": false
+    },
+    {
+      "id": "other-commit-same-hash",
+      "operation": "createReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": false,
+      "exactSnapshot": true,
+      "exactBytes": true,
+      "expected": false
+    },
+    {
+      "id": "ambiguous-hash-without-exact-snapshot",
+      "operation": "createReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": false,
+      "exactBytes": true,
+      "expected": false
+    },
+    {
+      "id": "modified-artifact",
+      "operation": "createReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": false,
+      "expected": false
+    }
+  ]
+}
