@@ -1,6 +1,18 @@
 [
   {
     "method": "post",
+    "operationId": "decideDeviceAuthorization",
+    "path": "/v1/auth/device-authorizations/decisions",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "exchangeDeviceAuthorization",
+    "path": "/v1/auth/device-authorizations/exchanges",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
     "operationId": "createGitHubDiscoveryAuthorization",
     "path": "/v1/github/discovery-authorizations",
     "tag": "github"

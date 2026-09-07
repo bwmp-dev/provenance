@@ -1,0 +1,34 @@
+{
+  "post": {
+    "operationId": "createDeviceAuthorization",
+    "summary": "Begin a one-time device authorization",
+    "tags": ["authentication"],
+    "security": [],
+    "parameters": [
+      {
+        "$ref": "#/components/parameters/IdempotencyKey"
+      }
+    ],
+    "requestBody": {
+      "$ref": "#/components/requestBodies/CreateDeviceAuthorization"
+    },
+    "responses": {
+      "201": {
+        "description": "Device authorization created.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DeviceAuthorization"
+            }
+          }
+        }
+      },
+      "409": {
+        "$ref": "#/components/responses/IdempotencyConflict"
+      },
+      "default": {
+        "$ref": "#/components/responses/Problem"
+      }
+    }
+  }
+}

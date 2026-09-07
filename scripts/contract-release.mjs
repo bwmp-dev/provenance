@@ -120,6 +120,14 @@ export const contractBundles = [
         destination: "operation-inventory.json",
       },
       { source: "openapi/redocly.yaml", destination: "redocly.yaml" },
+      {
+        source: "openapi/device-login-semantics.md",
+        destination: "device-login-semantics.md",
+      },
+      {
+        source: "openapi/device-login-states.json",
+        destination: "device-login-states.json",
+      },
     ],
   },
   {
