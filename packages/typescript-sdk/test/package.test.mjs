@@ -6,6 +6,8 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { contractBundles } from "../../../scripts/contract-release.mjs";
+import { expectedRuntimeDependencies } from "../../../scripts/verify-contract-release.mjs";
 
 const repository = fileURLToPath(new URL("../../../", import.meta.url));
 function run(command, args, cwd) {
@@ -71,6 +73,21 @@ test("isolated extracted SDK with nested file packages resolves through supporte
       type: "module",
       dependencies: { "@bwmp-dev/typescript-sdk": "file:../archive/package" },
     }),
+  );
+  // Follow the documented audited overrides, rather than allowing transitive
+  // ranges to select whatever versions happen to exist in a developer's store.
+  const inventory = await expectedRuntimeDependencies([
+    contractBundles.find(({ id }) => id === "typescript-sdk"),
+  ]);
+  const overrides = Object.fromEntries(
+    [...inventory.components.values()]
+      .filter(({ ecosystem }) => ecosystem === "npm")
+      .map(({ name, version }) => [name, version]),
+  );
+  assert.ok(overrides["fast-uri"], "transitive dependencies must be pinned");
+  await writeFile(
+    resolve(consumer, "pnpm-workspace.yaml"),
+    JSON.stringify({ overrides }),
   );
   run("pnpm", ["install", "--offline", "--ignore-scripts"], consumer);
   await writeFile(

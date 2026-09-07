@@ -114,7 +114,7 @@ async function installedNodeLicense(name, version) {
   );
 }
 
-async function expectedRuntimeDependencies(contractBundles) {
+export async function expectedRuntimeDependencies(contractBundles) {
   const lockfile = parseYaml(
     await readFile(resolve(repositoryDirectory, "pnpm-lock.yaml"), "utf8"),
   );
