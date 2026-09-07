@@ -72,9 +72,26 @@ node examples/consumption/sdk-verify.mjs attestation.json plugin.jar trusted-pub
 Its output is a closed verification result, never the document, key or private
 file paths. It opens the artifact lazily after authenticating the signature.
 
-The CLI is a separately distributed Linux archive, not part of the SDK. Its
-concrete inspected release pin and offline command are added only after release
-inspection; this source example does not claim a published CLI or SDK release.
+The CLI is a separately distributed Linux amd64 archive, not part of the SDK.
+Use inspected release
+[`cli-v0.1.0-alpha.1`](https://github.com/bwmp-dev/provenance/releases/tag/cli-v0.1.0-alpha.1),
+source and workflow/policy `aff412c803552b595ba37fa708845c9c488f56a7`.
+The archive SHA-256 is
+`f6aff3e25f9109f87cac34c52a2abf51eb0f10f9e98755b4e8b467cb22260a48`.
+Follow [the distribution verification procedure](../../docs/cli-distribution.md)
+before extracting or executing it; a matching checksum alone is not authenticity.
+Then run this entirely offline command with your independently trusted raw
+Ed25519 public key encoded as base64url and its explicit key ID:
+
+```sh
+provenance verify --jar plugin.jar --attestation attestation.json \
+  --public-key trusted-key.base64url --key-id explicitly-trusted-key-id
+```
+
+The CLI key format differs from the SDK PEM example above; do not pass a PEM file
+to this CLI flag. This proves signature, signed size and JAR digest, not a live
+browser flow or publication. No macOS/Windows native support or published SDK
+release is claimed.
 
 The tests build this exact plugin twice and exercise bounded simulated submission
 with the compiled accepted Action and SDK. They do not create repositories, make

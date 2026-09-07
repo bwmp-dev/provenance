@@ -1,9 +1,20 @@
-# Linux CLI distribution (unpublished)
+# Linux CLI distribution
 
-This workflow has not yet published a CLI release. Publication and inspection of
-the actual downloaded assets are separate acceptance steps. The initial version
-is `0.1.0-alpha.1`, tagged `cli-v0.1.0-alpha.1`; contract tags and their existing
-six archives/nine assets are untouched.
+The inspected Linux amd64 release is
+[`cli-v0.1.0-alpha.1`](https://github.com/bwmp-dev/provenance/releases/tag/cli-v0.1.0-alpha.1),
+published by [run 34112911716, attempt 1](https://github.com/bwmp-dev/provenance/actions/runs/34112911716/attempts/1).
+Its source and workflow/policy commit are both
+`aff412c803552b595ba37fa708845c9c488f56a7`.
+
+The archive `provenance-cli-0.1.0-alpha.1-linux-amd64.tar.gz` has SHA-256
+`f6aff3e25f9109f87cac34c52a2abf51eb0f10f9e98755b4e8b467cb22260a48`;
+the extracted binary has SHA-256
+`20a44fe51857f5d1bdc74afb046b5037fbd1a760d77530ef886ea86d16fc4063`.
+Inspection verified all four provenance subjects and the archive SPDX attestation,
+then the independent non-executing bundle verifier, before running the actual
+downloaded binary in the isolated native fixture described below. These pins
+do not replace that verification order for a fresh download. The separate CLI
+release does not change contract tags or their archive inventories.
 
 ## Four assets
 
