@@ -11,7 +11,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
 import test from "node:test";
 import { parse as yaml } from "yaml";
 import { create as createTar } from "tar";
@@ -53,6 +54,14 @@ function rehash(directory) {
 }
 
 test("CLI distribution workflow is separate and least privilege", () => {
+  const workspace = yaml(
+    readFileSync(join(repository, "pnpm-workspace.yaml"), "utf8"),
+  );
+  assert.equal(
+    workspace.allowBuilds.esbuild,
+    false,
+    "esbuild installer must remain disabled",
+  );
   assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
   assert.equal(workflow.concurrency["cancel-in-progress"], false);
   for (const job of Object.values(workflow.jobs))
@@ -82,6 +91,46 @@ test("CLI distribution workflow is separate and least privilege", () => {
   assert.throws(() => names("0.1.0+metadata"));
   assert.throws(() => names("../escape"));
   assert.throws(() => names("0.1.0-" + "a".repeat(65)));
+});
+
+test("missing packaged esbuild binary fails without downloading a fallback", (t) => {
+  const temporary = mkdtempSync(join(tmpdir(), "provenance-esbuild-missing-"));
+  t.after(() => rmSync(temporary, { recursive: true, force: true }));
+  const require = createRequire(
+    join(repository, "packages/action/package.json"),
+  );
+  const sourceDir = dirname(require.resolve("esbuild/package.json"));
+  const isolated = join(temporary, "esbuild");
+  cpSync(sourceDir, isolated, { recursive: true });
+  assert(
+    !readdirSync(join(isolated, "lib")).some((name) =>
+      name.startsWith("downloaded-"),
+    ),
+    "fixture must not contain a fallback binary",
+  );
+  const code = `const net = require('node:net'); const http = require('node:http'); const https = require('node:https');
+    for (const mod of [net,http,https]) for (const name of ['connect','createConnection','request','get']) if (typeof mod[name] === 'function') mod[name] = () => { throw Error('unexpected network attempt'); };
+    require(process.argv[1]).buildSync({stdin:{contents:'export const fixture = 1'},write:false});`;
+  const result = spawnSync(
+    process.execPath,
+    ["-e", code, join(isolated, "lib/main.js")],
+    {
+      encoding: "utf8",
+      timeout: 10000,
+      env: {
+        ...process.env,
+        ESBUILD_BINARY_PATH: "",
+        NODE_PATH: "",
+        NODE_OPTIONS: "",
+      },
+    },
+  );
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /could not be found|Could not resolve|Cannot find module/,
+  );
+  assert(!result.stderr.includes("unexpected network attempt"));
 });
 
 test(
