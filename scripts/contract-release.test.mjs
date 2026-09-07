@@ -717,6 +717,65 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       assertPrivilegedBoundaryRejects(directory);
     }
 
+    const runnerArtifact = manifest.artifacts.find(
+      ({ bundle }) => bundle === "runner-protocol",
+    );
+    const runnerExtracted = resolve(mutationsDirectory, "runner-extracted");
+    await mkdir(runnerExtracted);
+    await extractTar({
+      file: resolve(firstDirectory, runnerArtifact.filename),
+      cwd: runnerExtracted,
+    });
+    const runnerRoot = runnerArtifact.filename.slice(0, -".tar.gz".length);
+    const runnerEntries = await archiveEntries(
+      resolve(firstDirectory, runnerArtifact.filename),
+      runnerRoot,
+    );
+    for (const [name, omitted, changed] of [
+      ["missing-terminal-schema", "proto/terminal-evidence/schema.json", null],
+      ["missing-terminal-vector", "proto/terminal-evidence/vectors.json", null],
+      ["tampered-terminal-schema", null, "proto/terminal-evidence/schema.json"],
+      [
+        "tampered-terminal-vector",
+        null,
+        "proto/terminal-evidence/vectors.json",
+      ],
+    ]) {
+      const directory = await mutationDirectory(
+        firstDirectory,
+        mutationsDirectory,
+        name,
+      );
+      // Preserve the actual embedded manifest and all files, except the exact
+      // owned mutation; outer hashes are updated so inner verification must act.
+      const entries = [];
+      for (const path of runnerEntries) {
+        if (path === `${runnerRoot}/${omitted}`) continue;
+        entries.push({
+          path,
+          contents:
+            path === `${runnerRoot}/${changed}`
+              ? Buffer.from("tampered")
+              : await readFile(resolve(runnerExtracted, path)),
+        });
+      }
+      const contents = gzipSync(tarFixture(entries), { mtime: 0 });
+      await writeFile(resolve(directory, runnerArtifact.filename), contents);
+      await mutateManifest(directory, (document) => {
+        const artifact = document.artifacts.find(
+          (entry) => entry.bundle === "runner-protocol",
+        );
+        artifact.sha256 = digest(contents);
+        artifact.size = contents.length;
+      });
+      await replaceChecksum(directory, runnerArtifact.filename, contents);
+      await assert.rejects(
+        verifyContractRelease({ directory, version }),
+        /entries differ|bundle (?:size|digest) differs/,
+      );
+      assertPrivilegedBoundaryRejects(directory);
+    }
+
     const unsafeArtifact = manifest.artifacts.find(
       ({ bundle }) => bundle === "config-schema",
     );

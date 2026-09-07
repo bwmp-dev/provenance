@@ -1526,12 +1526,14 @@ func (x *UsageReport) GetCumulative() *ResourceUsage {
 }
 
 type JobCompleted struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Lease         *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
-	Attempt       *AttemptIdentity       `protobuf:"bytes,2,opt,name=attempt,proto3" json:"attempt,omitempty"`
-	Result        *StructuredResult      `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Lease   *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
+	Attempt *AttemptIdentity       `protobuf:"bytes,2,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	Result  *StructuredResult      `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
+	// Only with TERMINAL_EVIDENCE_V1; legacy absence supplies no new proof.
+	ExecutionEvidence *ExecutionEvidence `protobuf:"bytes,10,opt,name=execution_evidence,json=executionEvidence,proto3" json:"execution_evidence,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *JobCompleted) Reset() {
@@ -1585,16 +1587,25 @@ func (x *JobCompleted) GetResult() *StructuredResult {
 	return nil
 }
 
+func (x *JobCompleted) GetExecutionEvidence() *ExecutionEvidence {
+	if x != nil {
+		return x.ExecutionEvidence
+	}
+	return nil
+}
+
 type JobFailed struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Lease         *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
-	Attempt       *AttemptIdentity       `protobuf:"bytes,2,opt,name=attempt,proto3" json:"attempt,omitempty"`
-	Failure       *FailureDetail         `protobuf:"bytes,3,opt,name=failure,proto3" json:"failure,omitempty"`
-	Usage         *ResourceUsage         `protobuf:"bytes,4,opt,name=usage,proto3" json:"usage,omitempty"`
-	CompleteLog   *LogObject             `protobuf:"bytes,5,opt,name=complete_log,json=completeLog,proto3" json:"complete_log,omitempty"`
-	FailedAt      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=failed_at,json=failedAt,proto3" json:"failed_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Lease       *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
+	Attempt     *AttemptIdentity       `protobuf:"bytes,2,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	Failure     *FailureDetail         `protobuf:"bytes,3,opt,name=failure,proto3" json:"failure,omitempty"`
+	Usage       *ResourceUsage         `protobuf:"bytes,4,opt,name=usage,proto3" json:"usage,omitempty"`
+	CompleteLog *LogObject             `protobuf:"bytes,5,opt,name=complete_log,json=completeLog,proto3" json:"complete_log,omitempty"`
+	FailedAt    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=failed_at,json=failedAt,proto3" json:"failed_at,omitempty"`
+	// Partial validated observations may survive failure; absence is not passed.
+	ExecutionEvidence *ExecutionEvidence `protobuf:"bytes,10,opt,name=execution_evidence,json=executionEvidence,proto3" json:"execution_evidence,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *JobFailed) Reset() {
@@ -1665,6 +1676,13 @@ func (x *JobFailed) GetCompleteLog() *LogObject {
 func (x *JobFailed) GetFailedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.FailedAt
+	}
+	return nil
+}
+
+func (x *JobFailed) GetExecutionEvidence() *ExecutionEvidence {
+	if x != nil {
+		return x.ExecutionEvidence
 	}
 	return nil
 }
@@ -2618,19 +2636,23 @@ const file_runner_gateway_proto_rawDesc = "" +
 	"\n" +
 	"cumulative\x18\x05 \x01(\v2#.provenance.runner.v1.ResourceUsageR\n" +
 	"cumulativeJ\x04\b\x06\x10\n" +
-	"\"\xd0\x01\n" +
+	"\"\xa8\x02\n" +
 	"\fJobCompleted\x129\n" +
 	"\x05lease\x18\x01 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
 	"\aattempt\x18\x02 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\x12>\n" +
-	"\x06result\x18\x03 \x01(\v2&.provenance.runner.v1.StructuredResultR\x06resultJ\x04\b\x04\x10\n" +
-	"\"\x84\x03\n" +
+	"\x06result\x18\x03 \x01(\v2&.provenance.runner.v1.StructuredResultR\x06result\x12V\n" +
+	"\x12execution_evidence\x18\n" +
+	" \x01(\v2'.provenance.runner.v1.ExecutionEvidenceR\x11executionEvidenceJ\x04\b\x04\x10\n" +
+	"\"\xdc\x03\n" +
 	"\tJobFailed\x129\n" +
 	"\x05lease\x18\x01 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
 	"\aattempt\x18\x02 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\x12=\n" +
 	"\afailure\x18\x03 \x01(\v2#.provenance.runner.v1.FailureDetailR\afailure\x129\n" +
 	"\x05usage\x18\x04 \x01(\v2#.provenance.runner.v1.ResourceUsageR\x05usage\x12B\n" +
 	"\fcomplete_log\x18\x05 \x01(\v2\x1f.provenance.runner.v1.LogObjectR\vcompleteLog\x127\n" +
-	"\tfailed_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\bfailedAtJ\x04\b\a\x10\n" +
+	"\tfailed_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\bfailedAt\x12V\n" +
+	"\x12execution_evidence\x18\n" +
+	" \x01(\v2'.provenance.runner.v1.ExecutionEvidenceR\x11executionEvidenceJ\x04\b\a\x10\n" +
 	"\"\xf3\x02\n" +
 	"\fJobCancelled\x129\n" +
 	"\x05lease\x18\x01 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
@@ -2784,11 +2806,12 @@ var file_runner_gateway_proto_goTypes = []any{
 	(*LogEntry)(nil),                          // 38: provenance.runner.v1.LogEntry
 	(*ResourceUsage)(nil),                     // 39: provenance.runner.v1.ResourceUsage
 	(*StructuredResult)(nil),                  // 40: provenance.runner.v1.StructuredResult
-	(*FailureDetail)(nil),                     // 41: provenance.runner.v1.FailureDetail
-	(*LogObject)(nil),                         // 42: provenance.runner.v1.LogObject
-	(*Digest)(nil),                            // 43: provenance.runner.v1.Digest
-	(*RunnerPolicy)(nil),                      // 44: provenance.runner.v1.RunnerPolicy
-	(*ObjectUpload)(nil),                      // 45: provenance.runner.v1.ObjectUpload
+	(*ExecutionEvidence)(nil),                 // 41: provenance.runner.v1.ExecutionEvidence
+	(*FailureDetail)(nil),                     // 42: provenance.runner.v1.FailureDetail
+	(*LogObject)(nil),                         // 43: provenance.runner.v1.LogObject
+	(*Digest)(nil),                            // 44: provenance.runner.v1.Digest
+	(*RunnerPolicy)(nil),                      // 45: provenance.runner.v1.RunnerPolicy
+	(*ObjectUpload)(nil),                      // 46: provenance.runner.v1.ObjectUpload
 }
 var file_runner_gateway_proto_depIdxs = []int32{
 	29, // 0: provenance.runner.v1.RunnerMessage.sent_at:type_name -> google.protobuf.Timestamp
@@ -2855,45 +2878,47 @@ var file_runner_gateway_proto_depIdxs = []int32{
 	33, // 61: provenance.runner.v1.JobCompleted.lease:type_name -> provenance.runner.v1.LeaseIdentity
 	34, // 62: provenance.runner.v1.JobCompleted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
 	40, // 63: provenance.runner.v1.JobCompleted.result:type_name -> provenance.runner.v1.StructuredResult
-	33, // 64: provenance.runner.v1.JobFailed.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 65: provenance.runner.v1.JobFailed.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	41, // 66: provenance.runner.v1.JobFailed.failure:type_name -> provenance.runner.v1.FailureDetail
-	39, // 67: provenance.runner.v1.JobFailed.usage:type_name -> provenance.runner.v1.ResourceUsage
-	42, // 68: provenance.runner.v1.JobFailed.complete_log:type_name -> provenance.runner.v1.LogObject
-	29, // 69: provenance.runner.v1.JobFailed.failed_at:type_name -> google.protobuf.Timestamp
-	33, // 70: provenance.runner.v1.JobCancelled.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 71: provenance.runner.v1.JobCancelled.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	29, // 72: provenance.runner.v1.JobCancelled.cancelled_at:type_name -> google.protobuf.Timestamp
-	41, // 73: provenance.runner.v1.JobCancelled.cleanup_failure:type_name -> provenance.runner.v1.FailureDetail
-	33, // 74: provenance.runner.v1.CancelJob.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 75: provenance.runner.v1.CancelJob.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	29, // 76: provenance.runner.v1.CancelJob.deadline:type_name -> google.protobuf.Timestamp
-	29, // 77: provenance.runner.v1.DrainRunner.deadline:type_name -> google.protobuf.Timestamp
-	43, // 78: provenance.runner.v1.PolicyUpdate.policy_digest:type_name -> provenance.runner.v1.Digest
-	44, // 79: provenance.runner.v1.PolicyUpdate.policy:type_name -> provenance.runner.v1.RunnerPolicy
-	29, // 80: provenance.runner.v1.PolicyUpdate.effective_at:type_name -> google.protobuf.Timestamp
-	29, // 81: provenance.runner.v1.RotateCredential.expires_at:type_name -> google.protobuf.Timestamp
-	29, // 82: provenance.runner.v1.RotateCredential.reconnect_before:type_name -> google.protobuf.Timestamp
-	29, // 83: provenance.runner.v1.RotateCredential.issued_at:type_name -> google.protobuf.Timestamp
-	29, // 84: provenance.runner.v1.CredentialRotationAcknowledgement.persisted_at:type_name -> google.protobuf.Timestamp
-	29, // 85: provenance.runner.v1.ShutdownRunner.deadline:type_name -> google.protobuf.Timestamp
-	33, // 86: provenance.runner.v1.LeaseReconciliation.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 87: provenance.runner.v1.LeaseReconciliation.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	1,  // 88: provenance.runner.v1.LeaseReconciliation.disposition:type_name -> provenance.runner.v1.RunnerMessageDisposition
-	2,  // 89: provenance.runner.v1.LeaseReconciliation.status:type_name -> provenance.runner.v1.LeaseStatus
-	35, // 90: provenance.runner.v1.LeaseReconciliation.phase:type_name -> provenance.runner.v1.JobPhase
-	45, // 91: provenance.runner.v1.LeaseReconciliation.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
-	26, // 92: provenance.runner.v1.RunnerEventAcknowledgement.reconciliation:type_name -> provenance.runner.v1.LeaseReconciliation
-	29, // 93: provenance.runner.v1.RunnerEventAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
-	26, // 94: provenance.runner.v1.HeartbeatAcknowledgement.reconciliations:type_name -> provenance.runner.v1.LeaseReconciliation
-	29, // 95: provenance.runner.v1.HeartbeatAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
-	3,  // 96: provenance.runner.v1.RunnerGateway.Connect:input_type -> provenance.runner.v1.RunnerMessage
-	4,  // 97: provenance.runner.v1.RunnerGateway.Connect:output_type -> provenance.runner.v1.GatewayMessage
-	97, // [97:98] is the sub-list for method output_type
-	96, // [96:97] is the sub-list for method input_type
-	96, // [96:96] is the sub-list for extension type_name
-	96, // [96:96] is the sub-list for extension extendee
-	0,  // [0:96] is the sub-list for field type_name
+	41, // 64: provenance.runner.v1.JobCompleted.execution_evidence:type_name -> provenance.runner.v1.ExecutionEvidence
+	33, // 65: provenance.runner.v1.JobFailed.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 66: provenance.runner.v1.JobFailed.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	42, // 67: provenance.runner.v1.JobFailed.failure:type_name -> provenance.runner.v1.FailureDetail
+	39, // 68: provenance.runner.v1.JobFailed.usage:type_name -> provenance.runner.v1.ResourceUsage
+	43, // 69: provenance.runner.v1.JobFailed.complete_log:type_name -> provenance.runner.v1.LogObject
+	29, // 70: provenance.runner.v1.JobFailed.failed_at:type_name -> google.protobuf.Timestamp
+	41, // 71: provenance.runner.v1.JobFailed.execution_evidence:type_name -> provenance.runner.v1.ExecutionEvidence
+	33, // 72: provenance.runner.v1.JobCancelled.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 73: provenance.runner.v1.JobCancelled.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	29, // 74: provenance.runner.v1.JobCancelled.cancelled_at:type_name -> google.protobuf.Timestamp
+	42, // 75: provenance.runner.v1.JobCancelled.cleanup_failure:type_name -> provenance.runner.v1.FailureDetail
+	33, // 76: provenance.runner.v1.CancelJob.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 77: provenance.runner.v1.CancelJob.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	29, // 78: provenance.runner.v1.CancelJob.deadline:type_name -> google.protobuf.Timestamp
+	29, // 79: provenance.runner.v1.DrainRunner.deadline:type_name -> google.protobuf.Timestamp
+	44, // 80: provenance.runner.v1.PolicyUpdate.policy_digest:type_name -> provenance.runner.v1.Digest
+	45, // 81: provenance.runner.v1.PolicyUpdate.policy:type_name -> provenance.runner.v1.RunnerPolicy
+	29, // 82: provenance.runner.v1.PolicyUpdate.effective_at:type_name -> google.protobuf.Timestamp
+	29, // 83: provenance.runner.v1.RotateCredential.expires_at:type_name -> google.protobuf.Timestamp
+	29, // 84: provenance.runner.v1.RotateCredential.reconnect_before:type_name -> google.protobuf.Timestamp
+	29, // 85: provenance.runner.v1.RotateCredential.issued_at:type_name -> google.protobuf.Timestamp
+	29, // 86: provenance.runner.v1.CredentialRotationAcknowledgement.persisted_at:type_name -> google.protobuf.Timestamp
+	29, // 87: provenance.runner.v1.ShutdownRunner.deadline:type_name -> google.protobuf.Timestamp
+	33, // 88: provenance.runner.v1.LeaseReconciliation.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	34, // 89: provenance.runner.v1.LeaseReconciliation.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	1,  // 90: provenance.runner.v1.LeaseReconciliation.disposition:type_name -> provenance.runner.v1.RunnerMessageDisposition
+	2,  // 91: provenance.runner.v1.LeaseReconciliation.status:type_name -> provenance.runner.v1.LeaseStatus
+	35, // 92: provenance.runner.v1.LeaseReconciliation.phase:type_name -> provenance.runner.v1.JobPhase
+	46, // 93: provenance.runner.v1.LeaseReconciliation.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
+	26, // 94: provenance.runner.v1.RunnerEventAcknowledgement.reconciliation:type_name -> provenance.runner.v1.LeaseReconciliation
+	29, // 95: provenance.runner.v1.RunnerEventAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
+	26, // 96: provenance.runner.v1.HeartbeatAcknowledgement.reconciliations:type_name -> provenance.runner.v1.LeaseReconciliation
+	29, // 97: provenance.runner.v1.HeartbeatAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
+	3,  // 98: provenance.runner.v1.RunnerGateway.Connect:input_type -> provenance.runner.v1.RunnerMessage
+	4,  // 99: provenance.runner.v1.RunnerGateway.Connect:output_type -> provenance.runner.v1.GatewayMessage
+	99, // [99:100] is the sub-list for method output_type
+	98, // [98:99] is the sub-list for method input_type
+	98, // [98:98] is the sub-list for extension type_name
+	98, // [98:98] is the sub-list for extension extendee
+	0,  // [0:98] is the sub-list for field type_name
 }
 
 func init() { file_runner_gateway_proto_init() }

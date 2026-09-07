@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import "./terminal-evidence/contract.test.mjs";
 import { fileURLToPath } from "node:url";
 
 const contractDirectory = dirname(fileURLToPath(import.meta.url));
@@ -31,6 +32,7 @@ const protocolFeature = Object.freeze({
   jobCorrelationV1: 3,
   restartUploadRecovery: 4,
   objectUploadIdentity: 5,
+  terminalEvidenceV1: 6,
 });
 
 function validProtocolFeatures(features) {
@@ -475,6 +477,42 @@ test("runner v1 descriptor matches the compatibility snapshot", () => {
   } finally {
     rmSync(temporaryDirectory, { force: true, recursive: true });
   }
+});
+
+test("IFC019 actual generated wire preserves proof and legacy absence", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      join(contractDirectory, "terminal-evidence/wire-consumer.mjs"),
+      resolve(contractDirectory, "../../../../packages/runner-protocol"),
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
+test("IFC019 schema independently validates with Draft 2020-12", () => {
+  const result = spawnSync(
+    "python",
+    [
+      "-c",
+      [
+        "import json, pathlib",
+        "from jsonschema import Draft202012Validator",
+        "root=pathlib.Path('terminal-evidence')",
+        "schema=json.loads((root/'schema.json').read_text())",
+        "Draft202012Validator.check_schema(schema)",
+        "validator=Draft202012Validator(schema)",
+        "document=json.loads(json.loads((root/'vectors.json').read_text())['canonical'])",
+        "validator.validate(document)",
+        "assert not validator.is_valid(dict(document, secret='not-permitted'))",
+        "for kind in ('startup-ready','plugin-enabled','dependency-present','console-regex','clean-shutdown'):",
+        " assert any(a['type']==kind for a in document['assertions'])",
+      ].join("\n"),
+    ],
+    { cwd: contractDirectory, encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
 test("durable acknowledgement semantics remain normative", () => {
