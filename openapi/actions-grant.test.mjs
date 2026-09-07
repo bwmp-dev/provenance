@@ -62,7 +62,10 @@ test("IFC022 is additive to every alpha17 path and component", () => {
       );
   assert.deepEqual(
     Object.keys(doc.paths).filter((p) => !baseline.paths[p]),
-    ["/v1/auth/github-actions/grants"],
+    [
+      "/v1/release-candidates/{candidateId}/publication-result",
+      "/v1/auth/github-actions/grants",
+    ],
   );
   assert.equal(op.operationId, "createGitHubActionsGrant");
   assert.deepEqual(op.security, []);

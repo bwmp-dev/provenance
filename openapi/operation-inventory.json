@@ -1,5 +1,11 @@
 [
   {
+    "method": "get",
+    "operationId": "getReleaseCandidatePublicationResult",
+    "path": "/v1/release-candidates/{candidateId}/publication-result",
+    "tag": "release-candidates"
+  },
+  {
     "method": "post",
     "operationId": "createGitHubActionsGrant",
     "path": "/v1/auth/github-actions/grants",
