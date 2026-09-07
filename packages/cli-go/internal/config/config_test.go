@@ -45,12 +45,73 @@ func TestAuthoritativeSchemaAndGoldenParity(t *testing.T) {
 			}
 		})
 	}
-	bad, _ := filepath.Glob(filepath.Join(root, "schemas/fixtures/config/invalid/*.yml"))
+	bad, _ := filepath.Glob(filepath.Join(root, "schemas/fixtures/config/invalid-yaml/*.yml"))
+	if len(bad) == 0 {
+		t.Fatal("missing invalid YAML corpus")
+	}
 	for _, path := range bad {
 		raw, _ := os.ReadFile(path)
 		if _, e := Normalize(raw); e == nil {
 			t.Errorf("invalid fixture accepted %s", filepath.Base(path))
 		}
+	}
+}
+
+func TestActualInvalidMutationCorpus(t *testing.T) {
+	const root = "../../../../schemas/fixtures/config/"
+	original, err := os.ReadFile(root + "valid/hosted.normalized.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(root + "invalid/cases.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases []struct {
+		Name  string
+		Path  []any
+		Value any
+	}
+	if json.Unmarshal(raw, &cases) != nil || len(cases) == 0 {
+		t.Fatal("missing mutation corpus")
+	}
+	for _, fixture := range cases {
+		t.Run(fixture.Name, func(t *testing.T) {
+			var value any
+			if json.Unmarshal(original, &value) != nil || len(fixture.Path) == 0 {
+				t.Fatal("invalid base or path")
+			}
+			target := value
+			for _, part := range fixture.Path[:len(fixture.Path)-1] {
+				switch key := part.(type) {
+				case string:
+					target = target.(map[string]any)[key]
+				case float64:
+					target = target.([]any)[int(key)]
+				default:
+					t.Fatal("unsupported fixture path")
+				}
+			}
+			switch key := fixture.Path[len(fixture.Path)-1].(type) {
+			case string:
+				target.(map[string]any)[key] = fixture.Value
+			case float64:
+				target.([]any)[int(key)] = fixture.Value
+			default:
+				t.Fatal("unsupported fixture path")
+			}
+			mutated, _ := json.Marshal(value)
+			if _, err := Normalize(mutated); err == nil {
+				t.Fatal("invalid released mutation accepted")
+			}
+			reference := exec.Command("node", "--input-type=module", "-e", `import{parseConfiguration}from './packages/config-schema/dist/index.js';try{parseConfiguration(process.argv[1]);process.exit(0)}catch{process.exit(3)}`, string(mutated))
+			reference.Dir = "../../../.."
+			if err := reference.Run(); err == nil {
+				t.Fatal("reference unexpectedly accepted mutation")
+			} else if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 3 {
+				t.Fatal("reference unavailable", err)
+			}
+		})
 	}
 }
 

@@ -66,6 +66,13 @@ func (a *api) call(ctx context.Context, method, path string, body any, idempoten
 	if e != nil {
 		return response{}, ErrInput
 	}
+	// Transport treats Idempotency-Key plus GetBody as permission to replay a
+	// POST after a lost response on a reused connection. Device/session secrets
+	// are shown once: never let the transport reconstruct a mutation body.
+	// GET requests retain their ordinary safe transport retry behavior.
+	if method != "GET" && method != "HEAD" {
+		r.GetBody = nil
+	}
 	if body != nil {
 		r.Header.Set("Content-Type", "application/json")
 	}

@@ -52,7 +52,7 @@ func reply(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 func TestLoginReleasedFlowAndFailures(t *testing.T) {
-	for _, mode := range []string{"success", "unavailable-store", "lost-session", "consumed", "cancel", "write-failed", "expired", "bad-retry"} {
+	for _, mode := range []string{"success", "unavailable-store", "lost-session", "dropped-session-response", "consumed", "cancel", "write-failed", "expired", "bad-retry"} {
 		t.Run(mode, func(t *testing.T) {
 			var out, errs bytes.Buffer
 			s := &store{}
@@ -124,6 +124,15 @@ func TestLoginReleasedFlowAndFailures(t *testing.T) {
 					}
 					if mode == "lost-session" {
 						reply(w, 503, map[string]any{"code": "unavailable"})
+						return
+					}
+					if mode == "dropped-session-response" {
+						conn, _, err := w.(http.Hijacker).Hijack()
+						if err != nil {
+							t.Error(err)
+							return
+						}
+						_ = conn.Close()
 						return
 					}
 					http.SetCookie(w, &http.Cookie{Name: "provenance_session", Value: credential, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
