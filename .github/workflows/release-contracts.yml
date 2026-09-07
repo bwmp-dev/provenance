@@ -429,8 +429,17 @@ jobs:
               }
           }
 
+          # Verify before trusting the manifest's versioned inventory. Historical
+          # source tags may be reconciled by newer reviewed workflow policy.
+          python3 scripts/verify-release-bundle.py \
+            --version "$VERSION" --directory dist/contracts --source-sha "$SOURCE_SHA"
+          expected_asset_count="$(jq --exit-status --raw-output '
+            if .schemaVersion == 1 then 9
+            elif .schemaVersion == 2 then 10
+            else error("unsupported contract release inventory") end
+          ' "dist/contracts/provenance-contracts-$VERSION.manifest.json")"
           expected_paths=(dist/contracts/*)
-          if [[ "${#expected_paths[@]}" -ne 9 ]]; then
+          if [[ "${#expected_paths[@]}" -ne "$expected_asset_count" ]]; then
             echo "Unexpected local release asset count." >&2
             exit 1
           fi

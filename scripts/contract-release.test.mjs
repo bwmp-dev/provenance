@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import {
   access,
   appendFile,
+  chmod,
   cp,
   mkdir,
   mkdtemp,
@@ -42,6 +43,231 @@ function digest(contents) {
 
 function json(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+async function exercisePublishReconciliation(bundle, schemaVersion) {
+  const repository = resolve(import.meta.dirname, "..");
+  const workflow = parseYaml(
+    await readFile(
+      resolve(repository, ".github/workflows/release-contracts.yml"),
+      "utf8",
+    ),
+  );
+  const step = workflow.jobs.release.steps.find(
+    ({ name }) => name === "Reconcile and publish GitHub release",
+  );
+  // Execute the entire deployed shell; only GitHub and ancestry discovery are
+  // simulated. The independent Python byte/inventory/SPDX verifier stays real.
+  const script = step.run.replaceAll(
+    "python3 scripts/verify-release-bundle.py",
+    `python3 '${resolve(repository, "scripts/verify-release-bundle.py")}'`,
+  );
+  const compatibility = [
+    "## Compatibility declaration",
+    "- Configuration schema: v1",
+    "- Attestation schema: v1",
+    "- Public OpenAPI: v1",
+    "- Paper metadata schema: v1",
+    `- Paper metadata inspector: ${version}`,
+    "- Runner protocol: v1",
+    "- CLI: not released",
+    "- GitHub Action: not released",
+    `- TypeScript SDK client: ${version}`,
+    ...(schemaVersion === 2
+      ? [
+          `- TypeScript SDK facade: ${version} (archive-only; no npm publication)`,
+        ]
+      : []),
+  ].join("\n");
+  for (const scenario of [
+    "same",
+    "newer-policy",
+    "fresh",
+    "draft-missing",
+    "unknown-schema",
+    "string-schema",
+    "missing-schema",
+    "malformed-manifest",
+    "missing-local",
+    "extra-local",
+    "substituted-local",
+    "remote-extra",
+    "remote-incomplete",
+    "remote-digest",
+    "metadata",
+    "tag-conflict",
+    "lightweight-tag",
+    "unrelated-policy",
+    "discovery",
+  ]) {
+    const directory = await mkdtemp(
+      join(tmpdir(), "provenance-publish-inventory-"),
+    );
+    try {
+      const local = join(directory, "dist/contracts");
+      await mkdir(join(directory, "dist"));
+      await cp(bundle, local, { recursive: true });
+      const bin = join(directory, "bin");
+      await mkdir(bin);
+      await cp(
+        resolve(repository, "scripts/fixtures/contract-release/gh-repeat.py"),
+        join(bin, "gh"),
+      );
+      await chmod(join(bin, "gh"), 0o755);
+      await writeFile(
+        join(bin, "git"),
+        `#!/usr/bin/env bash\nset -euo pipefail\n[[ "$#" == 4 && "$1" == merge-base && "$2" == --is-ancestor && "$3" == "$SOURCE_SHA" && "$4" == "$POLICY_SHA" ]]\n[[ "$CONTRACT_UNRELATED" != 1 ]]\n`,
+        { mode: 0o755 },
+      );
+      const filenames = (await readdir(bundle)).sort();
+      assert.equal(filenames.length, schemaVersion === 1 ? 9 : 10);
+      const state = {
+        tag: `v${version}`,
+        source: sourceCommit,
+        directory: bundle,
+        release: {
+          id: 1,
+          tag_name: `v${version}`,
+          name: `Provenance contracts v${version}`,
+          body: compatibility,
+          prerelease: true,
+          draft: false,
+        },
+        assets: await Promise.all(
+          filenames.map(async (name, index) => ({
+            id: index + 1,
+            name,
+            size: (await readFile(join(bundle, name))).length,
+            state: "uploaded",
+          })),
+        ),
+      };
+      const manifestPath = join(local, releaseManifestName(version));
+      const mutating = ["fresh", "draft-missing"].includes(scenario);
+      if (mutating) {
+        state.allowMutations = true;
+        state.release.draft = true;
+        state.releaseExists = scenario !== "fresh";
+        state.assets = scenario === "fresh" ? [] : state.assets.slice(0, 2);
+      }
+      if (
+        ["unknown-schema", "string-schema", "missing-schema"].includes(scenario)
+      ) {
+        const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+        if (scenario === "missing-schema") delete manifest.schemaVersion;
+        else
+          manifest.schemaVersion =
+            scenario === "unknown-schema" ? 3 : String(schemaVersion);
+        await writeFile(manifestPath, json(manifest));
+      }
+      if (scenario === "malformed-manifest") await writeFile(manifestPath, "{");
+      if (scenario === "missing-local" || scenario === "substituted-local")
+        await rm(join(local, filenames[0]));
+      if (scenario === "extra-local" || scenario === "substituted-local")
+        await writeFile(join(local, "unexpected.tar.gz"), "not an archive");
+      if (scenario === "remote-extra")
+        state.assets.push({
+          id: 99,
+          name: "unexpected",
+          size: 1,
+          state: "uploaded",
+        });
+      if (scenario === "remote-incomplete") state.assets.pop();
+      if (scenario === "remote-digest") state.tamper = filenames[0];
+      if (scenario === "metadata") state.release.name = "different";
+      if (scenario === "tag-conflict") state.source = "b".repeat(40);
+      if (scenario === "lightweight-tag") state.tagType = "commit";
+      if (scenario === "discovery") state.discoveryError = true;
+      const statePath = join(directory, "state.json"),
+        log = join(directory, "calls.jsonl");
+      await writeFile(statePath, json(state));
+      await writeFile(log, "");
+      const execution = spawnSync("bash", ["-euo", "pipefail", "-c", script], {
+        cwd: directory,
+        encoding: "utf8",
+        timeout: 30000,
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH}`,
+          CONTRACT_REPEAT_STATE: statePath,
+          CONTRACT_REPEAT_LOG: log,
+          CONTRACT_UNRELATED: scenario === "unrelated-policy" ? "1" : "0",
+          RUNNER_TEMP: directory,
+          GITHUB_REPOSITORY: "bwmp-dev/provenance",
+          TAG: `v${version}`,
+          VERSION: version,
+          SOURCE_SHA: sourceCommit,
+          POLICY_SHA:
+            scenario === "newer-policy" || scenario === "unrelated-policy"
+              ? "1".repeat(40)
+              : sourceCommit,
+          PRERELEASE: "true",
+        },
+      });
+      assert.ifError(execution.error);
+      assert.equal(
+        execution.status === 0,
+        ["same", "newer-policy", "fresh", "draft-missing"].includes(scenario),
+        `schema${schemaVersion}/${scenario}: ${execution.stdout}${execution.stderr}`,
+      );
+      const calls = (await readFile(log, "utf8"))
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map(JSON.parse);
+      if (mutating) {
+        const writes = calls.filter(
+          (args) => args[0] === "release" || args.includes("--method"),
+        );
+        const uploads = writes.filter((args) => args[0] === "release");
+        assert.deepEqual(
+          uploads.map((args) => args[3].split("/").at(-1)).sort(),
+          filenames.slice(scenario === "fresh" ? 0 : 2),
+        );
+        assert.ok(
+          uploads.every(
+            (args) =>
+              args[1] === "upload" &&
+              args[2] === `v${version}` &&
+              !args.includes("--clobber"),
+          ),
+        );
+        assert.equal(
+          writes.length,
+          uploads.length + (scenario === "fresh" ? 2 : 1),
+        );
+        const final = JSON.parse(await readFile(statePath, "utf8"));
+        assert.equal(final.release.draft, false);
+        assert.deepEqual(
+          final.assets.map(({ name }) => name).sort(),
+          filenames,
+        );
+      } else
+        assert.ok(
+          calls.every(
+            (args) => args[0] === "api" && !args.includes("--method"),
+          ),
+          `unexpected mutation in ${scenario}`,
+        );
+      if (
+        [
+          "unknown-schema",
+          "string-schema",
+          "missing-schema",
+          "malformed-manifest",
+          "missing-local",
+          "extra-local",
+          "substituted-local",
+        ].includes(scenario)
+      )
+        assert.equal(calls.length, 0, "invalid local inventory reached GitHub");
+      console.info(
+        `Actual publication shell schema${schemaVersion}/${scenario}: ${execution.status === 0 ? "accepted" : "rejected"}; ${mutating ? "exact mocked uploads and publish" : "no mutations"}`,
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
 }
 
 function runWorkspaceBuild() {
@@ -502,6 +728,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       version,
     });
     runPrivilegedBoundaryVerifier(firstDirectory);
+    await exercisePublishReconciliation(firstDirectory, 1);
     const sbom = JSON.parse(
       await readFile(resolve(firstDirectory, manifest.sbom.filename), "utf8"),
     );
@@ -636,6 +863,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       consumers: true,
     });
     runPrivilegedBoundaryVerifier(sdkFirst);
+    await exercisePublishReconciliation(sdkFirst, 2);
     const sdkSpdx = JSON.parse(
       await readFile(resolve(sdkFirst, sdkManifest.sbom.filename), "utf8"),
     );
@@ -1291,7 +1519,7 @@ test("release workflow reconciles a verified draft without overwriting assets", 
   );
   assert.match(workflow, /Paper metadata schema: v1/);
   assert.match(workflow, /Paper metadata inspector: \$VERSION/);
-  assert.match(workflow, /expected_paths\[@\]\}" -ne 9/);
+  assert.match(workflow, /expected_paths\[@\]\}" -ne "\$expected_asset_count"/);
   assert.match(
     workflow,
     /Published release \$TAG already matches the verified bundle/,
