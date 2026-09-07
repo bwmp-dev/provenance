@@ -1,6 +1,12 @@
 [
   {
     "method": "post",
+    "operationId": "createGitHubActionsGrant",
+    "path": "/v1/auth/github-actions/grants",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
     "operationId": "decideDeviceAuthorization",
     "path": "/v1/auth/device-authorizations/decisions",
     "tag": "authentication"

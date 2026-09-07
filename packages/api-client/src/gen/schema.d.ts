@@ -139,6 +139,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/github-actions/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue a shown-once GitHub Actions automation grant
+         * @description IFC-022: a distinct automation principal, never a human session or API token. Normative rules are in actions-grant-semantics.md and actions-grant-vectors.json shipped with this OpenAPI bundle. The legacy github-oidc/exchanges operation and its original-outcome replay promise are unchanged. Accept at most 32768 UTF-8 request bytes and exactly one Idempotency-Key. Reject Authorization, Cookie and Origin headers; this is not a browser flow. Validate bounded syntax, configured verification policy, assertion signature and claims, then current connection/project policy before issuance replay checks. An identical successful issuance replay returns credential_not_replayable; different-request key reuse returns idempotency_conflict; a spent assertion under another key returns assertion_replayed. No conflict mints a credential. All responses, including router, rate, size and recovery errors, are no-store closed four-field problems. No raw assertion, credential, claims, provider response or private source text may appear in logs or errors.
+         */
+        post: operations["createGitHubActionsGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/github-oidc/exchanges": {
         parameters: {
             query?: never;
@@ -1406,6 +1426,36 @@ export interface components {
             expiresAt: components["schemas"]["Timestamp"];
             intervalSeconds: number;
         };
+        CreateGitHubActionsGrantRequest: {
+            /** @description Bounded compact signed JWT; syntax is not signature validation. */
+            assertion: string;
+        };
+        /** @description Canonical positive decimal numeric GitHub identity, never a login. */
+        ActionsGrantProviderId: string;
+        ActionsGrantSourceCommit: string;
+        /** @description Server-derived verified scope, not requested authority. The implementation retains the full selected workflow policy and verified claim binding privately. Same-grant resource admission further narrows every operation; this is not general project or repository access. */
+        GitHubActionsGrantScope: {
+            organizationId: components["schemas"]["BoundedStableId"];
+            projectId: components["schemas"]["BoundedStableId"];
+            appId: components["schemas"]["ActionsGrantProviderId"];
+            installationId: components["schemas"]["ActionsGrantProviderId"];
+            repositoryId: components["schemas"]["ActionsGrantProviderId"];
+            repositoryOwnerId: components["schemas"]["ActionsGrantProviderId"];
+            sourceCommit: components["schemas"]["ActionsGrantSourceCommit"];
+            sourceRef: string;
+            workflowRef: string;
+        };
+        GitHubActionsGrant: {
+            grantId: components["schemas"]["BoundedStableId"];
+            /** @constant */
+            principalType: "github-actions";
+            /** @description Independent 32-byte CSPRNG credential, canonical base64url without padding after pva_. Persist only its hash. */
+            accessToken: string;
+            /** @constant */
+            tokenType: "Bearer";
+            expiresAt: components["schemas"]["BoundedTimestamp"];
+            scope: components["schemas"]["GitHubActionsGrantScope"];
+        };
         ExchangeGitHubOidcTokenRequest: {
             assertion: string;
         };
@@ -2122,6 +2172,198 @@ export interface components {
         };
     };
     responses: {
+        /** @description Closed request admission failure. */
+        ActionsGrant405: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                /** @description Only this method is admitted. */
+                Allow?: "POST";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 405;
+                    /** @enum {string} */
+                    code: "method_not_allowed";
+                };
+            };
+        };
+        /** @description Closed request admission failure. */
+        ActionsGrant408: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 408;
+                    /** @enum {string} */
+                    code: "request_timeout";
+                };
+            };
+        };
+        /** @description Closed automation grant failure. */
+        ActionsGrant400: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 400;
+                    /** @enum {string} */
+                    code: "invalid_request";
+                };
+            };
+        };
+        /** @description Closed automation grant failure. */
+        ActionsGrant401: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 401;
+                    /** @enum {string} */
+                    code: "invalid_assertion";
+                };
+            };
+        };
+        /** @description Closed automation grant failure. */
+        ActionsGrant403: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 403;
+                    /** @enum {string} */
+                    code: "policy_denied";
+                };
+            };
+        };
+        /** @description Confidential idempotency or assertion replay conflict; never a new token. */
+        ActionsGrant409: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 409;
+                    /** @enum {string} */
+                    code: "idempotency_conflict" | "credential_not_replayable" | "assertion_replayed";
+                };
+            };
+        };
+        /** @description Closed automation grant failure. */
+        ActionsGrant413: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 413;
+                    /** @enum {string} */
+                    code: "request_too_large";
+                };
+            };
+        };
+        /** @description Closed automation grant failure. */
+        ActionsGrant415: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 415;
+                    /** @enum {string} */
+                    code: "unsupported_media_type";
+                };
+            };
+        };
+        /** @description Closed automation grant failure. */
+        ActionsGrant429: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 429;
+                    /** @enum {string} */
+                    code: "rate_limited";
+                };
+            };
+        };
+        /** @description Closed automation grant failure. */
+        ActionsGrant503: {
+            headers: {
+                "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": {
+                    /** @constant */
+                    type: "about:blank";
+                    /** @constant */
+                    title: "Automation grant failed";
+                    /** @constant */
+                    status: 503;
+                    /** @enum {string} */
+                    code: "unavailable";
+                };
+            };
+        };
         /** @description Fixed device-login failure; no submitted codes, credentials or provider details. */
         DeviceLogin400: {
             headers: {
@@ -2838,6 +3080,8 @@ export interface components {
         GitHubAuthorizationIdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Bound to authorization ID and exact completion request. Validate proof before revealing replay state. Different request conflicts with idempotency_key_conflict. A matching in-flight request returns authorization_in_progress. The server retains only a hash of the issued exchange token: successful replay returns credential_not_replayable. Uncertain upstream code consumption returns authorization_completion_uncertain. Neither permits repeating the upstream exchange or regenerating the credential; start a new authorization and use new idempotency keys. */
         GitHubCompletionIdempotencyKey: components["schemas"]["IdempotencyKey"];
+        /** @description Dedicated shown-once issuance semantics: identical successful replay yields credential_not_replayable, different request reuse idempotency_conflict. Scope is the verified issuer and numeric repository, HTTP method and route. Assertion replay identity is checked globally per issuer, not per key. */
+        ActionsGrantIdempotencyKey: string;
         /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
         IdempotencyKey: components["schemas"]["IdempotencyKey"];
         /** @description Caller-generated key scoped to browser session creation. Reusing the key with a different request conflicts. After a request succeeds, the platform retains only a hash of the issued credential and cannot reproduce the original Set-Cookie value. Replaying that same request therefore fails closed with HTTP 409 and code `credential_not_replayable`; the caller must obtain a new one-time exchange token and use a new idempotency key. */
@@ -2984,6 +3228,8 @@ export interface components {
         };
     };
     headers: {
+        /** @description Confidential issuance and all failures must not be cached. */
+        ActionsGrantNoStore: "no-store";
         /** @description Required for every device-login response, including errors. */
         DeviceLoginNoStore: "no-store";
         /** @description Required on 429; positive integer seconds, never an HTTP date. */
@@ -3254,6 +3500,44 @@ export interface operations {
             415: components["responses"]["DeviceLogin415"];
             429: components["responses"]["DeviceLogin429"];
             503: components["responses"]["DeviceLogin503"];
+        };
+    };
+    createGitHubActionsGrant: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Dedicated shown-once issuance semantics: identical successful replay yields credential_not_replayable, different request reuse idempotency_conflict. Scope is the verified issuer and numeric repository, HTTP method and route. Assertion replay identity is checked globally per issuer, not per key. */
+                "Idempotency-Key": components["parameters"]["ActionsGrantIdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGitHubActionsGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description One durable grant; credential shown once, never recoverable. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["ActionsGrantNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubActionsGrant"];
+                };
+            };
+            400: components["responses"]["ActionsGrant400"];
+            401: components["responses"]["ActionsGrant401"];
+            403: components["responses"]["ActionsGrant403"];
+            405: components["responses"]["ActionsGrant405"];
+            408: components["responses"]["ActionsGrant408"];
+            409: components["responses"]["ActionsGrant409"];
+            413: components["responses"]["ActionsGrant413"];
+            415: components["responses"]["ActionsGrant415"];
+            429: components["responses"]["ActionsGrant429"];
+            503: components["responses"]["ActionsGrant503"];
         };
     };
     exchangeGitHubOidcToken: {

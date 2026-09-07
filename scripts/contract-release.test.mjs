@@ -793,6 +793,8 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     for (const file of [
       "device-login-semantics.md",
       "device-login-states.json",
+      "actions-grant-semantics.md",
+      "actions-grant-vectors.json",
     ]) {
       assert.ok(deviceEntries.includes(`${deviceRoot}/${file}`));
       for (const mutation of ["missing", "tampered"]) {

@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 import "./device-login.test.mjs";
+import "./actions-grant.test.mjs";
 
 import { parse } from "yaml";
 
@@ -631,7 +632,10 @@ test("operation and path inventory matches the public v1 skeleton", () => {
 
 test("every operation exposes structured failure responses", () => {
   for (const { operation } of operations) {
-    if (deviceOperations.has(operation.operationId)) {
+    if (
+      deviceOperations.has(operation.operationId) ||
+      operation.operationId === "createGitHubActionsGrant"
+    ) {
       assert.equal(
         operation.responses.default,
         undefined,
@@ -695,7 +699,10 @@ test("every mutation has deterministic idempotency semantics", () => {
     const conflict =
       document.components.responses[conflictReference.split("/").at(-1)];
     assert.match(conflict.description, /idempotency/i, operation.operationId);
-    if (deviceOperations.has(operation.operationId)) {
+    if (
+      deviceOperations.has(operation.operationId) ||
+      operation.operationId === "createGitHubActionsGrant"
+    ) {
       assert.equal(parameter.required, true);
       assert.equal(
         conflict.content["application/problem+json"].schema
