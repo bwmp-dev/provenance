@@ -822,6 +822,9 @@ const (
 	ProtocolFeature_PROTOCOL_FEATURE_JOB_CORRELATION_V1             ProtocolFeature = 3
 	ProtocolFeature_PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY        ProtocolFeature = 4
 	ProtocolFeature_PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY         ProtocolFeature = 5
+	// Server-first rollout; see terminal-evidence/semantics.md. A queued proof
+	// must never be stripped or regenerated during reconnect or downgrade.
+	ProtocolFeature_PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1 ProtocolFeature = 6
 )
 
 // Enum value maps for ProtocolFeature.
@@ -833,6 +836,7 @@ var (
 		3: "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
 		4: "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
 		5: "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
+		6: "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1",
 	}
 	ProtocolFeature_value = map[string]int32{
 		"PROTOCOL_FEATURE_UNSPECIFIED":                    0,
@@ -841,6 +845,7 @@ var (
 		"PROTOCOL_FEATURE_JOB_CORRELATION_V1":             3,
 		"PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY":        4,
 		"PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY":         5,
+		"PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1":           6,
 	}
 )
 
@@ -2881,6 +2886,63 @@ func (x *StructuredResult) GetCompleteLog() *LogObject {
 	return nil
 }
 
+// Optional, negotiated observation proof, not an attestation or public claim.
+// canonical_json is at most 32768 bytes of exact RFC 8785 canonical UTF-8 JSON
+// conforming to terminal-evidence/schema.json. digest is SHA-256 of those exact
+// bytes. The containing RunnerMessage remains bounded to 65536 encoded bytes.
+// Schema-valid completeness still requires immutable expected-plan validation.
+type ExecutionEvidence struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CanonicalJson []byte                 `protobuf:"bytes,1,opt,name=canonical_json,json=canonicalJson,proto3" json:"canonical_json,omitempty"`
+	Digest        *Digest                `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecutionEvidence) Reset() {
+	*x = ExecutionEvidence{}
+	mi := &file_common_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecutionEvidence) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecutionEvidence) ProtoMessage() {}
+
+func (x *ExecutionEvidence) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecutionEvidence.ProtoReflect.Descriptor instead.
+func (*ExecutionEvidence) Descriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ExecutionEvidence) GetCanonicalJson() []byte {
+	if x != nil {
+		return x.CanonicalJson
+	}
+	return nil
+}
+
+func (x *ExecutionEvidence) GetDigest() *Digest {
+	if x != nil {
+		return x.Digest
+	}
+	return nil
+}
+
 type FailureDetail struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Category      FailureCategory        `protobuf:"varint,1,opt,name=category,proto3,enum=provenance.runner.v1.FailureCategory" json:"category,omitempty"`
@@ -2895,7 +2957,7 @@ type FailureDetail struct {
 
 func (x *FailureDetail) Reset() {
 	*x = FailureDetail{}
-	mi := &file_common_proto_msgTypes[25]
+	mi := &file_common_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2907,7 +2969,7 @@ func (x *FailureDetail) String() string {
 func (*FailureDetail) ProtoMessage() {}
 
 func (x *FailureDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[25]
+	mi := &file_common_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2920,7 +2982,7 @@ func (x *FailureDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FailureDetail.ProtoReflect.Descriptor instead.
 func (*FailureDetail) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{25}
+	return file_common_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *FailureDetail) GetCategory() FailureCategory {
@@ -3178,7 +3240,10 @@ const file_common_proto_rawDesc = "" +
 	"\fcompleted_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12/\n" +
 	"\x11process_exit_code\x18\a \x01(\x05H\x00R\x0fprocessExitCode\x88\x01\x01\x12B\n" +
 	"\fcomplete_log\x18\b \x01(\v2\x1f.provenance.runner.v1.LogObjectR\vcompleteLogB\x14\n" +
-	"\x12_process_exit_codeJ\x04\b\t\x10\x10\"\x81\x02\n" +
+	"\x12_process_exit_codeJ\x04\b\t\x10\x10\"p\n" +
+	"\x11ExecutionEvidence\x12%\n" +
+	"\x0ecanonical_json\x18\x01 \x01(\fR\rcanonicalJson\x124\n" +
+	"\x06digest\x18\x02 \x01(\v2\x1c.provenance.runner.v1.DigestR\x06digest\"\x81\x02\n" +
 	"\rFailureDetail\x12A\n" +
 	"\bcategory\x18\x01 \x01(\x0e2%.provenance.runner.v1.FailureCategoryR\bcategory\x128\n" +
 	"\x05stage\x18\x02 \x01(\x0e2\".provenance.runner.v1.FailureStageR\x05stage\x12\x12\n" +
@@ -3263,14 +3328,15 @@ const file_common_proto_rawDesc = "" +
 	"\x15FAILURE_STAGE_STARTUP\x10\x03\x12\x1b\n" +
 	"\x17FAILURE_STAGE_EXECUTION\x10\x04\x12\x19\n" +
 	"\x15FAILURE_STAGE_CLEANUP\x10\x05\x12\x1f\n" +
-	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\x96\x02\n" +
+	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xc1\x02\n" +
 	"\x0fProtocolFeature\x12 \n" +
 	"\x1cPROTOCOL_FEATURE_UNSPECIFIED\x10\x00\x123\n" +
 	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01\x12(\n" +
 	"$PROTOCOL_FEATURE_CREDENTIAL_ROTATION\x10\x02\x12'\n" +
 	"#PROTOCOL_FEATURE_JOB_CORRELATION_V1\x10\x03\x12,\n" +
 	"(PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY\x10\x04\x12+\n" +
-	"'PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY\x10\x05BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
+	"'PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY\x10\x05\x12)\n" +
+	"%PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1\x10\x06BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once
@@ -3285,7 +3351,7 @@ func file_common_proto_rawDescGZIP() []byte {
 }
 
 var file_common_proto_enumTypes = make([]protoimpl.EnumInfo, 16)
-var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_common_proto_goTypes = []any{
 	(DigestAlgorithm)(0),          // 0: provenance.runner.v1.DigestAlgorithm
 	(ServerProvider)(0),           // 1: provenance.runner.v1.ServerProvider
@@ -3328,16 +3394,17 @@ var file_common_proto_goTypes = []any{
 	(*LifecycleEvent)(nil),        // 38: provenance.runner.v1.LifecycleEvent
 	(*LogObject)(nil),             // 39: provenance.runner.v1.LogObject
 	(*StructuredResult)(nil),      // 40: provenance.runner.v1.StructuredResult
-	(*FailureDetail)(nil),         // 41: provenance.runner.v1.FailureDetail
-	nil,                           // 42: provenance.runner.v1.Capabilities.LabelsEntry
-	nil,                           // 43: provenance.runner.v1.LifecycleEvent.AttributesEntry
-	(*timestamppb.Timestamp)(nil), // 44: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),         // 45: google.protobuf.Empty
-	(*durationpb.Duration)(nil),   // 46: google.protobuf.Duration
+	(*ExecutionEvidence)(nil),     // 41: provenance.runner.v1.ExecutionEvidence
+	(*FailureDetail)(nil),         // 42: provenance.runner.v1.FailureDetail
+	nil,                           // 43: provenance.runner.v1.Capabilities.LabelsEntry
+	nil,                           // 44: provenance.runner.v1.LifecycleEvent.AttributesEntry
+	(*timestamppb.Timestamp)(nil), // 45: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),         // 46: google.protobuf.Empty
+	(*durationpb.Duration)(nil),   // 47: google.protobuf.Duration
 }
 var file_common_proto_depIdxs = []int32{
-	44, // 0: provenance.runner.v1.LeaseIdentity.expires_at:type_name -> google.protobuf.Timestamp
-	45, // 1: provenance.runner.v1.OrganizationScope.platform:type_name -> google.protobuf.Empty
+	45, // 0: provenance.runner.v1.LeaseIdentity.expires_at:type_name -> google.protobuf.Timestamp
+	46, // 1: provenance.runner.v1.OrganizationScope.platform:type_name -> google.protobuf.Empty
 	0,  // 2: provenance.runner.v1.Digest.algorithm:type_name -> provenance.runner.v1.DigestAlgorithm
 	19, // 3: provenance.runner.v1.DependencyDigest.digest:type_name -> provenance.runner.v1.Digest
 	19, // 4: provenance.runner.v1.JobHashes.artifact:type_name -> provenance.runner.v1.Digest
@@ -3355,9 +3422,9 @@ var file_common_proto_depIdxs = []int32{
 	4,  // 16: provenance.runner.v1.EffectivePolicy.sandbox:type_name -> provenance.runner.v1.SandboxKind
 	25, // 17: provenance.runner.v1.EffectivePolicy.network:type_name -> provenance.runner.v1.NetworkPolicy
 	23, // 18: provenance.runner.v1.EffectivePolicy.resources:type_name -> provenance.runner.v1.ResourceLimits
-	46, // 19: provenance.runner.v1.EffectivePolicy.preparation_timeout:type_name -> google.protobuf.Duration
-	46, // 20: provenance.runner.v1.EffectivePolicy.execution_timeout:type_name -> google.protobuf.Duration
-	46, // 21: provenance.runner.v1.EffectivePolicy.graceful_shutdown_timeout:type_name -> google.protobuf.Duration
+	47, // 19: provenance.runner.v1.EffectivePolicy.preparation_timeout:type_name -> google.protobuf.Duration
+	47, // 20: provenance.runner.v1.EffectivePolicy.execution_timeout:type_name -> google.protobuf.Duration
+	47, // 21: provenance.runner.v1.EffectivePolicy.graceful_shutdown_timeout:type_name -> google.protobuf.Duration
 	6,  // 22: provenance.runner.v1.EffectivePolicy.requirement:type_name -> provenance.runner.v1.EnvironmentRequirement
 	4,  // 23: provenance.runner.v1.RunnerPolicy.sandboxes:type_name -> provenance.runner.v1.SandboxKind
 	25, // 24: provenance.runner.v1.RunnerPolicy.maximum_network:type_name -> provenance.runner.v1.NetworkPolicy
@@ -3368,11 +3435,11 @@ var file_common_proto_depIdxs = []int32{
 	1,  // 29: provenance.runner.v1.Capabilities.providers:type_name -> provenance.runner.v1.ServerProvider
 	27, // 30: provenance.runner.v1.Capabilities.capacity:type_name -> provenance.runner.v1.Capacity
 	28, // 31: provenance.runner.v1.Capabilities.policy:type_name -> provenance.runner.v1.RunnerPolicy
-	42, // 32: provenance.runner.v1.Capabilities.labels:type_name -> provenance.runner.v1.Capabilities.LabelsEntry
+	43, // 32: provenance.runner.v1.Capabilities.labels:type_name -> provenance.runner.v1.Capabilities.LabelsEntry
 	15, // 33: provenance.runner.v1.Capabilities.features:type_name -> provenance.runner.v1.ProtocolFeature
 	19, // 34: provenance.runner.v1.ObjectDownload.digest:type_name -> provenance.runner.v1.Digest
-	44, // 35: provenance.runner.v1.ObjectDownload.expires_at:type_name -> google.protobuf.Timestamp
-	44, // 36: provenance.runner.v1.ObjectUpload.expires_at:type_name -> google.protobuf.Timestamp
+	45, // 35: provenance.runner.v1.ObjectDownload.expires_at:type_name -> google.protobuf.Timestamp
+	45, // 36: provenance.runner.v1.ObjectUpload.expires_at:type_name -> google.protobuf.Timestamp
 	30, // 37: provenance.runner.v1.DependencyInput.object:type_name -> provenance.runner.v1.ObjectDownload
 	16, // 38: provenance.runner.v1.JobSpecification.lease:type_name -> provenance.runner.v1.LeaseIdentity
 	17, // 39: provenance.runner.v1.JobSpecification.attempt:type_name -> provenance.runner.v1.AttemptIdentity
@@ -3384,31 +3451,32 @@ var file_common_proto_depIdxs = []int32{
 	32, // 45: provenance.runner.v1.JobSpecification.dependencies:type_name -> provenance.runner.v1.DependencyInput
 	31, // 46: provenance.runner.v1.JobSpecification.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
 	33, // 47: provenance.runner.v1.JobSpecification.job_correlation:type_name -> provenance.runner.v1.JobCorrelation
-	46, // 48: provenance.runner.v1.ResourceUsage.cpu_time:type_name -> google.protobuf.Duration
-	44, // 49: provenance.runner.v1.LogEntry.observed_at:type_name -> google.protobuf.Timestamp
+	47, // 48: provenance.runner.v1.ResourceUsage.cpu_time:type_name -> google.protobuf.Duration
+	45, // 49: provenance.runner.v1.LogEntry.observed_at:type_name -> google.protobuf.Timestamp
 	8,  // 50: provenance.runner.v1.LogEntry.stream:type_name -> provenance.runner.v1.LogStream
 	9,  // 51: provenance.runner.v1.AssertionResult.kind:type_name -> provenance.runner.v1.AssertionKind
 	10, // 52: provenance.runner.v1.AssertionResult.outcome:type_name -> provenance.runner.v1.AssertionOutcome
-	44, // 53: provenance.runner.v1.AssertionResult.started_at:type_name -> google.protobuf.Timestamp
-	44, // 54: provenance.runner.v1.AssertionResult.completed_at:type_name -> google.protobuf.Timestamp
+	45, // 53: provenance.runner.v1.AssertionResult.started_at:type_name -> google.protobuf.Timestamp
+	45, // 54: provenance.runner.v1.AssertionResult.completed_at:type_name -> google.protobuf.Timestamp
 	11, // 55: provenance.runner.v1.LifecycleEvent.kind:type_name -> provenance.runner.v1.LifecycleEventKind
-	44, // 56: provenance.runner.v1.LifecycleEvent.observed_at:type_name -> google.protobuf.Timestamp
-	43, // 57: provenance.runner.v1.LifecycleEvent.attributes:type_name -> provenance.runner.v1.LifecycleEvent.AttributesEntry
+	45, // 56: provenance.runner.v1.LifecycleEvent.observed_at:type_name -> google.protobuf.Timestamp
+	44, // 57: provenance.runner.v1.LifecycleEvent.attributes:type_name -> provenance.runner.v1.LifecycleEvent.AttributesEntry
 	19, // 58: provenance.runner.v1.LogObject.digest:type_name -> provenance.runner.v1.Digest
 	12, // 59: provenance.runner.v1.StructuredResult.outcome:type_name -> provenance.runner.v1.ResultOutcome
 	37, // 60: provenance.runner.v1.StructuredResult.assertions:type_name -> provenance.runner.v1.AssertionResult
 	38, // 61: provenance.runner.v1.StructuredResult.lifecycle_events:type_name -> provenance.runner.v1.LifecycleEvent
 	35, // 62: provenance.runner.v1.StructuredResult.usage:type_name -> provenance.runner.v1.ResourceUsage
-	44, // 63: provenance.runner.v1.StructuredResult.started_at:type_name -> google.protobuf.Timestamp
-	44, // 64: provenance.runner.v1.StructuredResult.completed_at:type_name -> google.protobuf.Timestamp
+	45, // 63: provenance.runner.v1.StructuredResult.started_at:type_name -> google.protobuf.Timestamp
+	45, // 64: provenance.runner.v1.StructuredResult.completed_at:type_name -> google.protobuf.Timestamp
 	39, // 65: provenance.runner.v1.StructuredResult.complete_log:type_name -> provenance.runner.v1.LogObject
-	13, // 66: provenance.runner.v1.FailureDetail.category:type_name -> provenance.runner.v1.FailureCategory
-	14, // 67: provenance.runner.v1.FailureDetail.stage:type_name -> provenance.runner.v1.FailureStage
-	68, // [68:68] is the sub-list for method output_type
-	68, // [68:68] is the sub-list for method input_type
-	68, // [68:68] is the sub-list for extension type_name
-	68, // [68:68] is the sub-list for extension extendee
-	0,  // [0:68] is the sub-list for field type_name
+	19, // 66: provenance.runner.v1.ExecutionEvidence.digest:type_name -> provenance.runner.v1.Digest
+	13, // 67: provenance.runner.v1.FailureDetail.category:type_name -> provenance.runner.v1.FailureCategory
+	14, // 68: provenance.runner.v1.FailureDetail.stage:type_name -> provenance.runner.v1.FailureStage
+	69, // [69:69] is the sub-list for method output_type
+	69, // [69:69] is the sub-list for method input_type
+	69, // [69:69] is the sub-list for extension type_name
+	69, // [69:69] is the sub-list for extension extendee
+	0,  // [0:69] is the sub-list for field type_name
 }
 
 func init() { file_common_proto_init() }
@@ -3427,7 +3495,7 @@ func file_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)),
 			NumEnums:      16,
-			NumMessages:   28,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

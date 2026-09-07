@@ -501,6 +501,26 @@ async function verifyArchive({
       );
     }
   }
+  if (archive.bundle === "runner-protocol") {
+    for (const name of [
+      "schema.json",
+      "semantics.md",
+      "reference.mjs",
+      "fixtures.json",
+      "vectors.json",
+      "contract.test.mjs",
+      "invalid-vectors.json",
+      "wire-consumer.mjs",
+      "go-consumer.go.txt",
+    ]) {
+      invariant(
+        embeddedManifest.files.some(
+          (file) => file.path === `proto/terminal-evidence/${name}`,
+        ),
+        `released terminal evidence file missing: ${name}`,
+      );
+    }
+  }
   if (archive.bundle === "attestation-schema") {
     for (const path of [
       "key-discovery/schema.json",
@@ -1372,6 +1392,26 @@ async function verifyConsumers(bundleRoots, version) {
       protocol.GatewayMessageSchema,
       "released gateway message schema is missing",
     );
+    invariant(
+      protocol.ExecutionEvidenceSchema &&
+        protocol.ProtocolFeature.TERMINAL_EVIDENCE_V1 === 6,
+      "released terminal evidence bindings missing",
+    );
+    run(
+      process.execPath,
+      ["--test", resolve(root, "proto/terminal-evidence/contract.test.mjs")],
+      root,
+      "released isolated terminal evidence reference vectors",
+    );
+    run(
+      process.execPath,
+      [
+        resolve(root, "proto/terminal-evidence/wire-consumer.mjs"),
+        resolve(root, "typescript"),
+      ],
+      root,
+      "released terminal evidence generated wire consumer",
+    );
     await writeFile(
       resolve(root, "typescript/consumer.mts"),
       [
@@ -1407,6 +1447,12 @@ async function verifyConsumers(bundleRoots, version) {
       ],
       resolve(root, "typescript"),
       "released runner TypeScript declarations",
+    );
+    await writeFile(
+      resolve(root, "go/terminal_evidence_test.go"),
+      await readFile(
+        resolve(root, "proto/terminal-evidence/go-consumer.go.txt"),
+      ),
     );
     run("go", ["test", "./..."], resolve(root, "go"), "released Go bindings", {
       GOPROXY: "off",

@@ -199,6 +199,9 @@ message JobCompleted {
   AttemptIdentity attempt = 2;
   StructuredResult result = 3;
 
+  // Only with TERMINAL_EVIDENCE_V1; legacy absence supplies no new proof.
+  ExecutionEvidence execution_evidence = 10;
+
   reserved 4 to 9;
 }
 
@@ -209,6 +212,9 @@ message JobFailed {
   ResourceUsage usage = 4;
   LogObject complete_log = 5;
   google.protobuf.Timestamp failed_at = 6;
+
+  // Partial validated observations may survive failure; absence is not passed.
+  ExecutionEvidence execution_evidence = 10;
 
   reserved 7 to 9;
 }

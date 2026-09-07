@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "9fcd41c5abbf5c096fe04b116f124a29c5f10d62dad66e2efd8998376bf1be92",
+  "descriptorSha256": "0abc2b0e8d3dce52060d1941ee8d99dab619d1a1170abd020526b874a5bb34e8",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -87,7 +87,8 @@
     "RunnerPolicy",
     "ShutdownRunner",
     "StructuredResult",
-    "UsageReport"
+    "UsageReport",
+    "ExecutionEvidence"
   ],
   "enumNames": [
     "Architecture",
@@ -117,7 +118,8 @@
       "2": "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
       "3": "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
       "4": "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
-      "5": "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY"
+      "5": "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
+      "6": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1"
     },
     "RunnerMessageDisposition": {
       "0": "RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED",
@@ -250,6 +252,25 @@
       "4": "summary",
       "5": "retryable",
       "6": "details_json"
+    },
+    "ExecutionEvidence": {
+      "1": "canonical_json",
+      "2": "digest"
+    },
+    "JobCompleted": {
+      "1": "lease",
+      "2": "attempt",
+      "3": "result",
+      "10": "execution_evidence"
+    },
+    "JobFailed": {
+      "1": "lease",
+      "2": "attempt",
+      "3": "failure",
+      "4": "usage",
+      "5": "complete_log",
+      "6": "failed_at",
+      "10": "execution_evidence"
     }
   },
   "reservedRanges": {

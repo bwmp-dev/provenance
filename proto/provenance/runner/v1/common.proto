@@ -431,6 +431,19 @@ enum ProtocolFeature {
   PROTOCOL_FEATURE_JOB_CORRELATION_V1 = 3;
   PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY = 4;
   PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY = 5;
+  // Server-first rollout; see terminal-evidence/semantics.md. A queued proof
+  // must never be stripped or regenerated during reconnect or downgrade.
+  PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1 = 6;
+}
+
+// Optional, negotiated observation proof, not an attestation or public claim.
+// canonical_json is at most 32768 bytes of exact RFC 8785 canonical UTF-8 JSON
+// conforming to terminal-evidence/schema.json. digest is SHA-256 of those exact
+// bytes. The containing RunnerMessage remains bounded to 65536 encoded bytes.
+// Schema-valid completeness still requires immutable expected-plan validation.
+message ExecutionEvidence {
+  bytes canonical_json = 1;
+  Digest digest = 2;
 }
 
 message FailureDetail {
