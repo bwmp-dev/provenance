@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
       - name: Select the shared store for isolated offline consumers
         run: echo "pnpm_config_store_dir=$RUNNER_TEMP/provenance-pnpm-store" >> "$GITHUB_ENV"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           dest: ${{ runner.temp }}/provenance-pnpm
           version: 11.20.0
