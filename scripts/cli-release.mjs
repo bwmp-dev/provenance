@@ -532,6 +532,9 @@ export async function buildCLI({
         regular(join(first, name)).equals(regular(join(second, name))),
         "two-directory reproducibility mismatch",
       );
+    mkdirSync(dirname(output), { recursive: true });
+    // Do not make this recursive: the final destination must remain exclusive,
+    // including when another invocation creates it after the initial check.
     mkdirSync(output);
     for (const name of [n.archive, n.manifest, n.sbom, n.checksums])
       cpSync(join(first, name), join(output, name), {

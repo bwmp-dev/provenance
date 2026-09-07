@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -141,7 +142,10 @@ test(
       join(tmpdir(), "provenance-cli-distribution-test-"),
     );
     t.after(() => rmSync(temporary, { recursive: true, force: true }));
-    const bundle = join(temporary, "bundle");
+    // Match the workflow's actual output shape: neither dist nor dist/cli
+    // exists. The final directory must still be created exclusively.
+    const bundle = join(temporary, "dist", "cli");
+    assert.equal(existsSync(dirname(bundle)), false);
     await buildCLI({ version, sourceCommit: source, output: bundle });
     assert.deepEqual(
       readdirSync(bundle).sort(),
@@ -168,6 +172,13 @@ test(
       buildCLI({ version, sourceCommit: source, output: bundle }),
       /already exists/,
     );
+    const occupied = join(temporary, "empty-output");
+    mkdirSync(occupied);
+    await assert.rejects(
+      buildCLI({ version, sourceCommit: source, output: occupied }),
+      /already exists/,
+    );
+    assert.deepEqual(readdirSync(occupied), []);
     await assert.rejects(
       buildCLI({
         version,
