@@ -1,0 +1,7 @@
+go 1.25.13
+
+use (
+	./gen/proto
+	./packages/verification-go
+	./packages/cli-go
+)
