@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, writeFile, symlink, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, symlink, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { strictJSON, stableFile, boundedResponse } from "../src/safety.mjs";
@@ -58,4 +58,16 @@ test("streaming response ceiling cancels the source at overflow", async () => {
     code: "invalid_response",
   });
   assert.equal(canceled, true);
+});
+
+test("CI compares rebuilt bundle with committed bytes after full checks", async () => {
+  const workflow = await readFile(
+    new URL("../../../.github/workflows/ci.yml", import.meta.url),
+    "utf8",
+  );
+  const build = workflow.indexOf("- run: pnpm check");
+  const guard = workflow.indexOf(
+    "run: git diff --exit-code -- packages/action/dist",
+  );
+  assert.ok(build >= 0 && guard > build);
 });
