@@ -421,51 +421,111 @@
     {
       "id": "deny-listProjects",
       "operation": "listProjects",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
       "id": "deny-listReleaseCandidates",
       "operation": "listReleaseCandidates",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
       "id": "deny-readExecutionLogs",
       "operation": "readExecutionLogs",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
       "id": "deny-approveReleaseCandidate",
       "operation": "approveReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
       "id": "deny-retryReleaseCandidate",
       "operation": "retryReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
       "id": "deny-cancelReleaseCandidate",
       "operation": "cancelReleaseCandidate",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
       "id": "deny-updateIntegration",
       "operation": "updateIntegration",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
       "id": "deny-getCurrentSession",
       "operation": "getCurrentSession",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
       "id": "deny-getPublicRelease",
       "operation": "getPublicRelease",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {
-      "id": "deny-publishRelease",
-      "operation": "publishRelease",
+      "id": "deny-createIntegration",
+      "operation": "createIntegration",
+      "grantCurrent": true,
+      "sameProject": true,
+      "sameGrant": true,
+      "exactSource": true,
+      "exactSnapshot": true,
+      "exactBytes": true,
       "expected": false
     },
     {

@@ -232,7 +232,32 @@ test("IFC022 resource vectors never grant general private-project access", () =>
     "getReleaseCandidate",
     "listReleaseCandidateEvents",
   ]);
+  const inventory = new Set(
+    Object.values(doc.paths).flatMap((path) =>
+      Object.values(path)
+        .filter((operation) => operation?.operationId)
+        .map((operation) => operation.operationId),
+    ),
+  );
+  const contextFields = [
+    "grantCurrent",
+    "sameProject",
+    "sameGrant",
+    "exactSource",
+    "exactSnapshot",
+    "exactBytes",
+  ];
   for (const v of vectors.resources) {
+    assert.ok(inventory.has(v.operation), `unknown operation ${v.operation}`);
+    for (const field of contextFields) {
+      assert.equal(
+        typeof v[field],
+        "boolean",
+        `${v.id}/${field} must be explicit`,
+      );
+      if (v.id.startsWith("deny-"))
+        assert.equal(v[field], true, `${v.id} must isolate operation denial`);
+    }
     const allowed =
       permitted.has(v.operation) &&
       v.grantCurrent === true &&

@@ -102,9 +102,9 @@ Generate independent 32-byte CSPRNG token bytes; the wire encoding is `pva_` plu
 canonical unpadded base64url. Persist only the credential hash, not raw assertions,
 raw/recoverable tokens, response bodies containing tokens, private source text or
 raw claims. Retain bounded replay identity/digests and normalized authority only.
-Assertion consumption receipts remain through `exp + configured skew` at minimum;
-Store issuer/jti replay identity as a digest, not raw JWT payload or raw jti text.
-idempotency binding remains for that same horizon. Recheck authoritative time after
+Assertion consumption receipts and idempotency bindings remain through
+`exp + configured skew` at minimum. Store issuer/jti replay identity as a digest,
+not raw JWT payload or raw jti text. Recheck authoritative time after
 lock waits. Cleanup/clock regression must never make an accepted assertion reusable:
 outside the horizon it must already fail verification. Quota exhaustion or inability
 to retain safe replay state fails closed. Grant expiry is fixed at issuance and no
