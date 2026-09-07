@@ -72,6 +72,22 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/typescript-sdk:
+    dependencies:
+      '@bwmp-dev/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+      '@bwmp-dev/config-schema':
+        specifier: workspace:*
+        version: link:../config-schema
+      '@bwmp-dev/verification':
+        specifier: workspace:*
+        version: link:../verification
+    devDependencies:
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/verification:
     dependencies:
       ajv:

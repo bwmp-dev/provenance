@@ -134,6 +134,44 @@ test("transport exception is closed", async () => {
     "transport_failed",
   );
 });
+
+for (const key of [
+  "fetch",
+  "Request",
+  "middleware",
+  "bodySerializer",
+  "querySerializer",
+  "pathSerializer",
+])
+  test(`generated ${key} override cannot bypass the transport boundary`, async () => {
+    let calls = 0;
+    const attack = () => {
+      calls++;
+      throw new Error("SECRET");
+    };
+    await rejects(
+      request(createSDKClient(options(attack)), {
+        [key]: key === "middleware" ? [{ onRequest: attack }] : attack,
+      }),
+      "invalid_options",
+    );
+    assert.equal(calls, 0);
+  });
+test("caller-created SDK errors cannot carry private messages or fields", async () => {
+  const error = new SDKError("SECRET", "SECRET");
+  error.message = "SECRET";
+  error.privateBody = "SECRET";
+  await rejects(
+    request(
+      createSDKClient(
+        options(async () => {
+          throw error;
+        }),
+      ),
+    ),
+    "transport_failed",
+  );
+});
 test("malformed successful JSON is closed", async () => {
   await rejects(
     request(

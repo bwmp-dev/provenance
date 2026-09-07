@@ -21,7 +21,7 @@ export const repositoryDirectory = resolve(
 );
 export const releaseRepository = "https://github.com/bwmp-dev/provenance";
 
-export const contractBundles = [
+export const legacyContractBundles = [
   {
     id: "config-schema",
     nodeImporter: "packages/config-schema",
@@ -192,6 +192,49 @@ export const contractBundles = [
   },
 ];
 
+export const contractBundles = [
+  ...legacyContractBundles,
+  {
+    id: "typescript-sdk",
+    // These packages are copied with their original identities, not republished
+    // npm versions. Their independent runtime dependency sets are all included.
+    nodeImporters: [
+      "packages/api-client",
+      "packages/config-schema",
+      "packages/verification",
+    ],
+    entries: [
+      { source: "LICENSE", destination: "LICENSE" },
+      { source: "LICENSE", destination: "package/LICENSE" },
+      {
+        source: "packages/typescript-sdk/package.json",
+        destination: "package/package.json",
+        sdkPackage: true,
+      },
+      { source: "packages/typescript-sdk/dist", destination: "package/dist" },
+      { source: "packages/typescript-sdk/README.md", destination: "README.md" },
+      ...["api-client", "config-schema", "verification"].flatMap((name) => [
+        { source: "LICENSE", destination: `package/vendor/${name}/LICENSE` },
+        {
+          source: `packages/${name}/package.json`,
+          destination: `package/vendor/${name}/package.json`,
+          packageVersion: true,
+        },
+        {
+          source: `packages/${name}/dist`,
+          destination: `package/vendor/${name}/dist`,
+        },
+      ]),
+    ],
+  },
+];
+
+export function contractInventory(schemaVersion) {
+  if (schemaVersion === 1) return legacyContractBundles;
+  if (schemaVersion === 2) return contractBundles;
+  throw new Error("unsupported release manifest");
+}
+
 const semverPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
@@ -235,7 +278,7 @@ export function sbomName(version) {
   return `provenance-contracts-${version}.spdx.json`;
 }
 
-export function compatibilityDeclaration(version) {
+export function compatibilityDeclaration(version, schemaVersion = 2) {
   return {
     action: "not-released",
     attestationSchema: "v1",
@@ -249,6 +292,7 @@ export function compatibilityDeclaration(version) {
     runnerProtocol: "v1",
     sdk: {
       typescriptClient: version,
+      ...(schemaVersion === 2 ? { typescriptSDK: version } : {}),
     },
   };
 }
@@ -292,6 +336,7 @@ async function stageEntry({
   files,
   openapiJson,
   packageVersion,
+  sdkPackage,
   source,
   stagingDirectory,
   version,
@@ -311,7 +356,7 @@ async function stageEntry({
     throw new Error(`release sources must not be symbolic links: ${source}`);
   }
   if (sourceStat.isDirectory()) {
-    if (packageVersion || openapiJson) {
+    if (packageVersion || openapiJson || sdkPackage) {
       throw new Error(`release transforms require a file: ${source}`);
     }
     const children = (await readdir(sourcePath)).sort();
@@ -335,11 +380,28 @@ async function stageEntry({
   if (packageVersion && openapiJson) {
     throw new Error(`release source has conflicting transforms: ${source}`);
   }
-  const contents = packageVersion
-    ? await packageContents(sourcePath, version)
-    : openapiJson
-      ? Buffer.from(json(parseYaml(await readFile(sourcePath, "utf8"))), "utf8")
-      : await readFile(sourcePath);
+  const contents = sdkPackage
+    ? Buffer.from(
+        json({
+          ...JSON.parse(await packageContents(sourcePath, version)),
+          files: ["dist", "vendor", "LICENSE"],
+          dependencies: Object.fromEntries(
+            ["api-client", "config-schema", "verification"].map((name) => [
+              `@bwmp-dev/${name}`,
+              `file:./vendor/${name}`,
+            ]),
+          ),
+        }),
+        "utf8",
+      )
+    : packageVersion
+      ? await packageContents(sourcePath, version)
+      : openapiJson
+        ? Buffer.from(
+            json(parseYaml(await readFile(sourcePath, "utf8"))),
+            "utf8",
+          )
+        : await readFile(sourcePath);
   const destinationPath = filesystemPath(stagingDirectory, destination);
   await mkdir(dirname(destinationPath), { recursive: true });
   await writeFile(destinationPath, contents, { mode: 0o644 });
@@ -349,11 +411,13 @@ async function stageEntry({
     sha256: digest(contents),
     size: contents.byteLength,
     source: sourceRelative,
-    ...(packageVersion
-      ? { transform: "release-version" }
-      : openapiJson
-        ? { transform: "openapi-json" }
-        : {}),
+    ...(sdkPackage
+      ? { transform: "sdk-release-package" }
+      : packageVersion
+        ? { transform: "release-version" }
+        : openapiJson
+          ? { transform: "openapi-json" }
+          : {}),
   });
 }
 
@@ -506,7 +570,7 @@ async function nodeDependencyRecord(name, reference, lockfile) {
   };
 }
 
-async function runtimeDependencyInventory() {
+async function runtimeDependencyInventory(contractBundles) {
   const lockfile = parseYaml(
     await readFile(resolve(repositoryDirectory, "pnpm-lock.yaml"), "utf8"),
   );
@@ -514,15 +578,16 @@ async function runtimeDependencyInventory() {
   const dependenciesByBundle = new Map();
 
   for (const bundle of contractBundles.filter(
-    ({ nodeImporter }) => nodeImporter,
+    ({ nodeImporter, nodeImporters }) => nodeImporter || nodeImporters,
   )) {
-    const importer = lockfile.importers?.[bundle.nodeImporter];
-    if (!importer) {
-      throw new Error(
-        `pnpm lockfile is missing importer: ${bundle.nodeImporter}`,
-      );
-    }
-    const queue = Object.entries(importer.dependencies ?? {});
+    const queue = (bundle.nodeImporters ?? [bundle.nodeImporter]).flatMap(
+      (name) => {
+        const importer = lockfile.importers?.[name];
+        if (!importer)
+          throw new Error(`pnpm lockfile is missing importer: ${name}`);
+        return Object.entries(importer.dependencies ?? {});
+      },
+    );
     const bundleDependencies = new Set();
     while (queue.length > 0) {
       const [name, dependency] = queue.shift();
@@ -689,6 +754,7 @@ function packageVerificationCode(files) {
 }
 
 export function createSpdxDocument({
+  inventory = contractBundles,
   artifacts,
   bundleContents,
   createdAt,
@@ -696,6 +762,7 @@ export function createSpdxDocument({
   sourceCommit,
   version,
 }) {
+  const contractBundles = inventory;
   validateSpdxTimestamp(createdAt);
   const artifactsByBundle = new Map(
     artifacts.map((artifact) => [artifact.bundle, artifact]),
@@ -834,7 +901,9 @@ export async function buildContractRelease({
   outputDirectory,
   sourceCommit,
   version,
+  schemaVersion = 2,
 }) {
+  const contractBundles = contractInventory(schemaVersion);
   const identity = validateReleaseIdentity(version, sourceCommit);
   const sbomCreatedAt = validateSpdxTimestamp(createdAt);
   const resolvedOutput = resolve(outputDirectory);
@@ -918,11 +987,13 @@ export async function buildContractRelease({
     }
 
     artifacts.sort((left, right) => compareText(left.filename, right.filename));
-    const runtimeDependencies = await runtimeDependencyInventory();
+    const runtimeDependencies =
+      await runtimeDependencyInventory(contractBundles);
     const sbomFilename = sbomName(identity.version);
     const sbomContents = Buffer.from(
       json(
         createSpdxDocument({
+          inventory: contractBundles,
           artifacts,
           bundleContents,
           createdAt: sbomCreatedAt,
@@ -944,8 +1015,8 @@ export async function buildContractRelease({
     });
 
     const manifest = {
-      schemaVersion: 1,
-      compatibility: compatibilityDeclaration(identity.version),
+      schemaVersion,
+      compatibility: compatibilityDeclaration(identity.version, schemaVersion),
       dependencies: runtimeDependencies.components.map((dependency) => ({
         bundles: contractBundles
           .filter((bundle) =>

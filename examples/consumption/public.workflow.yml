@@ -1,0 +1,52 @@
+name: Public plugin submission
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  id-token: write
+  statuses: write
+jobs:
+  submit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.19.0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: 21.0.12+8.0.LTS
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: bwmp-dev/provenance
+          ref: 7bb028bbad907a0d95e2c23e8e614326091a897b
+          path: .provenance-toolkit
+          persist-credentials: false
+      - name: Stage independently hash-checked Paper API
+        working-directory: .provenance-toolkit
+        run: node scripts/run-gradle.mjs :paper-probe:verifyPaperApiArtifact
+      - name: Build benign plugin
+        run: node examples/consumption/plugin/build.mjs .provenance-toolkit/plugins/paper-probe/build/dependency-verification/paper-api
+      - name: Submit exact build with repository-bound grant
+        id: provenance
+        uses: bwmp-dev/provenance/packages/action@975a854b42f997a6b382b549b65f6e8b2be25158
+        with:
+          artifact: examples/consumption/plugin/build/example-plugin.jar
+          configuration: examples/consumption/provenance.yml
+          version: 1.0.0
+          project: ${{ vars.PROVENANCE_PROJECT_ID }}
+          platform-origin: ${{ vars.PROVENANCE_ORIGIN }}
+          audience: ${{ vars.PROVENANCE_AUDIENCE }}
+          repository: ${{ github.repository }}
+          source-commit: ${{ github.sha }}
+          source-ref: ${{ github.ref }}
+          max-artifact-bytes: "1048576"
+          wait: "false"
+          report: status
+          github-token: ${{ github.token }}

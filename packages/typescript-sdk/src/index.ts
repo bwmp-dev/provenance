@@ -26,10 +26,31 @@ export class SDKError extends Error {
   readonly code: SDKErrorCode;
   readonly status: number | undefined;
   constructor(code: SDKErrorCode, status?: number) {
-    super(`Provenance SDK: ${code}`);
+    const safeCode: SDKErrorCode = [
+      "invalid_options",
+      "destination_denied",
+      "redirect_denied",
+      "request_failed",
+      "transport_failed",
+      "response_limit",
+      "invalid_response",
+      "cancelled",
+      "timeout",
+      "configuration_invalid",
+      "verification_failed",
+    ].includes(code)
+      ? code
+      : "transport_failed";
+    super(`Provenance SDK: ${safeCode}`);
     this.name = "SDKError";
-    this.code = code;
-    this.status = status;
+    this.code = safeCode;
+    this.status =
+      typeof status === "number" &&
+      Number.isInteger(status) &&
+      status >= 100 &&
+      status <= 599
+        ? status
+        : undefined;
   }
 }
 export interface ClientOptions {
@@ -61,7 +82,13 @@ function bounded(value: number, max: number): boolean {
   return Number.isSafeInteger(value) && value > 0 && value <= max;
 }
 function closed(error: unknown): SDKError {
-  return error instanceof SDKError ? error : new SDKError("transport_failed");
+  try {
+    return error instanceof SDKError
+      ? new SDKError(error.code, error.status)
+      : new SDKError("transport_failed");
+  } catch {
+    return new SDKError("transport_failed");
+  }
 }
 function abortable<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -195,7 +222,28 @@ export function createSDKClient(options: ClientOptions): SDKClient {
       enumerable: true,
       value: async (...args: unknown[]) => {
         try {
-          return await invoke(...args);
+          if (
+            args.length > 2 ||
+            (args[1] !== undefined &&
+              (args[1] === null ||
+                typeof args[1] !== "object" ||
+                Array.isArray(args[1])))
+          )
+            throw new SDKError("invalid_options");
+          const init = { ...(args[1] as Record<string, unknown> | undefined) };
+          // Generated extension hooks can replace fetch or short-circuit it with
+          // middleware responses. They must never bypass this facade's boundary.
+          for (const key of [
+            "fetch",
+            "Request",
+            "middleware",
+            "bodySerializer",
+            "querySerializer",
+            "pathSerializer",
+          ]) {
+            if (key in init) throw new SDKError("invalid_options");
+          }
+          return await invoke(args[0], init);
         } catch (error) {
           throw closed(error);
         }

@@ -4,8 +4,8 @@ Public contracts and clients for submitting, inspecting, testing, releasing, and
 
 ## Repository areas
 
-- `apps/cli`: Provenance CLI.
-- `apps/github-action`: GitHub Action submission client.
+- `packages/cli-go`: four-verb CLI and offline verifier.
+- `packages/action`: immutable bundled GitHub Action submission client.
 - `packages/api-client`: generated public API client.
 - `packages/config-schema`: configuration schema package and validators.
 - `packages/runner-protocol`: generated TypeScript runner protocol package.
@@ -17,6 +17,7 @@ Public contracts and clients for submitting, inspecting, testing, releasing, and
 - `schemas`: authoritative JSON Schemas.
 - `proto`: authoritative public runner protocol.
 - `gen/proto`: generated Go runner protocol module.
+- `examples/consumption`: [complete buildable public/private submission examples](examples/consumption/README.md).
 
 ## Contract development
 
@@ -51,14 +52,21 @@ disposable, resource-limited Plan 03 runner.
 
 ## Contract releases
 
-Each manually dispatched `vMAJOR.MINOR.PATCH` contract release produces five
-independently consumable archives from the reviewed `main` tip:
+New manually dispatched `vMAJOR.MINOR.PATCH` contract releases produce seven
+archives from the reviewed `main` tip (inventory schema 2):
 the configuration schema and parser, attestation schema and verifier, runner
-protocol sources and bindings, OpenAPI document, and generated TypeScript API
-client. Every archive embeds a manifest of its files, source paths, sizes, and
+protocol sources and bindings, OpenAPI document, Paper metadata inspector,
+generated TypeScript API client, and supported TypeScript SDK. Historical
+inventory schema 1 remains six archives/nine assets and is independently tested;
+no old release is rewritten. Every archive embeds a manifest of its files, source paths, sizes, and
 SHA-256 digests. The release also includes an aggregate manifest and checksum
-file, plus a deterministic SPDX 2.3 JSON SBOM covering every file in all five
+file, plus a deterministic SPDX 2.3 JSON SBOM covering every file in all seven
 archives and every Node.js and Go runtime dependency selected by the lockfiles.
+That is ten assets with nine checksum entries (the checksum file excludes itself).
+The SDK ships the existing generated/configuration/verification packages under
+their original identities with tested local file references. This is archive-only
+alpha distribution, not an npm registry publication. See the
+[supported SDK installation and explicit trust guide](packages/typescript-sdk/README.md).
 
 Builds require a clean output directory, explicit version and 40-character
 source commit, and an RFC 3339 UTC timestamp derived from that commit:
@@ -80,7 +88,11 @@ notes explicitly declare schema, OpenAPI, protocol, CLI, Action, and SDK
 compatibility. The workflow uses only the repository
 `GITHUB_TOKEN` and GitHub's OIDC identity to create SLSA build-provenance
 attestations for all release assets and a dedicated SPDX SBOM attestation for the
-five archives; no publishing secret is required. After downloading a release,
+seven archives; no publishing secret is required. The CLI has a separate
+[Linux distribution workflow](docs/cli-distribution.md), and the Action is consumed
+at an accepted immutable source commit, not from these contract archives.
+Actual publication is established only by inspecting downloaded release assets.
+After downloading a release,
 verify its checksum file and GitHub attestations:
 
 ```sh

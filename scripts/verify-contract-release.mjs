@@ -23,6 +23,7 @@ import {
   archiveName,
   checksumName,
   contractBundles,
+  contractInventory,
   releaseManifestName,
   releaseRepository,
   repositoryDirectory,
@@ -113,21 +114,22 @@ async function installedNodeLicense(name, version) {
   );
 }
 
-async function expectedRuntimeDependencies() {
+async function expectedRuntimeDependencies(contractBundles) {
   const lockfile = parseYaml(
     await readFile(resolve(repositoryDirectory, "pnpm-lock.yaml"), "utf8"),
   );
   const components = new Map();
   const dependenciesByBundle = new Map();
   for (const bundle of contractBundles.filter(
-    ({ nodeImporter }) => nodeImporter,
+    ({ nodeImporter, nodeImporters }) => nodeImporter || nodeImporters,
   )) {
-    const importer = lockfile.importers?.[bundle.nodeImporter];
-    invariant(
-      importer,
-      `pnpm lockfile is missing importer: ${bundle.nodeImporter}`,
+    const queue = (bundle.nodeImporters ?? [bundle.nodeImporter]).flatMap(
+      (name) => {
+        const importer = lockfile.importers?.[name];
+        invariant(importer, `pnpm lockfile is missing importer: ${name}`);
+        return Object.entries(importer.dependencies ?? {});
+      },
     );
-    const queue = Object.entries(importer.dependencies ?? {});
     const bundleDependencies = new Set();
     while (queue.length > 0) {
       const [name, dependency] = queue.shift();
@@ -448,6 +450,43 @@ async function verifyArchive({
   );
   invariant(Array.isArray(embeddedManifest.files), "bundle files are missing");
 
+  let sdkSources;
+  if (archive.bundle === "typescript-sdk") {
+    sdkSources = new Map([
+      ["LICENSE", "LICENSE"],
+      ["README.md", "packages/typescript-sdk/README.md"],
+      ["package/LICENSE", "LICENSE"],
+      ["package/package.json", "packages/typescript-sdk/package.json"],
+      ...["index.js", "index.d.ts"].map((name) => [
+        `package/dist/${name}`,
+        `packages/typescript-sdk/dist/${name}`,
+      ]),
+      ...[
+        [
+          "api-client",
+          ["index.js", "index.d.ts", "index.d.ts.map", "gen/schema.d.ts"],
+        ],
+        ["config-schema", ["index.js", "schema.json"]],
+        ["verification", ["index.js", "schema.json"]],
+      ].flatMap(([name, files]) => [
+        [`package/vendor/${name}/LICENSE`, "LICENSE"],
+        [
+          `package/vendor/${name}/package.json`,
+          `packages/${name}/package.json`,
+        ],
+        ...files.map((file) => [
+          `package/vendor/${name}/dist/${file}`,
+          `packages/${name}/dist/${file}`,
+        ]),
+      ]),
+    ]);
+    equalStringSets(
+      embeddedManifest.files.map((file) => file.path),
+      sdkSources.keys(),
+      "SDK exact file inventory differs",
+    );
+  }
+
   const expectedEntries = [
     `${archiveRoot}/RELEASE-MANIFEST.json`,
     ...embeddedManifest.files.map((file) => `${archiveRoot}/${file.path}`),
@@ -470,6 +509,23 @@ async function verifyArchive({
     const fileStat = await stat(filePath);
     invariant(fileStat.isFile(), `bundle entry is not a file: ${file.path}`);
     const fileContents = await readFile(filePath);
+    if (sdkSources) {
+      invariant(
+        file.source === sdkSources.get(file.path),
+        "SDK source identity differs",
+      );
+      if (file.path !== "package/package.json") {
+        const source = await readFile(
+          resolve(repositoryDirectory, file.source),
+        );
+        const expected = file.path.endsWith("/package.json")
+          ? Buffer.from(
+              `${JSON.stringify({ ...JSON.parse(source), version }, null, 2)}\n`,
+            )
+          : source;
+        invariant(fileContents.equals(expected), "SDK copied source differs");
+      }
+    }
     invariant(
       fileContents.byteLength === file.size,
       `bundle size differs: ${file.path}`,
@@ -482,7 +538,35 @@ async function verifyArchive({
       digest(fileContents, "sha1") === file.sha1,
       `bundle SHA-1 differs: ${file.path}`,
     );
-    if (file.transform === "release-version") {
+    if (file.transform === "sdk-release-package") {
+      invariant(
+        archive.bundle === "typescript-sdk" &&
+          file.path === "package/package.json" &&
+          file.source === "packages/typescript-sdk/package.json",
+        "SDK package transform identity differs",
+      );
+      const actual = JSON.parse(fileContents.toString("utf8"));
+      const source = JSON.parse(
+        await readFile(
+          resolve(repositoryDirectory, "packages/typescript-sdk/package.json"),
+          "utf8",
+        ),
+      );
+      exactObject(
+        actual,
+        {
+          ...source,
+          version,
+          files: ["dist", "vendor", "LICENSE"],
+          dependencies: {
+            "@bwmp-dev/api-client": "file:./vendor/api-client",
+            "@bwmp-dev/config-schema": "file:./vendor/config-schema",
+            "@bwmp-dev/verification": "file:./vendor/verification",
+          },
+        },
+        "released SDK package differs",
+      );
+    } else if (file.transform === "release-version") {
       const packageDocument = JSON.parse(fileContents.toString("utf8"));
       invariant(
         packageDocument.version === version,
@@ -731,6 +815,7 @@ export function projectNodeConsumerLock({
 }
 
 async function verifySpdxSemantics({
+  inventory,
   artifacts,
   bundleContents,
   createdAt,
@@ -739,6 +824,7 @@ async function verifySpdxSemantics({
   sourceCommit,
   version,
 }) {
+  const contractBundles = inventory;
   exactObject(
     {
       SPDXID: sbom.SPDXID,
@@ -762,7 +848,8 @@ async function verifySpdxSemantics({
     "release SPDX document metadata differs",
   );
 
-  const runtimeDependencies = await expectedRuntimeDependencies();
+  const runtimeDependencies =
+    await expectedRuntimeDependencies(contractBundles);
   exactObject(
     dependencyManifest,
     [...runtimeDependencies.components.values()]
@@ -1149,6 +1236,92 @@ async function verifyConsumers(bundleRoots, version) {
     );
     return root;
   };
+
+  if (bundleRoots.has("typescript-sdk")) {
+    const root = rootFor("typescript-sdk");
+    const consumer = await mkdtemp(
+      join(tmpdir(), "provenance-released-sdk-consumer-"),
+    );
+    try {
+      const sdkBundle = contractBundles.find(
+        ({ id }) => id === "typescript-sdk",
+      );
+      const dependencies = await expectedRuntimeDependencies([sdkBundle]);
+      const overrides = Object.fromEntries(
+        [...dependencies.components.values()]
+          .filter(({ ecosystem }) => ecosystem === "npm")
+          .map(({ name, version }) => [name, version]),
+      );
+      await writeFile(
+        resolve(consumer, "package.json"),
+        JSON.stringify({
+          name: "released-sdk-consumer",
+          private: true,
+          type: "module",
+          dependencies: {
+            "@bwmp-dev/typescript-sdk": `file:${resolve(root, "package")}`,
+            typescript: "5.9.3",
+          },
+        }),
+      );
+      // Every public runtime version comes from the independently read audited
+      // lock, including transitive ranges; only local copied packages are added.
+      await writeFile(
+        resolve(consumer, "pnpm-workspace.yaml"),
+        stringifyYaml({ overrides }),
+      );
+      run(
+        "pnpm",
+        ["install", "--offline", "--ignore-scripts"],
+        consumer,
+        "released SDK isolated dependency installation",
+        { CI: "true", npm_config_offline: "true" },
+      );
+      run(
+        "pnpm",
+        ["install", "--offline", "--ignore-scripts", "--frozen-lockfile"],
+        consumer,
+        "released SDK frozen isolated installation",
+        { CI: "true", npm_config_offline: "true" },
+      );
+      await writeFile(
+        resolve(consumer, "consumer.mts"),
+        `import {createSDKClient,parseConfiguration,normalizeConfiguration,hashConfiguration,verifyAttestedArtifact,type paths} from '@bwmp-dev/typescript-sdk';
+const path: keyof paths='/v1/release-candidates/{candidateId}';
+const client=createSDKClient({origin:'https://example.invalid',transport:async()=>Response.json({state:'pending'}),timeoutMs:1000,maxResponseBytes:1000});
+const response=await client.GET(path,{params:{path:{candidateId:'00000000-0000-4000-8000-000000000001'}}});
+if(response.data?.state!=='pending')throw new Error('SDK generated client failed');
+if(typeof parseConfiguration!=='function'||typeof normalizeConfiguration!=='function'||typeof hashConfiguration!=='function'||typeof verifyAttestedArtifact!=='function')throw new Error('SDK exports missing');
+// @ts-expect-error nonexistent generated operation must remain invalid
+if(false)void client.GET('/invented');
+// @ts-expect-error no credential renewal or hidden signing API
+if(false)void client.refreshCredential();
+`,
+      );
+      run(
+        process.execPath,
+        [
+          resolve(consumer, "node_modules/typescript/bin/tsc"),
+          "--module",
+          "NodeNext",
+          "--target",
+          "ES2023",
+          "--strict",
+          "consumer.mts",
+        ],
+        consumer,
+        "released SDK downstream declaration consumer",
+      );
+      run(
+        process.execPath,
+        ["consumer.mjs"],
+        consumer,
+        "released SDK downstream runtime consumer",
+      );
+    } finally {
+      await rm(consumer, { recursive: true, force: true });
+    }
+  }
 
   {
     const root = rootFor("paper-metadata");
@@ -1632,7 +1805,7 @@ export async function verifyContractRelease({
     resolve(resolvedDirectory, manifestFilename),
   );
   const manifest = JSON.parse(manifestContents.toString("utf8"));
-  invariant(manifest.schemaVersion === 1, "unsupported release manifest");
+  const contractBundles = contractInventory(manifest.schemaVersion);
   exactObject(
     manifest.compatibility,
     {
@@ -1646,7 +1819,10 @@ export async function verifyContractRelease({
         schema: "v1",
       },
       runnerProtocol: "v1",
-      sdk: { typescriptClient: version },
+      sdk: {
+        typescriptClient: version,
+        ...(manifest.schemaVersion === 2 ? { typescriptSDK: version } : {}),
+      },
     },
     "release compatibility declaration differs",
   );
@@ -1762,6 +1938,7 @@ export async function verifyContractRelease({
       );
     }
     await verifySpdxSemantics({
+      inventory: contractBundles,
       artifacts: manifest.artifacts,
       bundleContents,
       createdAt,

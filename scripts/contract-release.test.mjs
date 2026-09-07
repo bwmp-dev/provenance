@@ -445,6 +445,10 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     join(tmpdir(), "provenance-release-mutations-"),
   );
   const staleFiles = [
+    resolve(
+      import.meta.dirname,
+      "../packages/typescript-sdk/dist/stale-output.js",
+    ),
     resolve(import.meta.dirname, "../packages/api-client/dist/stale-output.js"),
     resolve(
       import.meta.dirname,
@@ -482,7 +486,8 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       await assert.rejects(access(staleFile), { code: "ENOENT" });
     }
 
-    const options = { createdAt, sourceCommit, version };
+    // Historical six-archive inventory remains fully verifiable.
+    const options = { createdAt, sourceCommit, version, schemaVersion: 1 };
     await buildContractRelease({
       ...options,
       outputDirectory: firstDirectory,
@@ -593,6 +598,134 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       const second = await readFile(resolve(secondDirectory, filename));
       assert.deepEqual(second, first, `${filename} is not reproducible`);
       t.diagnostic(`${digest(first)}  ${filename}`);
+    }
+
+    const sdkFirst = resolve(mutationsDirectory, "sdk-first");
+    const sdkSecond = resolve(mutationsDirectory, "sdk-second");
+    const sdkManifest = await buildContractRelease({
+      createdAt,
+      sourceCommit,
+      version,
+      outputDirectory: sdkFirst,
+    });
+    await buildContractRelease({
+      createdAt,
+      sourceCommit,
+      version,
+      outputDirectory: sdkSecond,
+    });
+    assert.equal(sdkManifest.schemaVersion, 2);
+    assert.equal(sdkManifest.artifacts.length, 7);
+    assert.equal((await readdir(sdkFirst)).length, 10);
+    assert.equal(sdkManifest.compatibility.sdk.typescriptSDK, version);
+    assert.equal(
+      (await readFile(resolve(sdkFirst, checksumName(version)), "utf8"))
+        .trim()
+        .split("\n").length,
+      9,
+    );
+    for (const filename of await readdir(sdkFirst))
+      assert.deepEqual(
+        await readFile(resolve(sdkFirst, filename)),
+        await readFile(resolve(sdkSecond, filename)),
+        `new SDK inventory is not deterministic: ${filename}`,
+      );
+    await verifyContractRelease({
+      directory: sdkFirst,
+      version,
+      consumers: true,
+    });
+    runPrivilegedBoundaryVerifier(sdkFirst);
+    const sdkSpdx = JSON.parse(
+      await readFile(resolve(sdkFirst, sdkManifest.sbom.filename), "utf8"),
+    );
+    assert.equal(sdkSpdx.documentDescribes.length, 7);
+    for (const name of ["openapi-fetch", "ajv", "ajv-formats", "yaml"]) {
+      const dependency = sdkSpdx.packages.find((item) => item.name === name);
+      assert.ok(
+        sdkSpdx.relationships.some(
+          (item) =>
+            item.spdxElementId === "SPDXRef-Package-typescript-sdk" &&
+            item.relatedSpdxElement === dependency.SPDXID &&
+            item.relationshipType === "DEPENDS_ON",
+        ),
+        `SDK runtime dependency missing: ${name}`,
+      );
+    }
+    const downgradedSDK = await mutationDirectory(
+      sdkFirst,
+      mutationsDirectory,
+      "sdk-downgrade",
+    );
+    await mutateManifest(downgradedSDK, (document) => {
+      document.schemaVersion = 1;
+      delete document.compatibility.sdk.typescriptSDK;
+    });
+    await assert.rejects(
+      verifyContractRelease({ directory: downgradedSDK, version }),
+      /bundle inventory differs/,
+    );
+    assertPrivilegedBoundaryRejects(downgradedSDK);
+
+    const sdkArtifact = sdkManifest.artifacts.find(
+      ({ bundle }) => bundle === "typescript-sdk",
+    );
+    const sdkExtracted = resolve(mutationsDirectory, "sdk-extracted");
+    await mkdir(sdkExtracted);
+    await extractTar({
+      file: resolve(sdkFirst, sdkArtifact.filename),
+      cwd: sdkExtracted,
+    });
+    const sdkRoot = sdkArtifact.filename.slice(0, -7);
+    const sdkEntries = await archiveEntries(
+      resolve(sdkFirst, sdkArtifact.filename),
+      sdkRoot,
+    );
+    for (const [name, omitted, changed] of [
+      ["sdk-missing-implementation", "package/dist/index.js", null],
+      ["sdk-missing-license", "package/vendor/verification/LICENSE", null],
+      [
+        "sdk-tampered-schema",
+        null,
+        "package/vendor/verification/dist/schema.json",
+      ],
+      [
+        "sdk-tampered-dependency",
+        null,
+        "package/vendor/api-client/package.json",
+      ],
+    ]) {
+      const directory = await mutationDirectory(
+        sdkFirst,
+        mutationsDirectory,
+        name,
+      );
+      const entries = [];
+      for (const path of sdkEntries) {
+        if (path === `${sdkRoot}/${omitted}`) continue;
+        entries.push({
+          path,
+          contents:
+            path === `${sdkRoot}/${changed}`
+              ? Buffer.from("tampered")
+              : await readFile(resolve(sdkExtracted, path)),
+        });
+      }
+      const contents = gzipSync(tarFixture(entries), { mtime: 0 });
+      await writeFile(resolve(directory, sdkArtifact.filename), contents);
+      await mutateManifest(directory, (document) => {
+        const artifact = document.artifacts.find(
+          (item) => item.bundle === "typescript-sdk",
+        );
+        artifact.sha256 = digest(contents);
+        artifact.size = contents.length;
+      });
+      await replaceChecksum(directory, sdkArtifact.filename, contents);
+      await assert.rejects(
+        verifyContractRelease({ directory, version }),
+        /entries differ|SDK copied source differs|bundle (?:size|digest) differs/,
+      );
+      assertPrivilegedBoundaryRejects(directory);
     }
 
     const tamperedArchive = manifest.artifacts[0].filename;

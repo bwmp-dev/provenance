@@ -14,7 +14,7 @@
   },
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "node ../../scripts/clean-dist.mjs && tsc --project tsconfig.json",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

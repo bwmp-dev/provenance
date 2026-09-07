@@ -17,6 +17,11 @@ BUNDLES = (
     "runner-protocol",
     "typescript-client",
 )
+
+
+def bundle_inventory(schema_version):
+    require(type(schema_version) is int and schema_version in (1, 2), "release manifest schema differs")
+    return BUNDLES if schema_version == 1 else (*BUNDLES, "typescript-sdk")
 SEMVER = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
     r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
@@ -118,9 +123,9 @@ def verify_openapi_inventory(document, inventory):
     require(sorted(operations, key=key) == sorted(inventory, key=key), "OpenAPI operation inventory differs")
 
 
-def read_archive(directory, artifact, version, source_sha):
+def read_archive(directory, artifact, version, source_sha, inventory=BUNDLES):
     bundle = artifact.get("bundle")
-    require(bundle in BUNDLES, f"unknown release bundle: {bundle}")
+    require(bundle in inventory, f"unknown release bundle: {bundle}")
     expected_name = archive_name(bundle, version)
     require(artifact.get("filename") == expected_name, f"unexpected archive filename: {bundle}")
     archive_path = directory / expected_name
@@ -162,6 +167,12 @@ def read_archive(directory, artifact, version, source_sha):
     require(embedded.get("sourceCommit") == source_sha, f"embedded manifest source differs: {bundle}")
     declared_files = embedded.get("files")
     require(isinstance(declared_files, list), f"embedded manifest files are missing: {bundle}")
+    if bundle == "typescript-sdk":
+        sdk_paths = {"LICENSE", "README.md", "package/LICENSE", "package/package.json", "package/dist/index.js", "package/dist/index.d.ts"}
+        for name, files in (("api-client", ("index.js", "index.d.ts", "index.d.ts.map", "gen/schema.d.ts")), ("config-schema", ("index.js", "schema.json")), ("verification", ("index.js", "schema.json"))):
+            sdk_paths.update((f"package/vendor/{name}/LICENSE", f"package/vendor/{name}/package.json"))
+            sdk_paths.update(f"package/vendor/{name}/dist/{file}" for file in files)
+        require({record.get("path") for record in declared_files} == sdk_paths, "SDK exact file inventory differs")
     expected_entries = {embedded_name}
     sbom_files = [
         {
@@ -190,10 +201,16 @@ def read_archive(directory, artifact, version, source_sha):
         require(hash_bytes(contents, "sha1") == record.get("sha1"), f"embedded SHA-1 differs: {path}")
         transform = record.get("transform")
         require(
-            transform in (None, "release-version", "openapi-json"),
+            transform in (None, "release-version", "openapi-json", "sdk-release-package"),
             f"unknown embedded transform: {path}",
         )
-        if transform == "release-version":
+        if transform == "sdk-release-package":
+            require(bundle == "typescript-sdk" and path == "package/package.json" and source == "packages/typescript-sdk/package.json", "SDK transform identity differs")
+            package = read_json(contents, "released SDK package")
+            require(package.get("name") == "@bwmp-dev/typescript-sdk" and package.get("version") == version, "SDK package identity differs")
+            require(package.get("files") == ["dist", "vendor", "LICENSE"], "SDK package file roots differ")
+            require(package.get("dependencies") == {f"@bwmp-dev/{name}": f"file:./vendor/{name}" for name in ("api-client", "config-schema", "verification")}, "SDK local dependency binding differs")
+        elif transform == "release-version":
             package = read_json(contents, f"versioned package {path}")
             require(package.get("version") == version, f"package version differs: {path}")
         sbom_files.append(
@@ -217,6 +234,7 @@ def read_archive(directory, artifact, version, source_sha):
 
 
 def verify_sbom(sbom, manifest, bundle_files, version, source_sha):
+    BUNDLES = bundle_inventory(manifest.get("schemaVersion"))
     require(sbom.get("spdxVersion") == "SPDX-2.3", "SPDX version differs")
     require(sbom.get("SPDXID") == "SPDXRef-DOCUMENT", "SPDX document identifier differs")
     require(sbom.get("dataLicense") == "CC0-1.0", "SPDX data license differs")
@@ -386,6 +404,9 @@ def verify_bundle(directory, version, source_sha):
     manifest_name = f"provenance-contracts-{version}.manifest.json"
     sbom_name = f"provenance-contracts-{version}.spdx.json"
     checksum_name = f"provenance-contracts-{version}.sha256"
+    manifest_contents = read_bounded(directory / manifest_name, MAX_MEMBER_SIZE, manifest_name)
+    manifest = read_json(manifest_contents, "release manifest")
+    BUNDLES = bundle_inventory(manifest.get("schemaVersion"))
     expected_names = {
         manifest_name,
         sbom_name,
@@ -399,7 +420,6 @@ def verify_bundle(directory, version, source_sha):
 
     manifest_contents = read_bounded(directory / manifest_name, MAX_MEMBER_SIZE, manifest_name)
     manifest = read_json(manifest_contents, "release manifest")
-    require(manifest.get("schemaVersion") == 1, "release manifest schema differs")
     require(
         manifest.get("compatibility")
         == {
@@ -410,7 +430,7 @@ def verify_bundle(directory, version, source_sha):
             "openapi": "v1",
             "paperMetadata": {"inspector": version, "schema": "v1"},
             "runnerProtocol": "v1",
-            "sdk": {"typescriptClient": version},
+            "sdk": {"typescriptClient": version, **({"typescriptSDK": version} if manifest["schemaVersion"] == 2 else {})},
         },
         "release compatibility declaration differs",
     )
@@ -451,7 +471,7 @@ def verify_bundle(directory, version, source_sha):
     for artifact in artifacts:
         name = artifact.get("filename")
         require(checksums.get(name) == artifact.get("sha256"), f"artifact checksum linkage differs: {name}")
-        bundle_files[artifact["bundle"]] = read_archive(directory, artifact, version, source_sha)
+        bundle_files[artifact["bundle"]] = read_archive(directory, artifact, version, source_sha, BUNDLES)
 
     sbom_record = manifest.get("sbom", {})
     require(sbom_record.get("filename") == sbom_name, "SBOM filename differs")

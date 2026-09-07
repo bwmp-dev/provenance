@@ -1,0 +1,46 @@
+apiVersion: provenance.dev/v1
+project:
+  id: provenance-example
+  name: Provenance Example
+artifact:
+  id: provenance-example
+  version: 1.0.0
+  path: examples/consumption/plugin/build/example-plugin.jar
+paper:
+  recommendations:
+    enabled: false
+    apiFloor: 1.20.6
+    newVersions: informational
+  matrix:
+    - id: paper-1.20.6
+      minecraftVersion: 1.20.6
+      paperBuild: 151
+      javaVersion: 21
+      policy: required
+  gatePolicy:
+    requiredFailure: block
+    informationalFailure: report
+    infrastructureFailure: retry
+    maxInfrastructureRetries: 2
+dependencies: []
+tests:
+  startup:
+    timeoutSeconds: 120
+    stabilizationSeconds: 10
+    requirePluginEnabled: true
+    shutdownTimeoutSeconds: 30
+    requireCleanShutdown: true
+  console: []
+release:
+  mode: test-only
+  targets: []
+network:
+  mode: none
+  allowlist: []
+resources:
+  cpuCores: 1
+  memoryMiB: 2048
+  diskMiB: 4096
+  processes: 256
+  wallTimeoutSeconds: 900
+  logBytes: 10485760
