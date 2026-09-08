@@ -6,7 +6,11 @@ const doc = parse(
   readFileSync(new URL("./provenance.v1.yaml", import.meta.url), "utf8"),
 );
 const paths = Object.entries(doc.paths).filter(
-  ([p]) => p === "/v1/account" || p.startsWith("/v1/admin/"),
+  ([p]) =>
+    p === "/v1/account" ||
+    (p.startsWith("/v1/admin/") &&
+      p !== "/v1/admin/runner-updates" &&
+      !p.startsWith("/v1/admin/hosted-runners")),
 );
 const resolve = (value) =>
   value.$ref

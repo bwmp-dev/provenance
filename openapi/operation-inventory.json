@@ -424,5 +424,47 @@
     "operationId": "getVerification",
     "path": "/v1/verifications/{verificationId}",
     "tag": "verification"
+  },
+  {
+    "method": "get",
+    "operationId": "getHostedRunnerUpdates",
+    "path": "/v1/admin/runner-updates",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "changeHostedRunnerUpdate",
+    "path": "/v1/admin/runner-updates",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "pollHostedRunnerUpdate",
+    "path": "/v1/runner-updater/{runnerId}/poll",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "listHostedRunners",
+    "path": "/v1/admin/hosted-runners",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "changeHostedRunner",
+    "path": "/v1/admin/hosted-runners",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "getHostedRunnerInstallProfile",
+    "path": "/v1/admin/hosted-runners/install-profile",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "downloadHostedRunnerRelease",
+    "path": "/v1/runner-releases/{sha256}",
+    "tag": "authentication"
   }
 ]

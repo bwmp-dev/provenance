@@ -30,7 +30,8 @@
     "security:check": "pnpm audit --audit-level high --ignore-registry-errors && go -C gen/proto run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./... && go -C packages/verification-go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
     "test:python": "python schemas/config/test_contract.py && python schemas/attestation/test_contract.py && python schemas/paper-metadata/test_contract.py && python schemas/key-discovery/test_contract.py",
     "test:vectors": "node schemas/attestation/verify_vectors.mjs",
-    "test:go-verifier": "test -z \"$(gofmt -l packages/verification-go/*.go)\" && go -C packages/verification-go test -race ./... && go -C packages/verification-go vet ./..."
+    "test:go-verifier": "test -z \"$(gofmt -l packages/verification-go/*.go)\" && go -C packages/verification-go test -race ./... && go -C packages/verification-go vet ./...",
+    "export:hosted-updates": "node scripts/export-hosted-updates.mjs"
   },
   "devDependencies": {
     "@bufbuild/buf": "1.72.0",

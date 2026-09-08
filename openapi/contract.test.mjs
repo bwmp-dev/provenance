@@ -1,3 +1,4 @@
+import "./hosted-runner-updates.test.mjs";
 import { beforeAlphaAdmission } from "./alpha-compat.mjs";
 import "./alpha-administration.test.mjs";
 import assert from "node:assert/strict";
@@ -33,6 +34,15 @@ const methods = new Set([
   "patch",
   "post",
   "put",
+]);
+const hostedUpdateOperations = new Set([
+  "getHostedRunnerUpdates",
+  "listHostedRunners",
+  "changeHostedRunner",
+  "getHostedRunnerInstallProfile",
+  "downloadHostedRunnerRelease",
+  "changeHostedRunnerUpdate",
+  "pollHostedRunnerUpdate",
 ]);
 const mutations = new Set(["delete", "patch", "post", "put"]);
 const deviceOperations = new Set([
@@ -635,6 +645,17 @@ test("operation and path inventory matches the public v1 skeleton", () => {
 
 test("every operation exposes structured failure responses", () => {
   for (const { operation } of operations) {
+    if (hostedUpdateOperations.has(operation.operationId)) {
+      assert.equal(
+        operation.responses.default?.$ref,
+        ["pollHostedRunnerUpdate", "downloadHostedRunnerRelease"].includes(
+          operation.operationId,
+        )
+          ? "#/components/responses/HostedUpdaterProblem503"
+          : "#/components/responses/HostedProblem503",
+      );
+      continue;
+    }
     if (
       deviceOperations.has(operation.operationId) ||
       operation.operationId === "createGitHubActionsGrant" ||
@@ -677,6 +698,19 @@ test("every mutation has deterministic idempotency semantics", () => {
   for (const { method, operation, path } of operations.filter(({ method }) =>
     mutations.has(method),
   )) {
+    if (hostedUpdateOperations.has(operation.operationId)) {
+      const key = operation.parameters
+        ?.map(resolveParameter)
+        .find((p) => p.name === "Idempotency-Key");
+      assert.equal(
+        Boolean(key?.required),
+        ["changeHostedRunnerUpdate", "changeHostedRunner"].includes(
+          operation.operationId,
+        ),
+      );
+      assert.ok(operation.responses["409"]);
+      continue; // Node polling uses durable operation identity; hosted-runner-updates.test.mjs pins the normative rules, and platform lifecycle integration tests verify replay.
+    }
     if (operation.operationId === "exchangeDeviceAuthorization") {
       assert.equal(
         operation.parameters,
@@ -1028,6 +1062,7 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
   assert.deepEqual(Object.keys(document.components.securitySchemes).sort(), [
     "BearerAuth",
     "GitHubWebhookSignature",
+    "HostedRunnerUpdater",
     "RunnerRegistrationToken",
     "SessionCookie",
   ]);
@@ -1042,7 +1077,9 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
   );
 
   for (const { operation: listOperation } of operations.filter(
-    ({ operation: candidate }) => candidate.operationId.startsWith("list"),
+    ({ operation: candidate }) =>
+      candidate.operationId.startsWith("list") &&
+      candidate.operationId !== "listHostedRunners",
   )) {
     const names = listOperation.parameters
       .map(resolveParameter)
@@ -2265,3 +2302,30 @@ function problemBaseSchema(response) {
   }
   return schema.allOf?.[0]?.$ref;
 }
+
+test("hosted fleet administration is session scoped and never accepts node secrets", () => {
+  const registration = document.paths["/v1/admin/hosted-runners"];
+  assert.deepEqual(registration.post.security, [{ SessionCookie: [] }]);
+  assert.equal(registration.post.operationId, "changeHostedRunner");
+  const request = document.components.schemas.HostedRunnerRequest;
+  assert.deepEqual(request.properties.action.enum, [
+    "create",
+    "rotate",
+    "drain",
+    "resume",
+    "revoke",
+  ]);
+  assert.ok(request.properties.credentialSha256);
+  assert.ok(request.properties.updaterCredentialSha256);
+  assert.equal(request.properties.credential, undefined);
+  assert.equal(request.properties.organizationId, undefined);
+  assert.equal(request.additionalProperties, false);
+  assert.equal(
+    document.paths["/v1/admin/hosted-runners/install-profile"].get.operationId,
+    "getHostedRunnerInstallProfile",
+  );
+  assert.deepEqual(
+    document.paths["/v1/runner-releases/{sha256}"].get.security,
+    [{ HostedRunnerUpdater: [] }],
+  );
+});

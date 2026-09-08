@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/v1/admin/runner-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** getHostedRunnerUpdates */
+        get: operations["getHostedRunnerUpdates"];
+        put?: never;
+        /** Manage platform-hosted runner binary updates */
+        post: operations["changeHostedRunnerUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runner-updater/{runnerId}/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Poll and report a node-bound hosted update */
+        post: operations["pollHostedRunnerUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/organizations": {
         parameters: {
             query?: never;
@@ -1306,10 +1341,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/hosted-runners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** listHostedRunners */
+        get: operations["listHostedRunners"];
+        put?: never;
+        /** Register and administer platform-owned runners */
+        post: operations["changeHostedRunner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosted-runners/install-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** getHostedRunnerInstallProfile */
+        get: operations["getHostedRunnerInstallProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runner-releases/{sha256}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the binary assigned to this hosted updater */
+        get: operations["downloadHostedRunnerRelease"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        HostedRunnerMutationResult: {
+            id: string;
+        };
+        HostedRunnerRelease: {
+            sha256: string;
+            signature: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            url: string;
+            version: string;
+        };
+        HostedRunnerUpdate: {
+            createdAt: components["schemas"]["Timestamp"];
+            id: string;
+            previousVersion: string;
+            releaseSha256: string;
+            runnerId: string;
+            /** @enum {string} */
+            state: "draining" | "installing" | "verifying" | "succeeded" | "rolled_back" | "failed" | "cancelled";
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        HostedRunnerUpdateRequest: {
+            /** @enum {string} */
+            action: "configure" | "publish" | "update" | "cancel";
+            credentialSha256?: string;
+            operationId?: string;
+            release?: components["schemas"]["HostedRunnerRelease"];
+            releasePublicKey?: string;
+            releaseSha256?: string;
+            runnerId?: string;
+        };
+        HostedRunnerUpdateView: {
+            releases: components["schemas"]["HostedRunnerRelease"][] | null;
+            updaterConfigured: boolean;
+            updaterLastSeenAt: components["schemas"]["Timestamp"] | null;
+            updates: components["schemas"]["HostedRunnerUpdate"][] | null;
+            /** @description True when additional inventory or history exists beyond the bounded response. */
+            truncated: boolean;
+        };
+        HostedUpdaterCommand: {
+            healthy: boolean;
+            operationId: string;
+            /** @enum {string} */
+            outcome: "" | "succeeded" | "rolled_back" | "failed" | "cancelled";
+            /** @enum {string} */
+            phase: "wait" | "install" | "verify" | "complete";
+            previousVersion: string;
+            release: components["schemas"]["HostedRunnerRelease"] | null;
+        };
+        /** @description Polling idle without operationId selects the node’s durable active operation, if any. All non-idle reports require its operationId. Repeating a report cannot select or mutate another node’s operation. */
+        HostedUpdaterPoll: {
+            operationId?: string;
+            /** @enum {string} */
+            report: "idle" | "verifying" | "health" | "rollback-health" | "succeeded" | "rolled_back" | "failed";
+        };
         AlphaOrganization: {
             /** Format: uuid */
             id: string;
@@ -2400,6 +2542,154 @@ export interface components {
             status: 503;
             /** @constant */
             code: "admin_unavailable";
+        };
+        HostedRunnerList: {
+            runners: components["schemas"]["HostedRunnerNode"][] | null;
+            /** @description True when additional inventory or history exists beyond the bounded response. */
+            truncated: boolean;
+        };
+        HostedRunnerNode: {
+            credentialExpiresAt: components["schemas"]["Timestamp"];
+            lastSeenAt: components["schemas"]["Timestamp"] | null;
+            name: string;
+            revokedAt: components["schemas"]["Timestamp"] | null;
+            runnerId: string;
+            /** @enum {string} */
+            state: "registering" | "active" | "draining" | "offline" | "quarantined" | "revoked";
+            version: string;
+        };
+        HostedRunnerRequest: {
+            /** @enum {string} */
+            action: "create" | "rotate" | "drain" | "resume" | "revoke";
+            credentialSha256?: string;
+            name?: string;
+            releasePublicKey?: string;
+            runnerId?: string;
+            updaterCredentialSha256?: string;
+        };
+        HostedRunnerResult: {
+            credentialExpiresAt: components["schemas"]["Timestamp"] | null;
+            runnerId: string;
+        };
+        HostedInstallProfile: {
+            /** Format: uri */
+            apiOrigin: string;
+            artifactHosts: string[];
+            bundle: components["schemas"]["HostedAsset"];
+            gatewayAddress: string;
+            preparedRuntime: components["schemas"]["HostedRuntime"];
+            probe: components["schemas"]["HostedAsset"];
+            releasePublicKey: string;
+            resources: components["schemas"]["HostedResources"];
+        };
+        HostedAsset: {
+            sha256: string;
+            sizeBytes: number;
+            /** Format: uri */
+            uri: string;
+        };
+        HostedRuntime: {
+            maximumExpandedBytes: number;
+            sha256: string;
+            sizeBytes: number;
+            /** Format: uri */
+            uri: string;
+        };
+        HostedResources: {
+            cpuMillis: number;
+            diskBytes: number;
+            memoryBytes: number;
+            processCount: number;
+        };
+        HostedProblem400: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 400;
+            /** @enum {string} */
+            code: "invalid_request";
+        };
+        HostedProblem401: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 401;
+            /** @enum {string} */
+            code: "authentication_required";
+        };
+        HostedProblem403: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 403;
+            /** @enum {string} */
+            code: "admin_required";
+        };
+        HostedProblem404: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 404;
+            /** @enum {string} */
+            code: "not_found";
+        };
+        HostedProblem409: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 409;
+            /** @enum {string} */
+            code: "idempotency_key_conflict" | "runner_update_conflict";
+        };
+        HostedProblem429: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 429;
+            /** @enum {string} */
+            code: "rate_limited";
+        };
+        HostedProblem503: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 503;
+            /** @enum {string} */
+            code: "admin_unavailable";
+        };
+        HostedUpdaterProblem403: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 403;
+            /** @enum {string} */
+            code: "updater_forbidden";
+        };
+        HostedUpdaterProblem409: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 409;
+            /** @enum {string} */
+            code: "runner_update_conflict";
+        };
+        HostedUpdaterProblem503: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 503;
+            /** @enum {string} */
+            code: "updater_unavailable";
         };
         sha256: string;
         version: string;
@@ -3599,6 +3889,106 @@ export interface components {
                 "application/problem+json": components["schemas"]["AlphaProblem503"];
             };
         };
+        /** @description Hosted runner request failed (400). No request values or credentials are reflected. */
+        HostedProblem400: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem400"];
+            };
+        };
+        /** @description Hosted runner request failed (401). No request values or credentials are reflected. */
+        HostedProblem401: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem401"];
+            };
+        };
+        /** @description Hosted runner request failed (403). No request values or credentials are reflected. */
+        HostedProblem403: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem403"];
+            };
+        };
+        /** @description Hosted runner request failed (404). No request values or credentials are reflected. */
+        HostedProblem404: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem404"];
+            };
+        };
+        /** @description Hosted runner request failed (409). No request values or credentials are reflected. */
+        HostedProblem409: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem409"];
+            };
+        };
+        /** @description Hosted runner request failed (429). No request values or credentials are reflected. */
+        HostedProblem429: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem429"];
+            };
+        };
+        /** @description Hosted runner request failed (503). No request values or credentials are reflected. */
+        HostedProblem503: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem503"];
+            };
+        };
+        /** @description Hosted runner request failed (403). No request values or credentials are reflected. */
+        HostedUpdaterProblem403: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedUpdaterProblem403"];
+            };
+        };
+        /** @description Hosted runner request failed (409). No request values or credentials are reflected. */
+        HostedUpdaterProblem409: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedUpdaterProblem409"];
+            };
+        };
+        /** @description Hosted runner request failed (503). No request values or credentials are reflected. */
+        HostedUpdaterProblem503: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedUpdaterProblem503"];
+            };
+        };
     };
     parameters: {
         /** @description IFC-020 device initiation/decision key. Different payload reuse conflicts. Successful initiation retains only hashes: identical replay returns credential_not_replayable, never the original device secret. Decisions replay only the matching nonsecret outcome for the same currently active user identity. See device-login-semantics.md for deadline precedence. */
@@ -3790,6 +4180,106 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getHostedRunnerUpdates: {
+        parameters: {
+            query: {
+                runnerId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedRunnerUpdateView"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
+        };
+    };
+    changeHostedRunnerUpdate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostedRunnerUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedRunnerMutationResult"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
+        };
+    };
+    pollHostedRunnerUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runnerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostedUpdaterPoll"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedUpdaterCommand"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedUpdaterProblem403"];
+            409: components["responses"]["HostedUpdaterProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedUpdaterProblem503"];
+            default: components["responses"]["HostedUpdaterProblem503"];
+        };
+    };
     listAlphaOrganizations: {
         parameters: {
             query?: {
@@ -5963,6 +6453,124 @@ export interface operations {
                 };
             };
             default: components["responses"]["Problem"];
+        };
+    };
+    listHostedRunners: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedRunnerList"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
+        };
+    };
+    changeHostedRunner: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostedRunnerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedRunnerResult"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
+        };
+    };
+    getHostedRunnerInstallProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedInstallProfile"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
+        };
+    };
+    downloadHostedRunnerRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sha256: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assigned binary. Verify its signed digest before installation. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedUpdaterProblem403"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedUpdaterProblem503"];
+            default: components["responses"]["HostedUpdaterProblem503"];
         };
     };
 }
