@@ -83,6 +83,9 @@ test("IFC022 is additive to every alpha17 path and component", () => {
         !alphaPaths.includes(p) &&
         ![
           "/v1/admin/runner-updates",
+          "/v1/admin/hosted-runners",
+          "/v1/admin/hosted-runners/install-profile",
+          "/v1/runner-releases/{sha256}",
           "/v1/runner-updater/{runnerId}/poll",
         ].includes(p),
     ),

@@ -36,6 +36,10 @@ const methods = new Set([
 ]);
 const hostedUpdateOperations = new Set([
   "getHostedRunnerUpdates",
+  "listHostedRunners",
+  "changeHostedRunner",
+  "getHostedRunnerInstallProfile",
+  "downloadHostedRunnerRelease",
   "changeHostedRunnerUpdate",
   "pollHostedRunnerUpdate",
 ]);
@@ -689,7 +693,9 @@ test("every mutation has deterministic idempotency semantics", () => {
       );
       assert.equal(
         Boolean(key?.required),
-        operation.operationId === "changeHostedRunnerUpdate",
+        ["changeHostedRunnerUpdate", "changeHostedRunner"].includes(
+          operation.operationId,
+        ),
       );
       assert.ok(operation.responses["409"]);
       continue; // Node polling uses durable operation identity; covered by hosted update vectors.
@@ -2283,3 +2289,30 @@ function problemBaseSchema(response) {
   }
   return schema.allOf?.[0]?.$ref;
 }
+
+test("hosted fleet administration is session scoped and never accepts node secrets", () => {
+  const registration = document.paths["/v1/admin/hosted-runners"];
+  assert.deepEqual(registration.post.security, [{ SessionCookie: [] }]);
+  assert.equal(registration.post.operationId, "changeHostedRunner");
+  const request = document.components.schemas.HostedRunnerRequest;
+  assert.deepEqual(request.properties.action.enum, [
+    "create",
+    "rotate",
+    "drain",
+    "resume",
+    "revoke",
+  ]);
+  assert.ok(request.properties.credentialSha256);
+  assert.ok(request.properties.updaterCredentialSha256);
+  assert.equal(request.properties.credential, undefined);
+  assert.equal(request.properties.organizationId, undefined);
+  assert.equal(request.additionalProperties, false);
+  assert.equal(
+    document.paths["/v1/admin/hosted-runners/install-profile"].get.operationId,
+    "getHostedRunnerInstallProfile",
+  );
+  assert.deepEqual(
+    document.paths["/v1/runner-releases/{sha256}"].get.security,
+    [{ HostedRunnerUpdater: [] }],
+  );
+});
