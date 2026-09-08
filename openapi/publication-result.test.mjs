@@ -1,3 +1,4 @@
+import { beforeAlphaAdmission } from "./alpha-compat.mjs";
 const alphaPaths = [
   "/v1/account",
   "/v1/admin/users",
@@ -123,7 +124,11 @@ test("IFC021 leaves every alpha18 path/component and grant operation unchanged",
     createHash("sha256").update(JSON.stringify(v)).digest("hex");
   assert.equal(baseline.source, "b8cd327dc477c5fcd5b96429c3840ad0ecdbe5fa");
   for (const [path, digest] of Object.entries(baseline.paths))
-    assert.equal(hash(doc.paths[path]), digest, path);
+    assert.equal(
+      hash(beforeAlphaAdmission(path, doc.paths[path])),
+      digest,
+      path,
+    );
   for (const [family, entries] of Object.entries(baseline.components))
     for (const [name, digest] of Object.entries(entries))
       assert.equal(hash(doc.components[family][name]), digest, name);

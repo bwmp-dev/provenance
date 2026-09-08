@@ -21,19 +21,19 @@
     "method": "get",
     "operationId": "listAlphaRunners",
     "path": "/v1/admin/runners",
-    "tag": "authentication"
+    "tag": "runners"
   },
   {
     "method": "get",
     "operationId": "listAlphaExecutions",
     "path": "/v1/admin/executions",
-    "tag": "authentication"
+    "tag": "runners"
   },
   {
     "method": "get",
     "operationId": "listAlphaUsage",
     "path": "/v1/admin/usage",
-    "tag": "authentication"
+    "tag": "usage"
   },
   {
     "method": "post",

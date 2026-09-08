@@ -44,7 +44,8 @@ paths:
         session; API tokens and GitHub Actions grants are forbidden. Administrator
         authority is checked from durable state on every request. No credentials
         or raw logs are returned. Responses are private and Cache-Control:
-        no-store."
+        no-store. See alpha-administration-semantics.md for admission, conflict
+        precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -52,24 +53,28 @@ paths:
       parameters: []
       responses:
         "200":
-          description: Current alpha resource.
+          description: The current account at request time.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaAccount"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
   /v1/admin/users:
     get:
       operationId: listAlphaUsers
@@ -78,7 +83,8 @@ paths:
         session; API tokens and GitHub Actions grants are forbidden. Administrator
         authority is checked from durable state on every request. No credentials
         or raw logs are returned. Responses are private and Cache-Control:
-        no-store."
+        no-store. See alpha-administration-semantics.md for admission, conflict
+        precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -90,24 +96,28 @@ paths:
           $ref: "#/components/parameters/PageSize"
       responses:
         "200":
-          description: Current alpha resource.
+          description: The bounded collection at request time.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaUserPage"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
   /v1/admin/invitations:
     get:
       operationId: listAlphaInvitations
@@ -116,7 +126,8 @@ paths:
         session; API tokens and GitHub Actions grants are forbidden. Administrator
         authority is checked from durable state on every request. No credentials
         or raw logs are returned. Responses are private and Cache-Control:
-        no-store."
+        no-store. See alpha-administration-semantics.md for admission, conflict
+        precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -126,24 +137,28 @@ paths:
         - *a2
       responses:
         "200":
-          description: Current alpha resource.
+          description: The bounded collection at request time.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaInvitationPage"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
     post:
       operationId: createAlphaInvitation
       summary: Invite a verified numeric GitHub account for seven days
@@ -153,7 +168,8 @@ paths:
         or raw logs are returned. Responses are private and Cache-Control:
         no-store. Mutations are audited and use caller-scoped idempotency: an
         unchanged replay returns its original outcome; a changed request
-        conflicts."
+        conflicts. See alpha-administration-semantics.md for admission, conflict
+        precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -161,27 +177,31 @@ paths:
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        "200":
-          description: Current alpha resource.
+        "201":
+          description: The seven-day invitation, bound to the verified numeric GitHub user.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaInvitation"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
         "409":
-          $ref: "#/components/responses/IdempotencyConflict"
+          $ref: "#/components/responses/AlphaConflict"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
       requestBody:
         required: true
         content:
@@ -196,9 +216,10 @@ paths:
         session; API tokens and GitHub Actions grants are forbidden. Administrator
         authority is checked from durable state on every request. No credentials
         or raw logs are returned. Responses are private and Cache-Control:
-        no-store."
+        no-store. See alpha-administration-semantics.md for admission, conflict
+        precedence, retention and pagination rules."
       tags:
-        - authentication
+        - runners
       security:
         - SessionCookie: []
       parameters:
@@ -206,24 +227,28 @@ paths:
         - *a2
       responses:
         "200":
-          description: Current alpha resource.
+          description: The bounded collection at request time.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaRunnerPage"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
   /v1/admin/executions:
     get:
       operationId: listAlphaExecutions
@@ -232,9 +257,10 @@ paths:
         session; API tokens and GitHub Actions grants are forbidden. Administrator
         authority is checked from durable state on every request. No credentials
         or raw logs are returned. Responses are private and Cache-Control:
-        no-store."
+        no-store. See alpha-administration-semantics.md for admission, conflict
+        precedence, retention and pagination rules."
       tags:
-        - authentication
+        - runners
       security:
         - SessionCookie: []
       parameters:
@@ -254,24 +280,28 @@ paths:
             default: true
       responses:
         "200":
-          description: Current alpha resource.
+          description: The bounded collection at request time.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaExecutionPage"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
   /v1/admin/usage:
     get:
       operationId: listAlphaUsage
@@ -280,9 +310,12 @@ paths:
         session; API tokens and GitHub Actions grants are forbidden. Administrator
         authority is checked from durable state on every request. No credentials
         or raw logs are returned. Responses are private and Cache-Control:
-        no-store."
+        no-store. Interval is half-open [from,to), maximum31 days. Quantities are
+        exact decimal strings of recorded organization observations; pending
+        ingestion is not included. See alpha-administration-semantics.md for
+        admission, conflict precedence, retention and pagination rules."
       tags:
-        - authentication
+        - usage
       security:
         - SessionCookie: []
       parameters:
@@ -295,33 +328,37 @@ paths:
         - name: from
           in: query
           required: true
-          schema: &a4
-            type: string
-            format: date-time
+          schema:
+            $ref: "#/components/schemas/Timestamp"
         - name: to
           in: query
           required: true
-          schema: *a4
+          schema:
+            $ref: "#/components/schemas/Timestamp"
       responses:
         "200":
-          description: Current alpha resource.
+          description: The bounded collection at request time.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaUsagePage"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
   /v1/admin/invitations/{invitationId}:
     delete:
       operationId: revokeAlphaInvitation
@@ -332,7 +369,8 @@ paths:
         or raw logs are returned. Responses are private and Cache-Control:
         no-store. Mutations are audited and use caller-scoped idempotency: an
         unchanged replay returns its original outcome; a changed request
-        conflicts."
+        conflicts. See alpha-administration-semantics.md for admission, conflict
+        precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -345,26 +383,30 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "200":
-          description: Current alpha resource.
+          description: The revoked invitation at request time.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaInvitation"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
         "409":
-          $ref: "#/components/responses/IdempotencyConflict"
+          $ref: "#/components/responses/AlphaConflict"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
   /v1/admin/users/{userId}/administrator:
     put:
       operationId: setAlphaAdministrator
@@ -376,7 +418,8 @@ paths:
         or raw logs are returned. Responses are private and Cache-Control:
         no-store. Mutations are audited and use caller-scoped idempotency: an
         unchanged replay returns its original outcome; a changed request
-        conflicts."
+        conflicts. See alpha-administration-semantics.md for admission, conflict
+        precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -389,26 +432,30 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "200":
-          description: Current alpha resource.
+          description: The updated user access at request time.
           headers:
             Cache-Control:
-              schema:
-                type: string
-                const: no-store
+              $ref: "#/components/headers/AlphaNoStore"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlphaUser"
+        "400":
+          $ref: "#/components/responses/AlphaProblem"
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         "403":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
+        "404":
+          $ref: "#/components/responses/AlphaProblem"
         "409":
-          $ref: "#/components/responses/IdempotencyConflict"
+          $ref: "#/components/responses/AlphaConflict"
+        "429":
+          $ref: "#/components/responses/AlphaProblem"
         "503":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
         default:
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AlphaProblem"
       requestBody:
         required: true
         content:
@@ -672,7 +719,8 @@ paths:
     post:
       operationId: createSession
       summary: Create a browser session from a one-time exchange token
-      tags: [authentication]
+      tags:
+        - authentication
       security: []
       parameters:
         - $ref: "#/components/parameters/SessionCreationIdempotencyKey"
@@ -688,6 +736,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Session"
+        "403":
+          $ref: "#/components/responses/AlphaInvitationRequired"
         "409":
           $ref: "#/components/responses/SessionCreationConflict"
         default:
@@ -2644,6 +2694,11 @@ components:
       schema:
         $ref: "#/components/schemas/Timestamp"
   headers:
+    AlphaNoStore:
+      description: Never cache account or administrator responses.
+      schema:
+        type: string
+        const: no-store
     ActionsGrantNoStore:
       description: Confidential issuance and all failures must not be cached.
       schema:
@@ -2720,6 +2775,40 @@ components:
         maxLength: 96
         pattern: ^attachment; filename="execution-[0-9a-f-]{36}\.log\.gz"$
   responses:
+    AlphaProblem:
+      description: Closed private administration failure. See
+        alpha-administration-semantics.md for status/code pairs.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaProblem"
+    AlphaConflict:
+      description:
+        The idempotency key conflicts with a different request, the target
+        account is already admitted, the invitation has been accepted, or this
+        change would remove the final administrator. The code identifies the precise
+        refusal.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaConflictProblem"
+    AlphaInvitationRequired:
+      description:
+        The authenticated GitHub account has neither prior admission nor an
+        unexpired, unrevoked invitation. No session or new identity is created.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaInvitationRequiredProblem"
     ActionsGrant405:
       description: Closed request admission failure.
       headers:
@@ -3915,9 +4004,8 @@ components:
             - *a3
             - type: "null"
         isAdmin: *a1
-        createdAt: &a4
-          type: string
-          format: date-time
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
         personalOrganizationId:
           anyOf:
             - *a2
@@ -3940,15 +4028,17 @@ components:
         githubLogin:
           type: string
           maxLength: 39
-        createdAt: *a4
-        expiresAt: *a4
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
         acceptedAt:
           anyOf:
-            - *a4
+            - $ref: "#/components/schemas/Timestamp"
             - type: "null"
         revokedAt:
           anyOf:
-            - *a4
+            - $ref: "#/components/schemas/Timestamp"
             - type: "null"
     AlphaInvitationRequest:
       type: object
@@ -4011,7 +4101,7 @@ components:
           maxLength: 200
         lastSeenAt:
           anyOf:
-            - *a4
+            - $ref: "#/components/schemas/Timestamp"
             - type: "null"
         capacity:
           anyOf:
@@ -4058,14 +4148,15 @@ components:
             - cancelled
             - orphaned
         attempt: *a3
-        createdAt: *a4
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
         startedAt:
           anyOf:
-            - *a4
+            - $ref: "#/components/schemas/Timestamp"
             - type: "null"
         completedAt:
           anyOf:
-            - *a4
+            - $ref: "#/components/schemas/Timestamp"
             - type: "null"
     AlphaUsage:
       type: object
@@ -4193,6 +4284,84 @@ components:
             - type: string
               maxLength: 200
             - type: "null"
+    AlphaProblem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          enum:
+            - invalid_request
+            - authentication_required
+            - admin_required
+            - not_found
+            - idempotency_key_conflict
+            - last_administrator
+            - invitation_not_revocable
+            - account_already_admitted
+            - rate_limited
+            - admin_unavailable
+    AlphaConflictProblem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 409
+        code:
+          type: string
+          enum:
+            - idempotency_key_conflict
+            - last_administrator
+            - invitation_not_revocable
+            - account_already_admitted
+    AlphaInvitationRequiredProblem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 403
+        code:
+          type: string
+          const: invitation_required
     PublicationResult:
       {
         "type": "object",

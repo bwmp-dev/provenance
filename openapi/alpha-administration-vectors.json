@@ -1,0 +1,32 @@
+[
+  {
+    "operationId": "createSession",
+    "status": 403,
+    "code": "invitation_required",
+    "scenario": "unadmitted account has no valid invitation"
+  },
+  {
+    "operationId": "setAlphaAdministrator",
+    "status": 409,
+    "code": "last_administrator",
+    "scenario": "removal would leave no administrator"
+  },
+  {
+    "operationId": "revokeAlphaInvitation",
+    "status": 409,
+    "code": "invitation_not_revocable",
+    "scenario": "invitation has already been accepted"
+  },
+  {
+    "operationId": "createAlphaInvitation",
+    "status": 409,
+    "code": "account_already_admitted",
+    "scenario": "numeric GitHub account is already admitted"
+  },
+  {
+    "operationId": "createAlphaInvitation",
+    "status": 409,
+    "code": "idempotency_key_conflict",
+    "scenario": "caller reuses a key with a changed request"
+  }
+]

@@ -1,3 +1,4 @@
+import { beforeAlphaAdmission } from "./alpha-compat.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
