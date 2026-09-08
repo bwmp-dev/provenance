@@ -161,17 +161,17 @@ paths:
         "401":
           $ref: "#/components/responses/HostedProblem401"
         "403":
-          $ref: "#/components/responses/HostedProblem403"
+          $ref: "#/components/responses/HostedUpdaterProblem403"
         "404":
           $ref: "#/components/responses/HostedProblem404"
         "409":
-          $ref: "#/components/responses/HostedProblem409"
+          $ref: "#/components/responses/HostedUpdaterProblem409"
         "503":
-          $ref: "#/components/responses/HostedProblem503"
+          $ref: "#/components/responses/HostedUpdaterProblem503"
         "429":
           $ref: "#/components/responses/HostedProblem429"
         default:
-          $ref: "#/components/responses/HostedProblem503"
+          $ref: "#/components/responses/HostedUpdaterProblem503"
       security:
         - HostedRunnerUpdater: []
       summary: Poll and report a node-bound hosted update
@@ -2815,13 +2815,13 @@ paths:
         "401":
           $ref: "#/components/responses/HostedProblem401"
         "403":
-          $ref: "#/components/responses/HostedProblem403"
+          $ref: "#/components/responses/HostedUpdaterProblem403"
         "429":
           $ref: "#/components/responses/HostedProblem429"
         "503":
-          $ref: "#/components/responses/HostedProblem503"
+          $ref: "#/components/responses/HostedUpdaterProblem503"
         default:
-          $ref: "#/components/responses/HostedProblem503"
+          $ref: "#/components/responses/HostedUpdaterProblem503"
 components:
   securitySchemes:
     HostedRunnerUpdater:
@@ -4445,6 +4445,42 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/HostedProblem503"
+    HostedUpdaterProblem403:
+      description: Hosted runner request failed (403). No request values or
+        credentials are reflected.
+      headers:
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/HostedUpdaterProblem403"
+    HostedUpdaterProblem409:
+      description: Hosted runner request failed (409). No request values or
+        credentials are reflected.
+      headers:
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/HostedUpdaterProblem409"
+    HostedUpdaterProblem503:
+      description: Hosted runner request failed (503). No request values or
+        credentials are reflected.
+      headers:
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/HostedUpdaterProblem503"
   requestBodies:
     CreateSession:
       required: true
@@ -4604,6 +4640,7 @@ components:
           maxLength: 2048
           minLength: 1
           type: string
+          pattern: ^https://
         version:
           type: string
           maxLength: 128
@@ -4699,6 +4736,7 @@ components:
           type:
             - array
             - "null"
+          maxItems: 50
         updaterConfigured:
           type: boolean
         updaterLastSeenAt:
@@ -4711,6 +4749,7 @@ components:
           type:
             - array
             - "null"
+          maxItems: 50
       required:
         - releases
         - updates
@@ -8034,6 +8073,7 @@ components:
           type:
             - array
             - "null"
+          maxItems: 200
       required:
         - runners
       type: object
@@ -8399,3 +8439,69 @@ components:
           type: string
           enum:
             - admin_unavailable
+    HostedUpdaterProblem403:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 403
+        code:
+          type: string
+          enum:
+            - updater_forbidden
+    HostedUpdaterProblem409:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 409
+        code:
+          type: string
+          enum:
+            - runner_update_conflict
+    HostedUpdaterProblem503:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 503
+        code:
+          type: string
+          enum:
+            - updater_unavailable

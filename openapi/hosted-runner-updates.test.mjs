@@ -67,6 +67,10 @@ test("every hosted operation has closed non-reflective no-store failures", () =>
   for (const path of paths)
     for (const [method, op] of Object.entries(doc.paths[path])) {
       count++;
+      assert.equal(
+        op.responses[200].headers["Cache-Control"].schema.const,
+        "no-store",
+      );
       assert.ok(
         !(op.parameters ?? []).some((p) =>
           ["Authorization", "provenance_session"].includes(p.name),
@@ -112,7 +116,21 @@ test("every hosted operation has closed non-reflective no-store failures", () =>
         assert.deepEqual(schema.required, ["type", "title", "status", "code"]);
         assert.deepEqual(Object.keys(schema.properties), schema.required);
         assert.equal(schema.properties.status.const, status);
-        assert.ok(schema.properties.code.enum.length);
+        const codes = {
+          400: ["invalid_request"],
+          401: ["authentication_required"],
+          403: ["admin_required"],
+          404: ["not_found"],
+          409: ["idempotency_key_conflict", "runner_update_conflict"],
+          429: ["rate_limited"],
+          503: ["admin_unavailable"],
+        };
+        if (!path.startsWith("/v1/admin/")) {
+          codes[403] = ["updater_forbidden"];
+          codes[409] = ["runner_update_conflict"];
+          codes[503] = ["updater_unavailable"];
+        }
+        assert.deepEqual(schema.properties.code.enum, codes[status]);
       }
     }
   assert.equal(count, 7);
@@ -139,4 +157,12 @@ test("release existence stays private and polling IDs are bounded", () => {
     "/v1/admin/hosted-runners/install-profile",
   ])
     assert.deepEqual(doc.paths[p].get.parameters, []);
+});
+
+test("hosted fixed collections and privileged release URLs are bounded", () => {
+  const s = doc.components.schemas;
+  assert.equal(s.HostedRunnerList.properties.runners.maxItems, 200);
+  for (const field of ["updates", "releases"])
+    assert.equal(s.HostedRunnerUpdateView.properties[field].maxItems, 50);
+  assert.equal(s.HostedRunnerRelease.properties.url.pattern, "^https://");
 });

@@ -2660,6 +2660,33 @@ export interface components {
             /** @enum {string} */
             code: "admin_unavailable";
         };
+        HostedUpdaterProblem403: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 403;
+            /** @enum {string} */
+            code: "updater_forbidden";
+        };
+        HostedUpdaterProblem409: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 409;
+            /** @enum {string} */
+            code: "runner_update_conflict";
+        };
+        HostedUpdaterProblem503: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 503;
+            /** @enum {string} */
+            code: "updater_unavailable";
+        };
         sha256: string;
         version: string;
         digest: {
@@ -3928,6 +3955,36 @@ export interface components {
                 "application/problem+json": components["schemas"]["HostedProblem503"];
             };
         };
+        /** @description Hosted runner request failed (403). No request values or credentials are reflected. */
+        HostedUpdaterProblem403: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedUpdaterProblem403"];
+            };
+        };
+        /** @description Hosted runner request failed (409). No request values or credentials are reflected. */
+        HostedUpdaterProblem409: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedUpdaterProblem409"];
+            };
+        };
+        /** @description Hosted runner request failed (503). No request values or credentials are reflected. */
+        HostedUpdaterProblem503: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedUpdaterProblem503"];
+            };
+        };
     };
     parameters: {
         /** @description IFC-020 device initiation/decision key. Different payload reuse conflicts. Successful initiation retains only hashes: identical replay returns credential_not_replayable, never the original device secret. Decisions replay only the matching nonsecret outcome for the same currently active user identity. See device-login-semantics.md for deadline precedence. */
@@ -4211,12 +4268,12 @@ export interface operations {
             };
             400: components["responses"]["HostedProblem400"];
             401: components["responses"]["HostedProblem401"];
-            403: components["responses"]["HostedProblem403"];
+            403: components["responses"]["HostedUpdaterProblem403"];
             404: components["responses"]["HostedProblem404"];
-            409: components["responses"]["HostedProblem409"];
+            409: components["responses"]["HostedUpdaterProblem409"];
             429: components["responses"]["HostedProblem429"];
-            503: components["responses"]["HostedProblem503"];
-            default: components["responses"]["HostedProblem503"];
+            503: components["responses"]["HostedUpdaterProblem503"];
+            default: components["responses"]["HostedUpdaterProblem503"];
         };
     };
     listAlphaOrganizations: {
@@ -6505,10 +6562,10 @@ export interface operations {
                 };
             };
             401: components["responses"]["HostedProblem401"];
-            403: components["responses"]["HostedProblem403"];
+            403: components["responses"]["HostedUpdaterProblem403"];
             429: components["responses"]["HostedProblem429"];
-            503: components["responses"]["HostedProblem503"];
-            default: components["responses"]["HostedProblem503"];
+            503: components["responses"]["HostedUpdaterProblem503"];
+            default: components["responses"]["HostedUpdaterProblem503"];
         };
     };
 }

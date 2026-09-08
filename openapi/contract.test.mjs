@@ -648,7 +648,11 @@ test("every operation exposes structured failure responses", () => {
     if (hostedUpdateOperations.has(operation.operationId)) {
       assert.equal(
         operation.responses.default?.$ref,
-        "#/components/responses/HostedProblem503",
+        ["pollHostedRunnerUpdate", "downloadHostedRunnerRelease"].includes(
+          operation.operationId,
+        )
+          ? "#/components/responses/HostedUpdaterProblem503"
+          : "#/components/responses/HostedProblem503",
       );
       continue;
     }
