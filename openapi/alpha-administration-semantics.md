@@ -38,7 +38,9 @@ must be reused with the same filters. Execution history is newest first with a
 stable `(createdAt,id)` keyset; active mode includes queued, offered, leased,
 preparing, running and orphaned work. Runner activity counts offered, leased,
 preparing and running assignments. A last-seen timestamp is an observation, not a
-claim that a runner remains connected. Other lists use stable UUID keysets.
+claim that a runner remains connected. Other lists use stable UUID keysets. The administrator organization inventory
+includes personal owner identity, member count and project count independently of
+usage intervals; these reads do not grant organization membership.
 
 Usage is organization-attributed recorded ledger observations within a half-open
 `[from,to)` interval of at most31 days. Quantities are exact decimal strings.

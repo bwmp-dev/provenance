@@ -1,5 +1,6 @@
 import { beforeAlphaAdmission } from "./alpha-compat.mjs";
 const alphaPaths = [
+  "/v1/admin/organizations",
   "/v1/account",
   "/v1/admin/users",
   "/v1/admin/invitations",

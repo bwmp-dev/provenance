@@ -121,6 +121,14 @@ export const legacyContractBundles = [
       },
       { source: "openapi/redocly.yaml", destination: "redocly.yaml" },
       {
+        source: "openapi/alpha-administration-semantics.md",
+        destination: "alpha-administration-semantics.md",
+      },
+      {
+        source: "openapi/alpha-administration-vectors.json",
+        destination: "alpha-administration-vectors.json",
+      },
+      {
         source: "openapi/publication-result-semantics.md",
         destination: "publication-result-semantics.md",
       },

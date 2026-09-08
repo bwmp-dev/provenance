@@ -1,6 +1,12 @@
 [
   {
     "method": "get",
+    "operationId": "listAlphaOrganizations",
+    "path": "/v1/admin/organizations",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
     "operationId": "getAlphaAccount",
     "path": "/v1/account",
     "tag": "authentication"

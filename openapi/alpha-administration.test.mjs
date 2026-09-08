@@ -16,6 +16,15 @@ const resolve = (value) =>
         .reduce((o, k) => o[k], doc)
     : value;
 const properties = {
+  AlphaOrganization: [
+    "id",
+    "displayName",
+    "slug",
+    "personalOwnerId",
+    "memberCount",
+    "projectCount",
+    "createdAt",
+  ],
   AlphaAccount: [
     "userId",
     "displayName",
@@ -68,7 +77,7 @@ const properties = {
   AlphaUsage: ["organizationId", "organizationName", "metrics"],
 };
 test("IFC023 all admin outcomes are private and operational projections are closed", () => {
-  assert.equal(paths.length, 8);
+  assert.equal(paths.length, 9);
   for (const [, item] of paths)
     for (const [method, op] of Object.entries(item)) {
       assert.deepEqual(op.security, [{ SessionCookie: [] }]);
@@ -98,7 +107,14 @@ test("IFC023 all admin outcomes are private and operational projections are clos
     assert.deepEqual(Object.keys(s.properties), expected);
     assert.deepEqual(s.required, expected);
   }
-  for (const name of ["User", "Runner", "Execution", "Invitation", "Usage"]) {
+  for (const name of [
+    "User",
+    "Organization",
+    "Runner",
+    "Execution",
+    "Invitation",
+    "Usage",
+  ]) {
     const s = doc.components.schemas["Alpha" + name + "Page"];
     assert.equal(s.additionalProperties, false);
     assert.equal(s.properties.items.maxItems, 100);
