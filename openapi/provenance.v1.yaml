@@ -81,13 +81,7 @@ paths:
     post:
       operationId: changeHostedRunnerUpdate
       parameters:
-        - in: header
-          name: Idempotency-Key
-          required: true
-          schema:
-            maxLength: 128
-            minLength: 8
-            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         content:
           application/json:
@@ -162,8 +156,6 @@ paths:
           $ref: "#/components/responses/HostedProblem401"
         "403":
           $ref: "#/components/responses/HostedUpdaterProblem403"
-        "404":
-          $ref: "#/components/responses/HostedProblem404"
         "409":
           $ref: "#/components/responses/HostedUpdaterProblem409"
         "503":
@@ -2705,13 +2697,7 @@ paths:
     post:
       operationId: changeHostedRunner
       parameters:
-        - in: header
-          name: Idempotency-Key
-          required: true
-          schema:
-            maxLength: 128
-            minLength: 8
-            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         content:
           application/json:
@@ -4753,11 +4739,17 @@ components:
             - array
             - "null"
           maxItems: 50
+        truncated:
+          type: boolean
+          description:
+            True when additional inventory or history exists beyond the bounded
+            response.
       required:
         - releases
         - updates
         - updaterConfigured
         - updaterLastSeenAt
+        - truncated
       type: object
     HostedUpdaterCommand:
       additionalProperties: false
@@ -8077,8 +8069,14 @@ components:
             - array
             - "null"
           maxItems: 200
+        truncated:
+          type: boolean
+          description:
+            True when additional inventory or history exists beyond the bounded
+            response.
       required:
         - runners
+        - truncated
       type: object
     HostedRunnerNode:
       additionalProperties: false

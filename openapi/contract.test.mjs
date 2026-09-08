@@ -699,9 +699,9 @@ test("every mutation has deterministic idempotency semantics", () => {
     mutations.has(method),
   )) {
     if (hostedUpdateOperations.has(operation.operationId)) {
-      const key = operation.parameters?.find(
-        (p) => p.name === "Idempotency-Key",
-      );
+      const key = operation.parameters
+        ?.map(resolveParameter)
+        .find((p) => p.name === "Idempotency-Key");
       assert.equal(
         Boolean(key?.required),
         ["changeHostedRunnerUpdate", "changeHostedRunner"].includes(

@@ -19,12 +19,9 @@ test("hosted updater credentials are separate from human administration", () => 
     poll.parameters.some((p) => p.name === "Idempotency-Key"),
     false,
   );
-  assert.equal(
-    admin.post.parameters.find((p) => p.name === "Idempotency-Key").required,
-    true,
-  );
+  assert.equal(doc.components.parameters.IdempotencyKey.required, true);
   for (const op of [admin.get, admin.post, poll]) {
-    for (const status of ["400", "401", "403", "404", "503"])
+    for (const status of ["400", "401", "403", "503"])
       assert.ok(op.responses[status]);
     assert.ok(op.responses["200"].headers["Cache-Control"]);
   }
@@ -85,11 +82,13 @@ test("every hosted operation has closed non-reflective no-store failures", () =>
       const statuses =
         path === "/v1/runner-releases/{sha256}"
           ? [401, 403, 429, 503]
-          : method === "post"
-            ? [400, 401, 403, 404, 409, 429, 503]
-            : path === "/v1/admin/runner-updates"
-              ? [400, 401, 403, 404, 429, 503]
-              : [400, 401, 403, 429, 503];
+          : path.startsWith("/v1/runner-updater/")
+            ? [400, 401, 403, 409, 429, 503]
+            : method === "post"
+              ? [400, 401, 403, 404, 409, 429, 503]
+              : path === "/v1/admin/runner-updates"
+                ? [400, 401, 403, 404, 429, 503]
+                : [400, 401, 403, 429, 503];
       assert.deepEqual(
         Object.keys(op.responses)
           .filter((s) => s !== "200" && s !== "default")
@@ -195,4 +194,30 @@ test("hosted polling preserves durable node-bound operation semantics", () => {
       s[type].properties.releasePublicKey.pattern,
       "^[A-Za-z0-9+/]{43}=$",
     );
+});
+
+test("hosted mutations retain canonical idempotency and bounded views signal truncation", () => {
+  for (const p of ["/v1/admin/runner-updates", "/v1/admin/hosted-runners"])
+    assert.deepEqual(doc.paths[p].post.parameters, [
+      { $ref: "#/components/parameters/IdempotencyKey" },
+    ]);
+  for (const n of ["HostedRunnerList", "HostedRunnerUpdateView"]) {
+    assert.equal(
+      doc.components.schemas[n].properties.truncated.type,
+      "boolean",
+    );
+    assert.ok(doc.components.schemas[n].required.includes("truncated"));
+  }
+  assert.equal(
+    doc.paths["/v1/runner-updater/{runnerId}/poll"].post.responses[404],
+    undefined,
+  );
+  const semantics = readFileSync(
+    new URL("./hosted-runner-semantics.md", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    semantics,
+    /unbound or unavailable runner.*403 updater_forbidden/,
+  );
 });

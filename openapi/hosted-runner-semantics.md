@@ -34,3 +34,18 @@ reflect request fields, credentials, invalid values or internal diagnostics. An
 unauthorized release is indistinguishable from an unavailable release (403).
 Unknown server failures become 503. Contract tests exercise all seven operations;
 platform tests establish runtime authorization and state-transition behavior.
+
+An unbound or unavailable runner always returns 403 updater_forbidden during
+updater polling. There is no runner-existence-disclosing 404 on this operation.
+
+The hosted control views deliberately bound an operator-owned alpha fleet to the
+newest 200 registered nodes and the newest 50 releases and 50 per-node updates.
+These are bounded control views, not complete historical exports. A required
+`truncated` boolean is true whenever additional records exist beyond any returned
+collection. The console must signal truncation; the general paginated administrator
+runner inventory remains the complete fleet inventory. Direct lifecycle mutations
+continue to address any node by UUID even when it is outside this recent view.
+
+Consumers can generate the mechanically dereferenced hosted contract projection
+with `pnpm export:hosted-updates /path/to/output.json`. The exporter and its missing
+output-path behavior are exercised by the script tests in CI.

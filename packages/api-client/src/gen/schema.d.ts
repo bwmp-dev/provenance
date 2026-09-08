@@ -1433,6 +1433,8 @@ export interface components {
             updaterConfigured: boolean;
             updaterLastSeenAt: components["schemas"]["Timestamp"] | null;
             updates: components["schemas"]["HostedRunnerUpdate"][] | null;
+            /** @description True when additional inventory or history exists beyond the bounded response. */
+            truncated: boolean;
         };
         HostedUpdaterCommand: {
             healthy: boolean;
@@ -2543,6 +2545,8 @@ export interface components {
         };
         HostedRunnerList: {
             runners: components["schemas"]["HostedRunnerNode"][] | null;
+            /** @description True when additional inventory or history exists beyond the bounded response. */
+            truncated: boolean;
         };
         HostedRunnerNode: {
             credentialExpiresAt: components["schemas"]["Timestamp"];
@@ -4210,7 +4214,8 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "Idempotency-Key": string;
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
             cookie?: never;
@@ -4269,7 +4274,6 @@ export interface operations {
             400: components["responses"]["HostedProblem400"];
             401: components["responses"]["HostedProblem401"];
             403: components["responses"]["HostedUpdaterProblem403"];
-            404: components["responses"]["HostedProblem404"];
             409: components["responses"]["HostedUpdaterProblem409"];
             429: components["responses"]["HostedProblem429"];
             503: components["responses"]["HostedUpdaterProblem503"];
@@ -6482,7 +6486,8 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "Idempotency-Key": string;
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
             cookie?: never;
