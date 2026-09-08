@@ -1421,14 +1421,6 @@ export interface components {
             items: components["schemas"]["AlphaUsage"][];
             nextCursor: string | null;
         };
-        AlphaProblem: {
-            /** @constant */
-            type: "about:blank";
-            title: string;
-            status: number;
-            /** @enum {string} */
-            code: "invalid_request" | "authentication_required" | "admin_required" | "not_found" | "idempotency_key_conflict" | "last_administrator" | "invitation_not_revocable" | "account_already_admitted" | "rate_limited" | "admin_unavailable";
-        };
         AlphaConflictProblem: {
             /** @constant */
             type: "about:blank";
@@ -2355,6 +2347,60 @@ export interface components {
             matrixExecutions: number;
             publicationAttempts: number;
         };
+        AlphaProblem400: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 400;
+            /** @constant */
+            code: "invalid_request";
+        };
+        AlphaProblem401: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 401;
+            /** @constant */
+            code: "authentication_required";
+        };
+        AlphaProblem403: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 403;
+            /** @constant */
+            code: "admin_required";
+        };
+        AlphaProblem404: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 404;
+            /** @constant */
+            code: "not_found";
+        };
+        AlphaProblem429: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 429;
+            /** @constant */
+            code: "rate_limited";
+        };
+        AlphaProblem503: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 503;
+            /** @constant */
+            code: "admin_unavailable";
+        };
         sha256: string;
         version: string;
         digest: {
@@ -2577,16 +2623,6 @@ export interface components {
         };
     };
     responses: {
-        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
-        AlphaProblem: {
-            headers: {
-                "Cache-Control": components["headers"]["AlphaNoStore"];
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["AlphaProblem"];
-            };
-        };
         /** @description The idempotency key conflicts with a different request, the target account is already admitted, the invitation has been accepted, or this change would remove the final administrator. The code identifies the precise refusal. */
         AlphaConflict: {
             headers: {
@@ -3503,6 +3539,66 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem400: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem400"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem401: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem401"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem403: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem403"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem404: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem404"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem429: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem429"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem503: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem503"];
+            };
+        };
     };
     parameters: {
         /** @description IFC-020 device initiation/decision key. Different payload reuse conflicts. Successful initiation retains only hashes: identical replay returns credential_not_replayable, never the original device secret. Decisions replay only the matching nonsecret outcome for the same currently active user identity. See device-login-semantics.md for deadline precedence. */
@@ -3718,13 +3814,13 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaOrganizationPage"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     getAlphaAccount: {
@@ -3746,13 +3842,13 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaAccount"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     listAlphaUsers: {
@@ -3779,13 +3875,13 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaUserPage"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     listAlphaInvitations: {
@@ -3812,13 +3908,13 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaInvitationPage"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     createAlphaInvitation: {
@@ -3847,14 +3943,14 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaInvitation"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
             409: components["responses"]["AlphaConflict"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     listAlphaRunners: {
@@ -3881,13 +3977,13 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaRunnerPage"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     listAlphaExecutions: {
@@ -3916,13 +4012,13 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaExecutionPage"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     listAlphaUsage: {
@@ -3952,13 +4048,13 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaUsagePage"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     revokeAlphaInvitation: {
@@ -3985,14 +4081,14 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaInvitation"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
             409: components["responses"]["AlphaConflict"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     setAlphaAdministrator: {
@@ -4023,14 +4119,14 @@ export interface operations {
                     "application/json": components["schemas"]["AlphaUser"];
                 };
             };
-            400: components["responses"]["AlphaProblem"];
-            401: components["responses"]["AlphaProblem"];
-            403: components["responses"]["AlphaProblem"];
-            404: components["responses"]["AlphaProblem"];
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
             409: components["responses"]["AlphaConflict"];
-            429: components["responses"]["AlphaProblem"];
-            503: components["responses"]["AlphaProblem"];
-            default: components["responses"]["AlphaProblem"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
         };
     };
     getReleaseCandidatePublicationResult: {

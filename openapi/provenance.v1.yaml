@@ -41,11 +41,11 @@ paths:
       operationId: listAlphaOrganizations
       summary: List alpha organizations
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. See alpha-administration-semantics.md for
+        admission, conflict precedence, retention and pagination rules."
       tags:
         - organizations-projects
       security:
@@ -64,29 +64,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaOrganizationPage"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
   /v1/account:
     get:
       operationId: getAlphaAccount
       summary: Read current account and administrator access
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. See alpha-administration-semantics.md for
+        admission, conflict precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -103,29 +103,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaAccount"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
   /v1/admin/users:
     get:
       operationId: listAlphaUsers
       summary: List alpha users
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. See alpha-administration-semantics.md for
+        admission, conflict precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -146,29 +146,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaUserPage"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
   /v1/admin/invitations:
     get:
       operationId: listAlphaInvitations
       summary: List alpha invitations
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. See alpha-administration-semantics.md for
+        admission, conflict precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -187,30 +187,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaInvitationPage"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
     post:
       operationId: createAlphaInvitation
       summary: Invite a verified numeric GitHub account for seven days
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. Mutations are audited and use caller-scoped idempotency: an
-        unchanged replay returns its original outcome; a changed request
-        conflicts. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. Mutations are audited and use caller-scoped
+        idempotency: an unchanged replay returns its original outcome; a changed
+        request conflicts. See alpha-administration-semantics.md for admission,
+        conflict precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -228,21 +228,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaInvitation"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "409":
           $ref: "#/components/responses/AlphaConflict"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
       requestBody:
         required: true
         content:
@@ -254,11 +254,11 @@ paths:
       operationId: listAlphaRunners
       summary: List alpha runners
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. See alpha-administration-semantics.md for
+        admission, conflict precedence, retention and pagination rules."
       tags:
         - runners
       security:
@@ -277,29 +277,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaRunnerPage"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
   /v1/admin/executions:
     get:
       operationId: listAlphaExecutions
       summary: List alpha executions
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. See alpha-administration-semantics.md for
+        admission, conflict precedence, retention and pagination rules."
       tags:
         - runners
       security:
@@ -330,31 +330,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaExecutionPage"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
   /v1/admin/usage:
     get:
       operationId: listAlphaUsage
       summary: List alpha usage
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. Interval is half-open [from,to), maximum31 days. Quantities are
-        exact decimal strings of recorded organization observations; pending
-        ingestion is not included. See alpha-administration-semantics.md for
-        admission, conflict precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. Interval is half-open [from,to), maximum31
+        days. Quantities are exact decimal strings of recorded organization
+        observations; pending ingestion is not included. See
+        alpha-administration-semantics.md for admission, conflict precedence,
+        retention and pagination rules."
       tags:
         - usage
       security:
@@ -387,31 +388,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaUsagePage"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
   /v1/admin/invitations/{invitationId}:
     delete:
       operationId: revokeAlphaInvitation
       summary: Revoke an unaccepted invitation
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. Mutations are audited and use caller-scoped idempotency: an
-        unchanged replay returns its original outcome; a changed request
-        conflicts. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. Mutations are audited and use caller-scoped
+        idempotency: an unchanged replay returns its original outcome; a changed
+        request conflicts. See alpha-administration-semantics.md for admission,
+        conflict precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -433,34 +434,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaInvitation"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "409":
           $ref: "#/components/responses/AlphaConflict"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
   /v1/admin/users/{userId}/administrator:
     put:
       operationId: setAlphaAdministrator
       summary: Grant or remove administrator access while retaining at least one
         administrator
       description: "Invite-only alpha administration. Requires a current human
-        session; API tokens and GitHub Actions grants are forbidden. Administrator
-        authority is checked from durable state on every request. No credentials
-        or raw logs are returned. Responses are private and Cache-Control:
-        no-store. Mutations are audited and use caller-scoped idempotency: an
-        unchanged replay returns its original outcome; a changed request
-        conflicts. See alpha-administration-semantics.md for admission, conflict
-        precedence, retention and pagination rules."
+        session; API tokens and GitHub Actions grants are forbidden.
+        Administrator authority is checked from durable state on every request.
+        No credentials or raw logs are returned. Responses are private and
+        Cache-Control: no-store. Mutations are audited and use caller-scoped
+        idempotency: an unchanged replay returns its original outcome; a changed
+        request conflicts. See alpha-administration-semantics.md for admission,
+        conflict precedence, retention and pagination rules."
       tags:
         - authentication
       security:
@@ -482,21 +483,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/AlphaUser"
         "400":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem400"
         "401":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem401"
         "403":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem403"
         "404":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem404"
         "409":
           $ref: "#/components/responses/AlphaConflict"
         "429":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem429"
         "503":
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
         default:
-          $ref: "#/components/responses/AlphaProblem"
+          $ref: "#/components/responses/AlphaProblem503"
       requestBody:
         required: true
         content:
@@ -510,14 +511,14 @@ paths:
       operationId: getReleaseCandidatePublicationResult
       summary: Read the exact candidate generation publication result
       description: "IFC-021. Authenticated read using existing tenant/project
-        release-candidate read capability. Foreign or missing candidate/generation
-        is indistinguishable (404); visible but insufficient authority is 403.
-        GitHub Actions grants do not authorize this operation. Read one coherent
-        database snapshot without provider calls, reconciliation, writes or
-        custody access. Preserve immutable aggregate decisions independently of
-        target dispositions and later remote knowledge. All responses are
-        Cache-Control: no-store. See publication-result-semantics.md; no history
-        or cursor is exposed."
+        release-candidate read capability. Foreign or missing
+        candidate/generation is indistinguishable (404); visible but
+        insufficient authority is 403. GitHub Actions grants do not authorize
+        this operation. Read one coherent database snapshot without provider
+        calls, reconciliation, writes or custody access. Preserve immutable
+        aggregate decisions independently of target dispositions and later
+        remote knowledge. All responses are Cache-Control: no-store. See
+        publication-result-semantics.md; no history or cursor is exposed."
       tags:
         - release-candidates
       x-provenance-interface: IFC-021
@@ -661,15 +662,16 @@ paths:
       security: []
       description: >-
         IFC-017 server-to-server operation. The BFF generates and retains the
-        verifier server-only, binds the returned independent state and authorization
-        ID to its browser session, and enforces same-origin CSRF protection.
-        redirectUri must exactly match a configured HTTPS callback allowlist;
-        userinfo and fragments are forbidden. No caller-selected App/client ID,
-        scopes, provider origin or return URL is permitted. The providerUrl uses
-        https://github.com/login/oauth/authorize with the configured client ID,
-        exact redirectUri, returned state and supplied S256 challenge.
-        Finite server-configured lifetimes are mandatory; expiry is immutable.
-        Never log state, verifier, code, provider URL or credentials.
+        verifier server-only, binds the returned independent state and
+        authorization ID to its browser session, and enforces same-origin CSRF
+        protection. redirectUri must exactly match a configured HTTPS callback
+        allowlist; userinfo and fragments are forbidden. No caller-selected
+        App/client ID, scopes, provider origin or return URL is permitted. The
+        providerUrl uses https://github.com/login/oauth/authorize with the
+        configured client ID, exact redirectUri, returned state and supplied
+        S256 challenge. Finite server-configured lifetimes are mandatory; expiry
+        is immutable. Never log state, verifier, code, provider URL or
+        credentials.
       parameters:
         - $ref: "#/components/parameters/GitHubAuthorizationIdempotencyKey"
       requestBody:
@@ -680,7 +682,9 @@ paths:
               $ref: "#/components/schemas/CreateGitHubAuthorizationRequest"
       responses:
         "201":
-          description: Authorization created, or identical initiation replay without extending expiry.
+          description:
+            Authorization created, or identical initiation replay without
+            extending expiry.
           headers:
             Cache-Control:
               $ref: "#/components/headers/GitHubAuthNoStore"
@@ -714,13 +718,15 @@ paths:
         numeric GitHub user data, never caller assertions. GitHub access/refresh
         tokens are never returned. The one-time exchangeToken is consumed by the
         unchanged POST /v1/auth/sessions operation, never by browser JavaScript.
-        Persist only its hash. Successful replay returns credential_not_replayable,
-        not a regenerated credential. Lost upstream response, crash during exchange,
-        or otherwise uncertain code consumption returns authorization_completion_uncertain;
-        lease expiry never authorizes retrying the code. Both outcomes require a
-        fresh authorization. A known pre-exchange failure may return
-        github_auth_unavailable without consuming authorization. Finite configured
-        token expiry is immutable. No sensitive values enter errors or telemetry.
+        Persist only its hash. Successful replay returns
+        credential_not_replayable, not a regenerated credential. Lost upstream
+        response, crash during exchange, or otherwise uncertain code consumption
+        returns authorization_completion_uncertain; lease expiry never
+        authorizes retrying the code. Both outcomes require a fresh
+        authorization. A known pre-exchange failure may return
+        github_auth_unavailable without consuming authorization. Finite
+        configured token expiry is immutable. No sensitive values enter errors
+        or telemetry.
       parameters:
         - $ref: "#/components/parameters/GitHubCompletionIdempotencyKey"
         - name: authorizationId
@@ -736,7 +742,8 @@ paths:
               $ref: "#/components/schemas/CompleteGitHubAuthorizationRequest"
       responses:
         "200":
-          description: One-time platform exchange token, shown only once to the server-side caller.
+          description: One-time platform exchange token, shown only once to the
+            server-side caller.
           headers:
             Cache-Control:
               $ref: "#/components/headers/GitHubAuthNoStore"
@@ -863,10 +870,11 @@ paths:
       operationId: decideDeviceAuthorization
       summary: Explicitly approve or deny a device login
       description: >-
-        IFC-020; see device-login-semantics.md for normative state and timing precedence.
-        JSON request body is at most 4096 UTF-8 bytes. Reject any Origin header,
-        including null or empty, before credential lookup. Server-only callers;
-        never send device or exchange secrets in URLs, logs or error details.
+        IFC-020; see device-login-semantics.md for normative state and timing
+        precedence. JSON request body is at most 4096 UTF-8 bytes. Reject any
+        Origin header, including null or empty, before credential lookup.
+        Server-only callers; never send device or exchange secrets in URLs, logs
+        or error details.
       tags: [authentication]
       security:
         - SessionCookie: []
@@ -911,10 +919,11 @@ paths:
       operationId: exchangeDeviceAuthorization
       summary: Poll and redeem a secret-bound device login
       description: >-
-        IFC-020; see device-login-semantics.md for normative state and timing precedence.
-        JSON request body is at most 4096 UTF-8 bytes. Reject any Origin header,
-        including null or empty, before credential lookup. Server-only callers;
-        never send device or exchange secrets in URLs, logs or error details.
+        IFC-020; see device-login-semantics.md for normative state and timing
+        precedence. JSON request body is at most 4096 UTF-8 bytes. Reject any
+        Origin header, including null or empty, before credential lookup.
+        Server-only callers; never send device or exchange secrets in URLs, logs
+        or error details.
       tags: [authentication]
       security: []
       requestBody:
@@ -925,7 +934,9 @@ paths:
               $ref: "#/components/schemas/DeviceLoginExchangeRequest"
       responses:
         "202":
-          description: Authorization pending; respect intervalSeconds and unchanged expiresAt.
+          description:
+            Authorization pending; respect intervalSeconds and unchanged
+            expiresAt.
           headers:
             Cache-Control:
               $ref: "#/components/headers/DeviceLoginNoStore"
@@ -934,7 +945,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/DeviceLoginPending"
         "200":
-          description: Platform exchange credential shown once; redeem through unchanged session creation.
+          description:
+            Platform exchange credential shown once; redeem through unchanged
+            session creation.
           headers:
             Cache-Control:
               $ref: "#/components/headers/DeviceLoginNoStore"
@@ -963,20 +976,22 @@ paths:
       operationId: createGitHubActionsGrant
       summary: Issue a shown-once GitHub Actions automation grant
       description: >-
-        IFC-022: a distinct automation principal, never a human session or API token.
-        Normative rules are in actions-grant-semantics.md and actions-grant-vectors.json
-        shipped with this OpenAPI bundle. The legacy github-oidc/exchanges operation
-        and its original-outcome replay promise are unchanged.
-        Accept at most 32768 UTF-8 request bytes and exactly one Idempotency-Key.
-        Reject Authorization, Cookie and Origin headers; this is not a browser flow.
-        Validate bounded syntax, configured verification policy, assertion signature
-        and claims, then current connection/project policy before issuance replay checks.
-        An identical successful issuance replay returns credential_not_replayable;
-        different-request key reuse returns idempotency_conflict; a spent assertion
-        under another key returns assertion_replayed. No conflict mints a credential.
-        All responses, including router, rate, size and recovery errors, are no-store
-        closed four-field problems. No raw assertion, credential, claims, provider
-        response or private source text may appear in logs or errors.
+        IFC-022: a distinct automation principal, never a human session or API
+        token. Normative rules are in actions-grant-semantics.md and
+        actions-grant-vectors.json shipped with this OpenAPI bundle. The legacy
+        github-oidc/exchanges operation and its original-outcome replay promise
+        are unchanged. Accept at most 32768 UTF-8 request bytes and exactly one
+        Idempotency-Key. Reject Authorization, Cookie and Origin headers; this
+        is not a browser flow. Validate bounded syntax, configured verification
+        policy, assertion signature and claims, then current connection/project
+        policy before issuance replay checks. An identical successful issuance
+        replay returns credential_not_replayable; different-request key reuse
+        returns idempotency_conflict; a spent assertion under another key
+        returns assertion_replayed. No conflict mints a credential. All
+        responses, including router, rate, size and recovery errors, are
+        no-store closed four-field problems. No raw assertion, credential,
+        claims, provider response or private source text may appear in logs or
+        errors.
       tags: [authentication]
       security: []
       parameters:
@@ -1251,8 +1266,18 @@ paths:
       security:
         - SessionCookie: []
       description: >-
-        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
-        Freeze session, user, organization/project and the complete request before constructing the configured GitHub authorization URL. Identical initiation replay returns the original authorization without extending expiry; changed content conflicts. Callback allowlist, S256 and confidential client follow IFC017. The caller cannot select App ID, scopes, provider origins or an arbitrary return URL. A missing or revoked session cannot replay.
+        Requires the initiating real session and current integrations:manage
+        capability in the frozen organization/project. Numeric GitHub user
+        identity must match the session. No bearer/API-token alternative.
+        Session-bound opaque identifiers are not credentials. Every response is
+        Cache-Control: no-store; never log state, code, verifier, credentials or
+        private provider responses. Freeze session, user, organization/project
+        and the complete request before constructing the configured GitHub
+        authorization URL. Identical initiation replay returns the original
+        authorization without extending expiry; changed content conflicts.
+        Callback allowlist, S256 and confidential client follow IFC017. The
+        caller cannot select App ID, scopes, provider origins or an arbitrary
+        return URL. A missing or revoked session cannot replay.
       parameters:
         - $ref: "#/components/parameters/GitHubConnectionInitiationIdempotencyKey"
       requestBody:
@@ -1295,8 +1320,25 @@ paths:
       security:
         - SessionCookie: []
       description: >-
-        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
-        Durably claim before exchanging the code once. Validate state/PKCE before revealing completion state. Verify fresh numeric user identity and provider authority, collect complete bounded metadata and discard the token. Configured total-result/provider-page/byte/deadline overflow returns terminal discovery_limit_exceeded, never a partial snapshot or another exchange. Snapshot expiry is fixed when created, finite and no later than the configured flow deadline; reads/replay never extend it. Expired payload must be purged without erasing audit/idempotency history. Successful replay returns only the original nonsecret snapshot while its expiry and original idempotency-retention window remain live. Pending expiry rejects; unknown code consumption never retries, even after claim expiry. Post-exchange failures without a durable result are uncertain and require fresh authorization.
+        Requires the initiating real session and current integrations:manage
+        capability in the frozen organization/project. Numeric GitHub user
+        identity must match the session. No bearer/API-token alternative.
+        Session-bound opaque identifiers are not credentials. Every response is
+        Cache-Control: no-store; never log state, code, verifier, credentials or
+        private provider responses. Durably claim before exchanging the code
+        once. Validate state/PKCE before revealing completion state. Verify
+        fresh numeric user identity and provider authority, collect complete
+        bounded metadata and discard the token. Configured
+        total-result/provider-page/byte/deadline overflow returns terminal
+        discovery_limit_exceeded, never a partial snapshot or another exchange.
+        Snapshot expiry is fixed when created, finite and no later than the
+        configured flow deadline; reads/replay never extend it. Expired payload
+        must be purged without erasing audit/idempotency history. Successful
+        replay returns only the original nonsecret snapshot while its expiry and
+        original idempotency-retention window remain live. Pending expiry
+        rejects; unknown code consumption never retries, even after claim
+        expiry. Post-exchange failures without a durable result are uncertain
+        and require fresh authorization.
       parameters:
         - $ref: "#/components/parameters/GitHubConnectionCompletionIdempotencyKey"
         - name: authorizationId
@@ -1344,8 +1386,18 @@ paths:
       security:
         - SessionCookie: []
       description: >-
-        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
-        Freeze session, user, organization/project and the complete request before constructing the configured GitHub authorization URL. Identical initiation replay returns the original authorization without extending expiry; changed content conflicts. Callback allowlist, S256 and confidential client follow IFC017. The caller cannot select App ID, scopes, provider origins or an arbitrary return URL. A missing or revoked session cannot replay.
+        Requires the initiating real session and current integrations:manage
+        capability in the frozen organization/project. Numeric GitHub user
+        identity must match the session. No bearer/API-token alternative.
+        Session-bound opaque identifiers are not credentials. Every response is
+        Cache-Control: no-store; never log state, code, verifier, credentials or
+        private provider responses. Freeze session, user, organization/project
+        and the complete request before constructing the configured GitHub
+        authorization URL. Identical initiation replay returns the original
+        authorization without extending expiry; changed content conflicts.
+        Callback allowlist, S256 and confidential client follow IFC017. The
+        caller cannot select App ID, scopes, provider origins or an arbitrary
+        return URL. A missing or revoked session cannot replay.
       parameters:
         - $ref: "#/components/parameters/GitHubConnectionInitiationIdempotencyKey"
       requestBody:
@@ -1388,8 +1440,24 @@ paths:
       security:
         - SessionCookie: []
       description: >-
-        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
-        Freeze exact selected provider identities and expected repository full name at initiation. Discovery is optional and never authority: a separate fresh exchange invokes actual installation authority, including session/capability rechecks, numeric user/account/repository proof and global tenant ownership, before discarding the token. No transfer, removal or adoption of another tenant's binding. Durably claim before exchange and validate state/PKCE before revealing completion state. Successful nonsecret connection replay may survive authorization expiry only within the original configured idempotency-retention window and after current session/capability checks, without another exchange, binding or audit. After that window no old code is exchanged again. Pending expiry rejects; unknown consumption remains uncertain even after claim expiry.
+        Requires the initiating real session and current integrations:manage
+        capability in the frozen organization/project. Numeric GitHub user
+        identity must match the session. No bearer/API-token alternative.
+        Session-bound opaque identifiers are not credentials. Every response is
+        Cache-Control: no-store; never log state, code, verifier, credentials or
+        private provider responses. Freeze exact selected provider identities
+        and expected repository full name at initiation. Discovery is optional
+        and never authority: a separate fresh exchange invokes actual
+        installation authority, including session/capability rechecks, numeric
+        user/account/repository proof and global tenant ownership, before
+        discarding the token. No transfer, removal or adoption of another
+        tenant's binding. Durably claim before exchange and validate state/PKCE
+        before revealing completion state. Successful nonsecret connection
+        replay may survive authorization expiry only within the original
+        configured idempotency-retention window and after current
+        session/capability checks, without another exchange, binding or audit.
+        After that window no old code is exchanged again. Pending expiry
+        rejects; unknown consumption remains uncertain even after claim expiry.
       parameters:
         - $ref: "#/components/parameters/GitHubConnectionCompletionIdempotencyKey"
         - name: authorizationId
@@ -1437,8 +1505,22 @@ paths:
       security:
         - SessionCookie: []
       description: >-
-        Requires the initiating real session and current integrations:manage capability in the frozen organization/project. Numeric GitHub user identity must match the session. No bearer/API-token alternative. Session-bound opaque identifiers are not credentials. Every response is Cache-Control: no-store; never log state, code, verifier, credentials or private provider responses.
-        Return only the complete immutable snapshot's observations, never current or durable provider authority. Authorize the same initiating session and current organization/project capability before revealing expiry. Missing/foreign snapshots return discovery_snapshot_not_found; owned expired snapshots return discovery_snapshot_expired. Cursor is opaque and bound to this snapshot and authorization context; invalid or substituted cursor returns invalid_cursor. Stable ordering and immutable pagination prevent gaps or duplicate items. hasMore is true exactly when a non-null nextCursor exists. Never contact the provider or retain a token to paginate. No payload is available after expiry.
+        Requires the initiating real session and current integrations:manage
+        capability in the frozen organization/project. Numeric GitHub user
+        identity must match the session. No bearer/API-token alternative.
+        Session-bound opaque identifiers are not credentials. Every response is
+        Cache-Control: no-store; never log state, code, verifier, credentials or
+        private provider responses. Return only the complete immutable
+        snapshot's observations, never current or durable provider authority.
+        Authorize the same initiating session and current organization/project
+        capability before revealing expiry. Missing/foreign snapshots return
+        discovery_snapshot_not_found; owned expired snapshots return
+        discovery_snapshot_expired. Cursor is opaque and bound to this snapshot
+        and authorization context; invalid or substituted cursor returns
+        invalid_cursor. Stable ordering and immutable pagination prevent gaps or
+        duplicate items. hasMore is true exactly when a non-null nextCursor
+        exists. Never contact the provider or retain a token to paginate. No
+        payload is available after expiry.
       parameters:
         - name: snapshotId
           in: path
@@ -1895,7 +1977,9 @@ paths:
             text/event-stream:
               schema:
                 type: string
-                description: Incrementally flushed SSE frames; consumers must not buffer the stream as one string.
+                description:
+                  Incrementally flushed SSE frames; consumers must not buffer the
+                  stream as one string.
                 x-provenance-streaming: true
                 x-provenance-max-event-bytes: 65536
                 x-provenance-event-schema: "#/components/schemas/ExecutionLogEvent"
@@ -2408,9 +2492,10 @@ paths:
       summary: Read the complete public attestation key snapshot
       description: >-
         Public-only discovery, not trust bootstrap or revocation. Match key IDs
-        exactly; never fetch envelope-supplied URLs. Retired keys remain valid for
-        historical verification. Every response uses Cache-Control no-store.
-        Invalid or unavailable snapshots return 503, never an empty successful set.
+        exactly; never fetch envelope-supplied URLs. Retired keys remain valid
+        for historical verification. Every response uses Cache-Control no-store.
+        Invalid or unavailable snapshots return 503, never an empty successful
+        set.
       tags: [verification]
       security: []
       responses:
@@ -2473,11 +2558,12 @@ components:
       in: header
       required: true
       description: >-
-        IFC-020 device initiation/decision key. Different payload reuse conflicts.
-        Successful initiation retains only hashes: identical replay returns
-        credential_not_replayable, never the original device secret. Decisions
-        replay only the matching nonsecret outcome for the same currently active
-        user identity. See device-login-semantics.md for deadline precedence.
+        IFC-020 device initiation/decision key. Different payload reuse
+        conflicts. Successful initiation retains only hashes: identical replay
+        returns credential_not_replayable, never the original device secret.
+        Decisions replay only the matching nonsecret outcome for the same
+        currently active user identity. See device-login-semantics.md for
+        deadline precedence.
       schema:
         $ref: "#/components/schemas/IdempotencyKey"
     GitHubConnectionInitiationIdempotencyKey:
@@ -2485,7 +2571,11 @@ components:
       in: header
       required: true
       description: >-
-        Required key scoped to initiating session, organization/project, HTTP method and route. Same key and exact request returns original authorization/state/provider URL/expiry without extension. Different content conflicts with idempotency_key_conflict. Current session and capability are required for every replay.
+        Required key scoped to initiating session, organization/project, HTTP
+        method and route. Same key and exact request returns original
+        authorization/state/provider URL/expiry without extension. Different
+        content conflicts with idempotency_key_conflict. Current session and
+        capability are required for every replay.
       schema:
         $ref: "#/components/schemas/IdempotencyKey"
     GitHubConnectionCompletionIdempotencyKey:
@@ -2493,7 +2583,17 @@ components:
       in: header
       required: true
       description: >-
-        Required key bound to initiating session, authorization ID and exact completion request. Validate state/PKCE before exposing replay status. Different content conflicts with idempotency_key_conflict. In-flight returns authorization_in_progress; unknown exchange returns authorization_completion_uncertain and never retries the code. Successful nonsecret results replay within the original configured retention window after fresh local access checks, unlike IFC017 credential_not_replayable. Discovery also requires a live snapshot. After retention expiry return authorization_expired without exchanging the code. Discovery overflow is terminal discovery_limit_exceeded; use fresh authorization.
+        Required key bound to initiating session, authorization ID and exact
+        completion request. Validate state/PKCE before exposing replay status.
+        Different content conflicts with idempotency_key_conflict. In-flight
+        returns authorization_in_progress; unknown exchange returns
+        authorization_completion_uncertain and never retries the code.
+        Successful nonsecret results replay within the original configured
+        retention window after fresh local access checks, unlike IFC017
+        credential_not_replayable. Discovery also requires a live snapshot.
+        After retention expiry return authorization_expired without exchanging
+        the code. Discovery overflow is terminal discovery_limit_exceeded; use
+        fresh authorization.
       schema:
         $ref: "#/components/schemas/IdempotencyKey"
     GitHubAuthorizationIdempotencyKey:
@@ -2516,9 +2616,10 @@ components:
         idempotency_key_conflict. A matching in-flight request returns
         authorization_in_progress. The server retains only a hash of the issued
         exchange token: successful replay returns credential_not_replayable.
-        Uncertain upstream code consumption returns authorization_completion_uncertain.
-        Neither permits repeating the upstream exchange or regenerating the
-        credential; start a new authorization and use new idempotency keys.
+        Uncertain upstream code consumption returns
+        authorization_completion_uncertain. Neither permits repeating the
+        upstream exchange or regenerating the credential; start a new
+        authorization and use new idempotency keys.
       schema:
         $ref: "#/components/schemas/IdempotencyKey"
     ActionsGrantIdempotencyKey:
@@ -2526,10 +2627,11 @@ components:
       in: header
       required: true
       description: >-
-        Dedicated shown-once issuance semantics: identical successful replay yields
-        credential_not_replayable, different request reuse idempotency_conflict.
-        Scope is the verified issuer and numeric repository, HTTP method and route.
-        Assertion replay identity is checked globally per issuer, not per key.
+        Dedicated shown-once issuance semantics: identical successful replay
+        yields credential_not_replayable, different request reuse
+        idempotency_conflict. Scope is the verified issuer and numeric
+        repository, HTTP method and route. Assertion replay identity is checked
+        globally per issuer, not per key.
       schema:
         type: string
         minLength: 8
@@ -2550,8 +2652,8 @@ components:
       in: header
       required: true
       description: >-
-        Caller-generated key scoped to browser session creation. Reusing the
-        key with a different request conflicts. After a request succeeds, the
+        Caller-generated key scoped to browser session creation. Reusing the key
+        with a different request conflicts. After a request succeeds, the
         platform retains only a hash of the issued credential and cannot
         reproduce the original Set-Cookie value. Replaying that same request
         therefore fails closed with HTTP 409 and code
@@ -2567,11 +2669,11 @@ components:
         Caller-generated key scoped to the authenticated identity, HTTP method,
         and route. Reuse with a different request returns
         `idempotency_key_conflict`. After a successful response containing a
-        registration token or connection credential, the authority retains
-        only the secret hash and cannot reproduce the plaintext. An identical
-        retry therefore returns HTTP 409 `credential_not_replayable`, never a
-        replacement secret; recovery requires a new authorized request and a
-        new idempotency key.
+        registration token or connection credential, the authority retains only
+        the secret hash and cannot reproduce the plaintext. An identical retry
+        therefore returns HTTP 409 `credential_not_replayable`, never a
+        replacement secret; recovery requires a new authorized request and a new
+        idempotency key.
       schema:
         $ref: "#/components/schemas/IdempotencyKey"
     OptionalIdempotencyKey:
@@ -2635,8 +2737,9 @@ components:
       required: false
       description: >-
         SSE reconnect cursor. When both cursor forms are present they must be
-        byte-for-byte equal. Any Last-Event-ID is invalid for JSON, and every SSE
-        reconnect independently reauthorizes and validates the selected cursor.
+        byte-for-byte equal. Any Last-Event-ID is invalid for JSON, and every
+        SSE reconnect independently reauthorizes and validates the selected
+        cursor.
       schema:
         $ref: "#/components/schemas/LogCursor"
     OrganizationId:
@@ -2816,22 +2919,12 @@ components:
         maxLength: 96
         pattern: ^attachment; filename="execution-[0-9a-f-]{36}\.log\.gz"$
   responses:
-    AlphaProblem:
-      description: Closed private administration failure. See
-        alpha-administration-semantics.md for status/code pairs.
-      headers:
-        Cache-Control:
-          $ref: "#/components/headers/AlphaNoStore"
-      content:
-        application/problem+json:
-          schema:
-            $ref: "#/components/schemas/AlphaProblem"
     AlphaConflict:
       description:
         The idempotency key conflicts with a different request, the target
         account is already admitted, the invitation has been accepted, or this
-        change would remove the final administrator. The code identifies the precise
-        refusal.
+        change would remove the final administrator. The code identifies the
+        precise refusal.
       headers:
         Cache-Control:
           $ref: "#/components/headers/AlphaNoStore"
@@ -3101,7 +3194,9 @@ components:
                 type: string
                 enum: [unavailable]
     DeviceLogin400:
-      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      description:
+        Fixed device-login failure; no submitted codes, credentials or
+        provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3121,7 +3216,9 @@ components:
               code:
                 enum: [invalid_authorization]
     DeviceLogin401:
-      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      description:
+        Fixed device-login failure; no submitted codes, credentials or
+        provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3141,7 +3238,9 @@ components:
               code:
                 enum: [authentication_required]
     DeviceLogin403:
-      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      description:
+        Fixed device-login failure; no submitted codes, credentials or
+        provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3161,7 +3260,9 @@ components:
               code:
                 enum: [authorization_denied]
     DeviceLogin409:
-      description: Fixed idempotency or consumed-credential conflict; no submitted codes or provider details.
+      description:
+        Fixed idempotency or consumed-credential conflict; no submitted
+        codes or provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3186,7 +3287,9 @@ components:
                     decision_conflict,
                   ]
     DeviceLogin410:
-      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      description:
+        Fixed device-login failure; no submitted codes, credentials or
+        provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3206,7 +3309,9 @@ components:
               code:
                 enum: [authorization_expired]
     DeviceLogin413:
-      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      description:
+        Fixed device-login failure; no submitted codes, credentials or
+        provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3226,7 +3331,9 @@ components:
               code:
                 enum: [request_too_large]
     DeviceLogin415:
-      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      description:
+        Fixed device-login failure; no submitted codes, credentials or
+        provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3246,7 +3353,9 @@ components:
               code:
                 enum: [unsupported_media_type]
     DeviceLogin429:
-      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      description:
+        Fixed device-login failure; no submitted codes, credentials or
+        provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3268,7 +3377,9 @@ components:
               code:
                 enum: [rate_limited]
     DeviceLogin503:
-      description: Fixed device-login failure; no submitted codes, credentials or provider details.
+      description:
+        Fixed device-login failure; no submitted codes, credentials or
+        provider details.
       headers:
         Cache-Control:
           $ref: "#/components/headers/DeviceLoginNoStore"
@@ -3288,7 +3399,9 @@ components:
               code:
                 enum: [authorization_unavailable]
     GitHubConnection400:
-      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      description:
+        Sanitized session-bound GitHub flow failure; never echoes request
+        or provider data.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3308,7 +3421,9 @@ components:
               code:
                 enum: [invalid_authorization, invalid_cursor]
     GitHubConnection401:
-      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      description:
+        Sanitized session-bound GitHub flow failure; never echoes request
+        or provider data.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3328,7 +3443,9 @@ components:
               code:
                 enum: [authentication_required]
     GitHubConnection403:
-      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      description:
+        Sanitized session-bound GitHub flow failure; never echoes request
+        or provider data.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3348,7 +3465,9 @@ components:
               code:
                 enum: [github_authority_forbidden]
     GitHubConnection404:
-      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      description:
+        Sanitized session-bound GitHub flow failure; never echoes request
+        or provider data.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3368,7 +3487,8 @@ components:
               code:
                 enum: [discovery_snapshot_not_found]
     GitHubConnection409:
-      description: Idempotency conflict or terminal/uncertain session-bound flow failure; never echoes request or provider data.
+      description: Idempotency conflict or terminal/uncertain session-bound flow
+        failure; never echoes request or provider data.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3397,7 +3517,9 @@ components:
                     github_connection_conflict,
                   ]
     GitHubConnection410:
-      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      description:
+        Sanitized session-bound GitHub flow failure; never echoes request
+        or provider data.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3417,7 +3539,9 @@ components:
               code:
                 enum: [authorization_expired, discovery_snapshot_expired]
     GitHubConnection429:
-      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data.
+      description:
+        Sanitized session-bound GitHub flow failure; never echoes request
+        or provider data.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3437,7 +3561,10 @@ components:
               code:
                 enum: [rate_limited]
     GitHubConnection503:
-      description: Sanitized session-bound GitHub flow failure; never echoes request or provider data. Only missing dependencies or failures known to precede code exchange permit this outcome.
+      description:
+        Sanitized session-bound GitHub flow failure; never echoes request
+        or provider data. Only missing dependencies or failures known to precede
+        code exchange permit this outcome.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3523,7 +3650,9 @@ components:
                   code:
                     enum: [idempotency_key_conflict]
     GitHubCompletionConflict:
-      description: Completion idempotency conflict, in-flight operation, unreplayable credential, or uncertain exchange.
+      description:
+        Completion idempotency conflict, in-flight operation, unreplayable
+        credential, or uncertain exchange.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3617,7 +3746,9 @@ components:
                   code:
                     enum: [github_auth_unavailable]
     GitHubAuthProblem:
-      description: Sanitized failure without request values, provider payloads, state, codes, verifiers or credentials.
+      description:
+        Sanitized failure without request values, provider payloads, state,
+        codes, verifiers or credentials.
       headers:
         Cache-Control:
           $ref: "#/components/headers/GitHubAuthNoStore"
@@ -3707,8 +3838,8 @@ components:
     LogCursorExpired:
       description: >-
         The valid, correctly scoped live cursor passed its short retention
-        boundary. Code `log_cursor_expired` is returned. This is distinct from an
-        accepted cursor whose position predates retained relay bytes, which
+        boundary. Code `log_cursor_expired` is returned. This is distinct from
+        an accepted cursor whose position predates retained relay bytes, which
         returns HTTP 200 with a `log-gap` event.
       headers:
         Cache-Control:
@@ -3869,6 +4000,66 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
+    AlphaProblem400:
+      description: Closed private administration failure. See
+        alpha-administration-semantics.md for status/code pairs.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaProblem400"
+    AlphaProblem401:
+      description: Closed private administration failure. See
+        alpha-administration-semantics.md for status/code pairs.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaProblem401"
+    AlphaProblem403:
+      description: Closed private administration failure. See
+        alpha-administration-semantics.md for status/code pairs.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaProblem403"
+    AlphaProblem404:
+      description: Closed private administration failure. See
+        alpha-administration-semantics.md for status/code pairs.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaProblem404"
+    AlphaProblem429:
+      description: Closed private administration failure. See
+        alpha-administration-semantics.md for status/code pairs.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaProblem429"
+    AlphaProblem503:
+      description: Closed private administration failure. See
+        alpha-administration-semantics.md for status/code pairs.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/AlphaNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/AlphaProblem503"
   requestBodies:
     CreateSession:
       required: true
@@ -4374,38 +4565,6 @@ components:
             - type: string
               maxLength: 200
             - type: "null"
-    AlphaProblem:
-      type: object
-      additionalProperties: false
-      required:
-        - type
-        - title
-        - status
-        - code
-      properties:
-        type:
-          type: string
-          const: about:blank
-        title:
-          type: string
-          maxLength: 200
-        status:
-          type: integer
-          minimum: 400
-          maximum: 599
-        code:
-          type: string
-          enum:
-            - invalid_request
-            - authentication_required
-            - admin_required
-            - not_found
-            - idempotency_key_conflict
-            - last_administrator
-            - invitation_not_revocable
-            - account_already_admitted
-            - rate_limited
-            - admin_unavailable
     AlphaConflictProblem:
       type: object
       additionalProperties: false
@@ -4966,13 +5125,16 @@ components:
       minLength: 43
       maxLength: 43
       pattern: "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
-      description: Canonical unpadded base64url encoding of 32 cryptographically random bytes.
+      description: Canonical unpadded base64url encoding of 32 cryptographically
+        random bytes.
     DeviceLoginUserCode:
       type: string
       minLength: 9
       maxLength: 9
       pattern: "^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$"
-      description: Unpredictable confirmation code; not a redemption credential. Exact uppercase spelling, no normalization.
+      description:
+        Unpredictable confirmation code; not a redemption credential. Exact
+        uppercase spelling, no normalization.
     DeviceLoginInterval:
       type: integer
       minimum: 1
@@ -5029,7 +5191,9 @@ components:
       type: integer
       minimum: 1
       maximum: 9007199254740991
-      description: Positive exact JSON safe integer supplied by GitHub, not a platform StableId.
+      description:
+        Positive exact JSON safe integer supplied by GitHub, not a platform
+        StableId.
     CreateGitHubDiscoveryAuthorizationRequest:
       type: object
       additionalProperties: false
@@ -5047,11 +5211,17 @@ components:
         projectId:
           $ref: "#/components/schemas/BoundedStableId"
         redirectUri:
-          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/redirectUri"
+          $ref:
+            "#/components/schemas/CreateGitHubAuthorizationRequest/properties/redirec\
+            tUri"
         codeChallenge:
-          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeChallenge"
+          $ref:
+            "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeCha\
+            llenge"
         codeChallengeMethod:
-          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeChallengeMethod"
+          $ref:
+            "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeCha\
+            llengeMethod"
     CreateGitHubConnectionAuthorizationRequest:
       type: object
       additionalProperties: false
@@ -5072,17 +5242,25 @@ components:
         projectId:
           $ref: "#/components/schemas/BoundedStableId"
         redirectUri:
-          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/redirectUri"
+          $ref:
+            "#/components/schemas/CreateGitHubAuthorizationRequest/properties/redirec\
+            tUri"
         codeChallenge:
-          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeChallenge"
+          $ref:
+            "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeCha\
+            llenge"
         codeChallengeMethod:
-          $ref: "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeChallengeMethod"
+          $ref:
+            "#/components/schemas/CreateGitHubAuthorizationRequest/properties/codeCha\
+            llengeMethod"
         githubInstallationId:
           $ref: "#/components/schemas/GitHubProviderId"
         githubRepositoryId:
           $ref: "#/components/schemas/GitHubProviderId"
         repositoryFullName:
-          $ref: "#/components/schemas/CreateGitHubConnectionRequest/properties/repositoryFullName"
+          $ref:
+            "#/components/schemas/CreateGitHubConnectionRequest/properties/repository\
+            FullName"
     GitHubDiscoverySnapshot:
       type: object
       additionalProperties: false
@@ -5092,11 +5270,15 @@ components:
           $ref: "#/components/schemas/GitHubAuthorizationOpaque32"
         expiresAt:
           $ref: "#/components/schemas/BoundedTimestamp"
-          description: Fixed finite snapshot expiry, no later than the configured flow deadline; never extended by reads or replay.
+          description:
+            Fixed finite snapshot expiry, no later than the configured flow
+            deadline; never extended by reads or replay.
     GitHubDiscoveryRepository:
       type: object
       additionalProperties: false
-      description: Private immutable observations, never proof authorizing a later connection. All IDs are provider IDs.
+      description:
+        Private immutable observations, never proof authorizing a later
+        connection. All IDs are provider IDs.
       required:
         [
           githubInstallationId,
@@ -5127,7 +5309,9 @@ components:
           minLength: 1
           maxLength: 255
         repositoryFullName:
-          $ref: "#/components/schemas/CreateGitHubConnectionRequest/properties/repositoryFullName"
+          $ref:
+            "#/components/schemas/CreateGitHubConnectionRequest/properties/repository\
+            FullName"
         isPrivate:
           type: boolean
     GitHubDiscoveryPageInfo:
@@ -5166,7 +5350,8 @@ components:
       minLength: 43
       maxLength: 43
       pattern: "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
-      description: Canonical unpadded base64url encoding of exactly 32 bytes, including zero unused pad bits.
+      description: Canonical unpadded base64url encoding of exactly 32 bytes,
+        including zero unused pad bits.
     CreateGitHubAuthorizationRequest:
       type: object
       additionalProperties: false
@@ -5177,7 +5362,10 @@ components:
           format: uri
           maxLength: 2048
           pattern: '^https://[^/@?#\s]+(?:/[^#\s]*)?$'
-          description: Exact configured allowlisted HTTPS callback URI; no userinfo or fragment. URI parsing and allowlist checks are required in addition to schema validation.
+          description:
+            Exact configured allowlisted HTTPS callback URI; no userinfo or
+            fragment. URI parsing and allowlist checks are required in addition
+            to schema validation.
         codeChallenge:
           $ref: "#/components/schemas/GitHubAuthorizationOpaque32"
         codeChallengeMethod:
@@ -5192,16 +5380,23 @@ components:
           $ref: "#/components/schemas/GitHubAuthorizationOpaque32"
         state:
           $ref: "#/components/schemas/GitHubAuthorizationOpaque32"
-          description: Independently generated random state; bind server-side to the initiating browser session.
+          description:
+            Independently generated random state; bind server-side to the
+            initiating browser session.
         providerUrl:
           type: string
           format: uri
           maxLength: 8192
           pattern: '^https://github\.com/login/oauth/authorize\?[^#\s]+$'
-          description: Server-constructed URL containing only the configured client ID and frozen authorization parameters. Sensitive state; never log or expose to telemetry.
+          description:
+            Server-constructed URL containing only the configured client ID and
+            frozen authorization parameters. Sensitive state; never log or
+            expose to telemetry.
         expiresAt:
           $ref: "#/components/schemas/BoundedTimestamp"
-          description: Immutable finite authorization expiry from required server configuration.
+          description:
+            Immutable finite authorization expiry from required server
+            configuration.
     CompleteGitHubAuthorizationRequest:
       type: object
       additionalProperties: false
@@ -5216,7 +5411,9 @@ components:
           maxLength: 4096
           pattern: '^[^\x00-\x1F\x7F-\x9F]+$'
           writeOnly: true
-          description: Opaque GitHub authorization code. This is an API resource bound, not an upstream format guarantee.
+          description:
+            Opaque GitHub authorization code. This is an API resource bound,
+            not an upstream format guarantee.
         codeVerifier:
           type: string
           minLength: 43
@@ -5232,10 +5429,14 @@ components:
           type: string
           minLength: 1
           maxLength: 4096
-          description: Opaque one-time platform credential, server-only and shown once. Store only its hash. Not a GitHub token or raw authorization code.
+          description:
+            Opaque one-time platform credential, server-only and shown once.
+            Store only its hash. Not a GitHub token or raw authorization code.
         expiresAt:
           $ref: "#/components/schemas/BoundedTimestamp"
-          description: Immutable finite exchange-token expiry from required server configuration.
+          description:
+            Immutable finite exchange-token expiry from required server
+            configuration.
     StableId:
       type: string
       format: uuid
@@ -5289,13 +5490,16 @@ components:
       minLength: 1
       maxLength: 20
       pattern: ^(?:0|[1-9][0-9]{0,19})$
-      description: Unsigned runner log sequence represented as decimal text without precision loss.
+      description:
+        Unsigned runner log sequence represented as decimal text without
+        precision loss.
     DroppedLogCount:
       type: string
       minLength: 1
       maxLength: 20
       pattern: ^[1-9][0-9]{0,19}$
-      description: Positive unsigned count represented as decimal text without precision loss.
+      description: Positive unsigned count represented as decimal text without
+        precision loss.
     IdempotencyKey:
       type: string
       minLength: 8
@@ -5314,8 +5518,8 @@ components:
         32 cryptographically random bytes. The final character constrains the
         unused pad bits to zero; decoders must reject any value that does not
         decode and re-encode byte-for-byte to the submitted spelling. The
-        authority stores only SHA-256 of the complete token. Maximum lifetime
-        is 900 seconds and consumption is one-time and atomic.
+        authority stores only SHA-256 of the complete token. Maximum lifetime is
+        900 seconds and consumption is one-time and atomic.
     RunnerConnectionCredential:
       type: string
       minLength: 50
@@ -5325,8 +5529,8 @@ components:
         Prefix `prc_v1_` followed by the unpadded base64url encoding of exactly
         32 cryptographically random bytes with canonical zero pad bits. A
         decoder must reject any value whose decode-and-unpadded-base64url-
-        re-encode differs from the submitted spelling. The authority stores
-        only SHA-256 of the complete credential. It is bound to one runner and
+        re-encode differs from the submitted spelling. The authority stores only
+        SHA-256 of the complete credential. It is bound to one runner and
         organization and expires no more than 3600 seconds after issuance.
     Ed25519PublicKey:
       type: string
@@ -5663,11 +5867,11 @@ components:
         `registering` has an unconsumed enrollment token and no credential;
         `active` has a current credential and may be offline, idle, busy, or
         draining; `quarantined` rejects every credential and job until an
-        authorized recovery clears quarantine; `revoked` is terminal and
-        rejects registration tokens, current/predecessor credentials, and
-        streams while retaining audit identity. A registering, quarantined, or
-        revoked runner reports released RunnerState `offline` alongside this
-        field so alpha.5 clients never receive a new RunnerState value.
+        authorized recovery clears quarantine; `revoked` is terminal and rejects
+        registration tokens, current/predecessor credentials, and streams while
+        retaining audit identity. A registering, quarantined, or revoked runner
+        reports released RunnerState `offline` alongside this field so alpha.5
+        clients never receive a new RunnerState value.
     Session:
       type: object
       additionalProperties: false
@@ -5785,10 +5989,10 @@ components:
           maxLength: 1024
           pattern: ^[^\r\n\x00]+$
       description: >-
-        Server-derived verified scope, not requested authority. The implementation
-        retains the full selected workflow policy and verified claim binding privately.
-        Same-grant resource admission further narrows every operation; this is not
-        general project or repository access.
+        Server-derived verified scope, not requested authority. The
+        implementation retains the full selected workflow policy and verified
+        claim binding privately. Same-grant resource admission further narrows
+        every operation; this is not general project or repository access.
     GitHubActionsGrant:
       type: object
       additionalProperties: false
@@ -5805,7 +6009,9 @@ components:
           minLength: 47
           maxLength: 47
           pattern: ^pva_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$
-          description: Independent 32-byte CSPRNG credential, canonical base64url without padding after pva_. Persist only its hash.
+          description:
+            Independent 32-byte CSPRNG credential, canonical base64url without
+            padding after pva_. Persist only its hash.
         tokenType:
           type: string
           const: Bearer
@@ -6167,7 +6373,11 @@ components:
         configurationSnapshotId:
           allOf:
             - $ref: "#/components/schemas/StableId"
-          description: Exact immutable snapshot identity. It must identify a snapshot in the path project whose hash equals configurationHash. When omitted, configurationHash must identify exactly one snapshot in that project; zero or multiple matches fail with HTTP 409.
+          description:
+            Exact immutable snapshot identity. It must identify a snapshot in
+            the path project whose hash equals configurationHash. When omitted,
+            configurationHash must identify exactly one snapshot in that
+            project; zero or multiple matches fail with HTTP 409.
         configurationHash:
           $ref: "#/components/schemas/Sha256Digest"
         version:
@@ -6367,13 +6577,14 @@ components:
       type: string
       description: >-
         Best-effort relay state. `expired` means retained live state aged out;
-        `unavailable` means no live relay state can be represented. Neither state
-        determines the execution result or complete-log status.
+        `unavailable` means no live relay state can be represented. Neither
+        state determines the execution result or complete-log status.
       enum: [waiting, live, disconnected, terminal, expired, unavailable]
     CompleteLogState:
       description: >-
         Authoritative completed-log handoff state. Only `available` permits the
-        same-origin download route; live log content is never substituted for it.
+        same-origin download route; live log content is never substituted for
+        it.
       oneOf:
         - $ref: "#/components/schemas/CompleteLogPending"
         - $ref: "#/components/schemas/CompleteLogAvailable"
@@ -6632,7 +6843,9 @@ components:
           enum: [runner_dropped, relay_evicted, relay_restarted, disconnected]
         droppedCount:
           $ref: "#/components/schemas/DroppedLogCount"
-          description: Known positive dropped entry count; omitted when the exact count is unknown.
+          description:
+            Known positive dropped entry count; omitted when the exact count is
+            unknown.
         liveRecovery:
           type: string
           const: unavailable
@@ -6758,7 +6971,8 @@ components:
           $ref: "#/components/schemas/Verification"
         claim:
           type: string
-          const: The exact artifact was observed passing the listed tests and environments.
+          const: The exact artifact was observed passing the listed tests and
+            environments.
     Integration:
       type: object
       additionalProperties: false
@@ -6847,7 +7061,9 @@ components:
             credential hashes are not exposed by runner list/read operations.
         credentialExpiresAt:
           $ref: "#/components/schemas/Timestamp"
-          description: Expiry of the currently accepted connection credential, when one exists.
+          description:
+            Expiry of the currently accepted connection credential, when one
+            exists.
         createdAt:
           $ref: "#/components/schemas/Timestamp"
         updatedAt:
@@ -6989,8 +7205,8 @@ components:
       additionalProperties: false
       description: >-
         Secret-producing rotation response. Credential plaintext is returned
-        exactly once while the credential authority stores only its SHA-256
-        hash and stable audit identity. A bounded encrypted protocol-delivery
+        exactly once while the credential authority stores only its SHA-256 hash
+        and stable audit identity. A bounded encrypted protocol-delivery
         envelope is not an HTTP replay capability and is erased after
         acknowledgement, successful reconnect, or the predecessor deadline.
         Identical response-loss replay returns `credential_not_replayable`; no
@@ -7094,3 +7310,129 @@ components:
         publicationAttempts:
           type: integer
           minimum: 0
+    AlphaProblem400:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 400
+        code:
+          type: string
+          const: invalid_request
+    AlphaProblem401:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 401
+        code:
+          type: string
+          const: authentication_required
+    AlphaProblem403:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 403
+        code:
+          type: string
+          const: admin_required
+    AlphaProblem404:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 404
+        code:
+          type: string
+          const: not_found
+    AlphaProblem429:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 429
+        code:
+          type: string
+          const: rate_limited
+    AlphaProblem503:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+          maxLength: 200
+        status:
+          type: integer
+          const: 503
+        code:
+          type: string
+          const: admin_unavailable

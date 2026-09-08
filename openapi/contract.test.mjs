@@ -712,8 +712,12 @@ test("every mutation has deterministic idempotency semantics", () => {
     ) {
       assert.equal(parameter.required, true);
       assert.equal(
-        (operation.operationId.includes("Alpha")
-          ? document.components.schemas.AlphaConflictProblem
+        (conflict.content["application/problem+json"].schema.$ref
+          ? document.components.schemas[
+              conflict.content["application/problem+json"].schema.$ref
+                .split("/")
+                .at(-1)
+            ]
           : conflict.content["application/problem+json"].schema
         ).additionalProperties,
         false,

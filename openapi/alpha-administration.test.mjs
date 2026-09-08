@@ -171,3 +171,47 @@ test("IFC023 refusal vectors distinguish admission, last-admin, accepted-invite 
     ],
   );
 });
+test("IFC023 generated SDK includes all operations and closed projections", () => {
+  const sdk = readFileSync(
+    new URL("../packages/api-client/src/gen/schema.d.ts", import.meta.url),
+    "utf8",
+  );
+  const operations = paths.flatMap(([, item]) => Object.values(item));
+  assert.equal(operations.length, 10);
+  for (const op of operations)
+    assert.ok(sdk.includes(op.operationId), op.operationId);
+  for (const name of [
+    ...Object.keys(properties),
+    "AlphaConflictProblem",
+    "AlphaInvitationRequiredProblem",
+    ...[400, 401, 403, 404, 429, 503].map((n) => "AlphaProblem" + n),
+  ])
+    assert.ok(sdk.includes(name + ":"), name);
+});
+test("IFC023 closed errors bind each response status to its permitted code", () => {
+  const pairs = {
+    400: "invalid_request",
+    401: "authentication_required",
+    403: "admin_required",
+    404: "not_found",
+    429: "rate_limited",
+    503: "admin_unavailable",
+  };
+  for (const [, item] of paths)
+    for (const op of Object.values(item))
+      for (const [status, code] of Object.entries({
+        ...pairs,
+        default: "admin_unavailable",
+      })) {
+        const schema = resolve(
+          resolve(op.responses[status]).content["application/problem+json"]
+            .schema,
+        );
+        assert.equal(schema.additionalProperties, false);
+        assert.equal(
+          schema.properties.status.const,
+          status === "default" ? 503 : Number(status),
+        );
+        assert.equal(schema.properties.code.const, code);
+      }
+});
