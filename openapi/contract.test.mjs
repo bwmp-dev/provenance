@@ -650,7 +650,7 @@ test("every operation exposes structured failure responses", () => {
     assert.equal(
       operation.responses.default?.$ref,
       operation.operationId.includes("Alpha")
-        ? "#/components/responses/AlphaProblem"
+        ? "#/components/responses/AlphaProblem503"
         : privateLogOperationIds.has(operation.operationId)
           ? "#/components/responses/PrivateProblem"
           : githubAuthOperations.has(operation.operationId)
