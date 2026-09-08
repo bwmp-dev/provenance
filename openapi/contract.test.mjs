@@ -1073,7 +1073,9 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
   );
 
   for (const { operation: listOperation } of operations.filter(
-    ({ operation: candidate }) => candidate.operationId.startsWith("list"),
+    ({ operation: candidate }) =>
+      candidate.operationId.startsWith("list") &&
+      candidate.operationId !== "listHostedRunners",
   )) {
     const names = listOperation.parameters
       .map(resolveParameter)

@@ -65,14 +65,34 @@ test("every hosted operation has closed non-reflective no-store failures", () =>
   ];
   let count = 0;
   for (const path of paths)
-    for (const op of Object.values(doc.paths[path])) {
+    for (const [method, op] of Object.entries(doc.paths[path])) {
       count++;
       assert.ok(
         !(op.parameters ?? []).some((p) =>
           ["Authorization", "provenance_session"].includes(p.name),
         ),
       );
-      for (const status of [400, 401, 403, 404, 409, 429, 503]) {
+      assert.deepEqual(
+        op.security,
+        path.startsWith("/v1/admin/")
+          ? [{ SessionCookie: [] }]
+          : [{ HostedRunnerUpdater: [] }],
+      );
+      const statuses =
+        path === "/v1/runner-releases/{sha256}"
+          ? [401, 403, 429, 503]
+          : method === "post"
+            ? [400, 401, 403, 404, 409, 429, 503]
+            : path === "/v1/admin/runner-updates"
+              ? [400, 401, 403, 404, 429, 503]
+              : [400, 401, 403, 429, 503];
+      assert.deepEqual(
+        Object.keys(op.responses)
+          .filter((s) => s !== "200" && s !== "default")
+          .map(Number),
+        statuses,
+      );
+      for (const status of statuses) {
         const response =
           doc.components.responses[op.responses[status].$ref.split("/").at(-1)];
         assert.equal(
@@ -96,4 +116,27 @@ test("every hosted operation has closed non-reflective no-store failures", () =>
       }
     }
   assert.equal(count, 7);
+});
+
+test("release existence stays private and polling IDs are bounded", () => {
+  assert.equal(
+    doc.paths["/v1/runner-releases/{sha256}"].get.responses[404],
+    undefined,
+  );
+  const id = doc.paths["/v1/runner-updater/{runnerId}/poll"].post.parameters[0];
+  assert.equal(id.schema.format, "uuid");
+  assert.equal(id.schema.maxLength, 36);
+  assert.equal(
+    doc.components.schemas.HostedRunnerNode.properties.name.maxLength,
+    128,
+  );
+  assert.deepEqual(
+    doc.components.schemas.HostedUpdaterCommand.properties.outcome.enum,
+    ["", "succeeded", "rolled_back", "failed", "cancelled"],
+  );
+  for (const p of [
+    "/v1/admin/hosted-runners",
+    "/v1/admin/hosted-runners/install-profile",
+  ])
+    assert.deepEqual(doc.paths[p].get.parameters, []);
 });

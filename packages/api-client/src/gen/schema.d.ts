@@ -1437,7 +1437,8 @@ export interface components {
         HostedUpdaterCommand: {
             healthy: boolean;
             operationId: string;
-            outcome: string;
+            /** @enum {string} */
+            outcome: "" | "succeeded" | "rolled_back" | "failed" | "cancelled";
             /** @enum {string} */
             phase: "wait" | "install" | "verify" | "complete";
             previousVersion: string;
@@ -4120,14 +4121,8 @@ export type $defs = Record<string, never>;
 export interface operations {
     getHostedRunnerUpdates: {
         parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                runnerId?: string;
-                organizationId?: string;
-                active?: boolean;
-                from?: string;
-                to?: string;
+            query: {
+                runnerId: string;
             };
             header?: never;
             path?: never;
@@ -4149,7 +4144,6 @@ export interface operations {
             401: components["responses"]["HostedProblem401"];
             403: components["responses"]["HostedProblem403"];
             404: components["responses"]["HostedProblem404"];
-            409: components["responses"]["HostedProblem409"];
             429: components["responses"]["HostedProblem429"];
             503: components["responses"]["HostedProblem503"];
             default: components["responses"]["HostedProblem503"];
@@ -6402,15 +6396,7 @@ export interface operations {
     };
     listHostedRunners: {
         parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                runnerId?: string;
-                organizationId?: string;
-                active?: boolean;
-                from?: string;
-                to?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -6430,8 +6416,6 @@ export interface operations {
             400: components["responses"]["HostedProblem400"];
             401: components["responses"]["HostedProblem401"];
             403: components["responses"]["HostedProblem403"];
-            404: components["responses"]["HostedProblem404"];
-            409: components["responses"]["HostedProblem409"];
             429: components["responses"]["HostedProblem429"];
             503: components["responses"]["HostedProblem503"];
             default: components["responses"]["HostedProblem503"];
@@ -6474,15 +6458,7 @@ export interface operations {
     };
     getHostedRunnerInstallProfile: {
         parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                runnerId?: string;
-                organizationId?: string;
-                active?: boolean;
-                from?: string;
-                to?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -6502,8 +6478,6 @@ export interface operations {
             400: components["responses"]["HostedProblem400"];
             401: components["responses"]["HostedProblem401"];
             403: components["responses"]["HostedProblem403"];
-            404: components["responses"]["HostedProblem404"];
-            409: components["responses"]["HostedProblem409"];
             429: components["responses"]["HostedProblem429"];
             503: components["responses"]["HostedProblem503"];
             default: components["responses"]["HostedProblem503"];
@@ -6530,11 +6504,8 @@ export interface operations {
                     "application/octet-stream": string;
                 };
             };
-            400: components["responses"]["HostedProblem400"];
             401: components["responses"]["HostedProblem401"];
             403: components["responses"]["HostedProblem403"];
-            404: components["responses"]["HostedProblem404"];
-            409: components["responses"]["HostedProblem409"];
             429: components["responses"]["HostedProblem429"];
             503: components["responses"]["HostedProblem503"];
             default: components["responses"]["HostedProblem503"];

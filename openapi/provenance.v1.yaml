@@ -40,47 +40,13 @@ paths:
     get:
       operationId: getHostedRunnerUpdates
       parameters:
-        - explode: false
+        - name: runnerId
           in: query
-          name: cursor
-          schema:
-            maxLength: 200
-            type: string
-        - explode: false
-          in: query
-          name: limit
-          schema:
-            default: 50
-            format: int64
-            maximum: 100
-            minimum: 1
-            type: integer
-        - explode: false
-          in: query
-          name: runnerId
+          required: true
           schema:
             type: string
-        - explode: false
-          in: query
-          name: organizationId
-          schema:
-            type: string
-        - explode: false
-          in: query
-          name: active
-          schema:
-            default: true
-            type: boolean
-        - explode: false
-          in: query
-          name: from
-          schema:
-            type: string
-        - explode: false
-          in: query
-          name: to
-          schema:
-            type: string
+            format: uuid
+            maxLength: 36
       responses:
         "200":
           content:
@@ -103,8 +69,6 @@ paths:
           $ref: "#/components/responses/HostedProblem404"
         "503":
           $ref: "#/components/responses/HostedProblem503"
-        "409":
-          $ref: "#/components/responses/HostedProblem409"
         "429":
           $ref: "#/components/responses/HostedProblem429"
         default:
@@ -167,11 +131,13 @@ paths:
     post:
       operationId: pollHostedRunnerUpdate
       parameters:
-        - in: path
-          name: runnerId
+        - name: runnerId
+          in: path
           required: true
           schema:
             type: string
+            format: uuid
+            maxLength: 36
       requestBody:
         content:
           application/json:
@@ -2706,48 +2672,7 @@ paths:
   /v1/admin/hosted-runners:
     get:
       operationId: listHostedRunners
-      parameters:
-        - explode: false
-          in: query
-          name: cursor
-          schema:
-            maxLength: 200
-            type: string
-        - explode: false
-          in: query
-          name: limit
-          schema:
-            default: 50
-            format: int64
-            maximum: 100
-            minimum: 1
-            type: integer
-        - explode: false
-          in: query
-          name: runnerId
-          schema:
-            type: string
-        - explode: false
-          in: query
-          name: organizationId
-          schema:
-            type: string
-        - explode: false
-          in: query
-          name: active
-          schema:
-            default: true
-            type: boolean
-        - explode: false
-          in: query
-          name: from
-          schema:
-            type: string
-        - explode: false
-          in: query
-          name: to
-          schema:
-            type: string
+      parameters: []
       responses:
         "200":
           content:
@@ -2766,12 +2691,8 @@ paths:
           $ref: "#/components/responses/HostedProblem401"
         "403":
           $ref: "#/components/responses/HostedProblem403"
-        "404":
-          $ref: "#/components/responses/HostedProblem404"
         "503":
           $ref: "#/components/responses/HostedProblem503"
-        "409":
-          $ref: "#/components/responses/HostedProblem409"
         "429":
           $ref: "#/components/responses/HostedProblem429"
         default:
@@ -2833,48 +2754,7 @@ paths:
   /v1/admin/hosted-runners/install-profile:
     get:
       operationId: getHostedRunnerInstallProfile
-      parameters:
-        - explode: false
-          in: query
-          name: cursor
-          schema:
-            maxLength: 200
-            type: string
-        - explode: false
-          in: query
-          name: limit
-          schema:
-            default: 50
-            format: int64
-            maximum: 100
-            minimum: 1
-            type: integer
-        - explode: false
-          in: query
-          name: runnerId
-          schema:
-            type: string
-        - explode: false
-          in: query
-          name: organizationId
-          schema:
-            type: string
-        - explode: false
-          in: query
-          name: active
-          schema:
-            default: true
-            type: boolean
-        - explode: false
-          in: query
-          name: from
-          schema:
-            type: string
-        - explode: false
-          in: query
-          name: to
-          schema:
-            type: string
+      parameters: []
       responses:
         "200":
           content:
@@ -2893,12 +2773,8 @@ paths:
           $ref: "#/components/responses/HostedProblem401"
         "403":
           $ref: "#/components/responses/HostedProblem403"
-        "404":
-          $ref: "#/components/responses/HostedProblem404"
         "503":
           $ref: "#/components/responses/HostedProblem503"
-        "409":
-          $ref: "#/components/responses/HostedProblem409"
         "429":
           $ref: "#/components/responses/HostedProblem429"
         default:
@@ -2940,12 +2816,6 @@ paths:
           $ref: "#/components/responses/HostedProblem401"
         "403":
           $ref: "#/components/responses/HostedProblem403"
-        "400":
-          $ref: "#/components/responses/HostedProblem400"
-        "404":
-          $ref: "#/components/responses/HostedProblem404"
-        "409":
-          $ref: "#/components/responses/HostedProblem409"
         "429":
           $ref: "#/components/responses/HostedProblem429"
         "503":
@@ -4857,6 +4727,12 @@ components:
           maxLength: 36
         outcome:
           type: string
+          enum:
+            - ""
+            - succeeded
+            - rolled_back
+            - failed
+            - cancelled
         phase:
           enum:
             - wait
@@ -8172,6 +8048,7 @@ components:
             - type: "null"
         name:
           type: string
+          maxLength: 128
         revokedAt:
           anyOf:
             - $ref: "#/components/schemas/Timestamp"
@@ -8304,7 +8181,7 @@ components:
         sizeBytes:
           type: integer
           minimum: 1
-          maximum: 1073741824
+          maximum: 536870912
         uri:
           type: string
           format: uri
@@ -8330,7 +8207,7 @@ components:
         sizeBytes:
           type: integer
           minimum: 1
-          maximum: 1073741824
+          maximum: 536870912
         uri:
           type: string
           format: uri
