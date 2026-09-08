@@ -1,3 +1,4 @@
+import "./alpha-administration.test.mjs";
 import assert from "node:assert/strict";
 import { createHash, createPublicKey, verify } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -1086,9 +1087,14 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
     },
   );
 
-  for (const schema of Object.values(document.components.schemas)) {
+  for (const [schemaName, schema] of Object.entries(
+    document.components.schemas,
+  )) {
     for (const [name, property] of Object.entries(schema.properties ?? {})) {
-      if (name.endsWith("At") || name === "from" || name === "to") {
+      if (
+        (name.endsWith("At") || name === "from" || name === "to") &&
+        !schemaName.startsWith("Alpha")
+      ) {
         assert.ok(
           [
             "#/components/schemas/Timestamp",

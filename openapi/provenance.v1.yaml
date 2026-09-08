@@ -36,6 +36,385 @@ tags:
   - name: usage
     description: Organization usage observations.
 paths:
+  /v1/account:
+    get:
+      operationId: getAlphaAccount
+      summary: Read current account and administrator access
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters: []
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaAccount"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/users:
+    get:
+      operationId: listAlphaUsers
+      summary: List alpha users
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - &a1
+          $ref: "#/components/parameters/Cursor"
+        - &a2
+          $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaUserPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/invitations:
+    get:
+      operationId: listAlphaInvitations
+      summary: List alpha invitations
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - *a1
+        - *a2
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaInvitationPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createAlphaInvitation
+      summary: Invite a verified numeric GitHub account for seven days
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store. Mutations are audited and use caller-scoped idempotency: an
+        unchanged replay returns its original outcome; a changed request
+        conflicts."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaInvitation"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlphaInvitationRequest"
+  /v1/admin/runners:
+    get:
+      operationId: listAlphaRunners
+      summary: List alpha runners
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - *a1
+        - *a2
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaRunnerPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/executions:
+    get:
+      operationId: listAlphaExecutions
+      summary: List alpha executions
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - *a1
+        - *a2
+        - name: runnerId
+          in: query
+          required: false
+          schema: &a3
+            type: string
+            format: uuid
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaExecutionPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/usage:
+    get:
+      operationId: listAlphaUsage
+      summary: List alpha usage
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - *a1
+        - *a2
+        - name: organizationId
+          in: query
+          required: false
+          schema: *a3
+        - name: from
+          in: query
+          required: true
+          schema: &a4
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          schema: *a4
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaUsagePage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/invitations/{invitationId}:
+    delete:
+      operationId: revokeAlphaInvitation
+      summary: Revoke an unaccepted invitation
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store. Mutations are audited and use caller-scoped idempotency: an
+        unchanged replay returns its original outcome; a changed request
+        conflicts."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: invitationId
+          in: path
+          required: true
+          schema: *a3
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaInvitation"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/users/{userId}/administrator:
+    put:
+      operationId: setAlphaAdministrator
+      summary: Grant or remove administrator access while retaining at least one
+        administrator
+      description: "Invite-only alpha administration. Requires a current human
+        session; API tokens and GitHub Actions grants are forbidden. Administrator
+        authority is checked from durable state on every request. No credentials
+        or raw logs are returned. Responses are private and Cache-Control:
+        no-store. Mutations are audited and use caller-scoped idempotency: an
+        unchanged replay returns its original outcome; a changed request
+        conflicts."
+      tags:
+        - authentication
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: *a3
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Current alpha resource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphaUser"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlphaAdministratorRequest"
   /v1/release-candidates/{candidateId}/publication-result:
     parameters:
       - $ref: "#/components/parameters/CandidateId"
@@ -3489,6 +3868,331 @@ components:
           schema:
             $ref: "#/components/schemas/RevokeRunnerCredentialsRequest"
   schemas:
+    AlphaAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - userId
+        - displayName
+        - githubUserId
+        - isAdmin
+        - inviteOnly
+      properties:
+        userId: &a2
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          maxLength: 200
+        githubUserId:
+          anyOf:
+            - &a3
+              type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            - type: "null"
+        isAdmin: &a1
+          type: boolean
+        inviteOnly: *a1
+    AlphaUser:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - displayName
+        - githubUserId
+        - isAdmin
+        - createdAt
+        - personalOrganizationId
+        - organizationCount
+      properties:
+        id: *a2
+        displayName:
+          type: string
+          maxLength: 200
+        githubUserId:
+          anyOf:
+            - *a3
+            - type: "null"
+        isAdmin: *a1
+        createdAt: &a4
+          type: string
+          format: date-time
+        personalOrganizationId:
+          anyOf:
+            - *a2
+            - type: "null"
+        organizationCount: *a3
+    AlphaInvitation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - githubUserId
+        - githubLogin
+        - createdAt
+        - expiresAt
+        - acceptedAt
+        - revokedAt
+      properties:
+        id: *a2
+        githubUserId: *a3
+        githubLogin:
+          type: string
+          maxLength: 39
+        createdAt: *a4
+        expiresAt: *a4
+        acceptedAt:
+          anyOf:
+            - *a4
+            - type: "null"
+        revokedAt:
+          anyOf:
+            - *a4
+            - type: "null"
+    AlphaInvitationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - githubLogin
+      properties:
+        githubLogin:
+          type: string
+          minLength: 1
+          maxLength: 39
+          pattern: ^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$
+    AlphaAdministratorRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - isAdmin
+      properties:
+        isAdmin: *a1
+    AlphaRunner:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - organizationId
+        - organizationName
+        - trust
+        - state
+        - version
+        - lastSeenAt
+        - capacity
+        - activeExecutions
+      properties:
+        id: *a2
+        organizationId:
+          anyOf:
+            - *a2
+            - type: "null"
+        organizationName:
+          anyOf:
+            - type: string
+              maxLength: 200
+            - type: "null"
+        trust:
+          type: string
+          enum:
+            - hosted
+            - self-hosted
+        state:
+          type: string
+          enum:
+            - registering
+            - active
+            - draining
+            - offline
+            - quarantined
+            - revoked
+        version:
+          type: string
+          maxLength: 200
+        lastSeenAt:
+          anyOf:
+            - *a4
+            - type: "null"
+        capacity:
+          anyOf:
+            - *a3
+            - type: "null"
+        activeExecutions: *a3
+    AlphaExecution:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - organizationId
+        - projectId
+        - projectName
+        - candidateId
+        - runnerId
+        - state
+        - attempt
+        - createdAt
+        - startedAt
+        - completedAt
+      properties:
+        id: *a2
+        organizationId: *a2
+        projectId: *a2
+        projectName:
+          type: string
+          maxLength: 200
+        candidateId: *a2
+        runnerId:
+          anyOf:
+            - *a2
+            - type: "null"
+        state:
+          type: string
+          enum:
+            - queued
+            - offered
+            - leased
+            - preparing
+            - running
+            - succeeded
+            - failed
+            - cancelled
+            - orphaned
+        attempt: *a3
+        createdAt: *a4
+        startedAt:
+          anyOf:
+            - *a4
+            - type: "null"
+        completedAt:
+          anyOf:
+            - *a4
+            - type: "null"
+    AlphaUsage:
+      type: object
+      additionalProperties: false
+      required:
+        - organizationId
+        - organizationName
+        - metrics
+      properties:
+        organizationId: *a2
+        organizationName:
+          type: string
+          maxLength: 200
+        metrics:
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - metric
+              - quantity
+              - unit
+            properties:
+              metric:
+                type: string
+                enum:
+                  - runner-seconds
+                  - cpu-seconds
+                  - memory-byte-seconds
+                  - artifact-bytes
+                  - log-bytes
+                  - egress-bytes
+                  - matrix-executions
+                  - publication-attempts
+              quantity:
+                type: string
+                pattern: ^[0-9]+(?:\.[0-9]+)?$
+                maxLength: 64
+              unit:
+                type: string
+                maxLength: 64
+    AlphaUserPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AlphaUser"
+        nextCursor:
+          anyOf:
+            - type: string
+              maxLength: 200
+            - type: "null"
+    AlphaInvitationPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AlphaInvitation"
+        nextCursor:
+          anyOf:
+            - type: string
+              maxLength: 200
+            - type: "null"
+    AlphaRunnerPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AlphaRunner"
+        nextCursor:
+          anyOf:
+            - type: string
+              maxLength: 200
+            - type: "null"
+    AlphaExecutionPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AlphaExecution"
+        nextCursor:
+          anyOf:
+            - type: string
+              maxLength: 200
+            - type: "null"
+    AlphaUsagePage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AlphaUsage"
+        nextCursor:
+          anyOf:
+            - type: string
+              maxLength: 200
+            - type: "null"
     PublicationResult:
       {
         "type": "object",

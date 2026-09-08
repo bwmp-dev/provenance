@@ -1,3 +1,13 @@
+const alphaPaths = [
+  "/v1/account",
+  "/v1/admin/users",
+  "/v1/admin/invitations",
+  "/v1/admin/runners",
+  "/v1/admin/executions",
+  "/v1/admin/usage",
+  "/v1/admin/invitations/{invitationId}",
+  "/v1/admin/users/{userId}/administrator",
+];
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -118,7 +128,9 @@ test("IFC021 leaves every alpha18 path/component and grant operation unchanged",
     for (const [name, digest] of Object.entries(entries))
       assert.equal(hash(doc.components[family][name]), digest, name);
   assert.deepEqual(
-    Object.keys(doc.paths).filter((p) => !baseline.paths[p]),
+    Object.keys(doc.paths).filter(
+      (p) => !baseline.paths[p] && !alphaPaths.includes(p),
+    ),
     [route],
   );
   const op = doc.paths[route].get;

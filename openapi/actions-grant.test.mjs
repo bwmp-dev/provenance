@@ -1,3 +1,13 @@
+const alphaPaths = [
+  "/v1/account",
+  "/v1/admin/users",
+  "/v1/admin/invitations",
+  "/v1/admin/runners",
+  "/v1/admin/executions",
+  "/v1/admin/usage",
+  "/v1/admin/invitations/{invitationId}",
+  "/v1/admin/users/{userId}/administrator",
+];
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -61,7 +71,9 @@ test("IFC022 is additive to every alpha17 path and component", () => {
         `${family}/${name}`,
       );
   assert.deepEqual(
-    Object.keys(doc.paths).filter((p) => !baseline.paths[p]),
+    Object.keys(doc.paths).filter(
+      (p) => !baseline.paths[p] && !alphaPaths.includes(p),
+    ),
     [
       "/v1/release-candidates/{candidateId}/publication-result",
       "/v1/auth/github-actions/grants",
