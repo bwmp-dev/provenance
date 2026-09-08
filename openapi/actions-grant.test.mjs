@@ -78,7 +78,13 @@ test("IFC022 is additive to every alpha17 path and component", () => {
       );
   assert.deepEqual(
     Object.keys(doc.paths).filter(
-      (p) => !baseline.paths[p] && !alphaPaths.includes(p),
+      (p) =>
+        !baseline.paths[p] &&
+        !alphaPaths.includes(p) &&
+        ![
+          "/v1/admin/runner-updates",
+          "/v1/runner-updater/{runnerId}/poll",
+        ].includes(p),
     ),
     [
       "/v1/release-candidates/{candidateId}/publication-result",

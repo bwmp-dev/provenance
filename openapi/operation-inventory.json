@@ -424,5 +424,23 @@
     "operationId": "getVerification",
     "path": "/v1/verifications/{verificationId}",
     "tag": "verification"
+  },
+  {
+    "method": "get",
+    "operationId": "getHostedRunnerUpdates",
+    "path": "/v1/admin/runner-updates",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "changeHostedRunnerUpdate",
+    "path": "/v1/admin/runner-updates",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "pollHostedRunnerUpdate",
+    "path": "/v1/runner-updater/{runnerId}/poll",
+    "tag": "authentication"
   }
 ]

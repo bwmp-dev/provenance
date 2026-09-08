@@ -135,7 +135,13 @@ test("IFC021 leaves every alpha18 path/component and grant operation unchanged",
       assert.equal(hash(doc.components[family][name]), digest, name);
   assert.deepEqual(
     Object.keys(doc.paths).filter(
-      (p) => !baseline.paths[p] && !alphaPaths.includes(p),
+      (p) =>
+        !baseline.paths[p] &&
+        !alphaPaths.includes(p) &&
+        ![
+          "/v1/admin/runner-updates",
+          "/v1/runner-updater/{runnerId}/poll",
+        ].includes(p),
     ),
     [route],
   );

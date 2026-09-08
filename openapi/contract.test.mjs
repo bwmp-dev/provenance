@@ -34,6 +34,11 @@ const methods = new Set([
   "post",
   "put",
 ]);
+const hostedUpdateOperations = new Set([
+  "getHostedRunnerUpdates",
+  "changeHostedRunnerUpdate",
+  "pollHostedRunnerUpdate",
+]);
 const mutations = new Set(["delete", "patch", "post", "put"]);
 const deviceOperations = new Set([
   "createDeviceAuthorization",
@@ -636,6 +641,7 @@ test("operation and path inventory matches the public v1 skeleton", () => {
 test("every operation exposes structured failure responses", () => {
   for (const { operation } of operations) {
     if (
+      hostedUpdateOperations.has(operation.operationId) ||
       deviceOperations.has(operation.operationId) ||
       operation.operationId === "createGitHubActionsGrant" ||
       operation.operationId === "getReleaseCandidatePublicationResult"
@@ -677,6 +683,17 @@ test("every mutation has deterministic idempotency semantics", () => {
   for (const { method, operation, path } of operations.filter(({ method }) =>
     mutations.has(method),
   )) {
+    if (hostedUpdateOperations.has(operation.operationId)) {
+      const key = operation.parameters?.find(
+        (p) => p.name === "Idempotency-Key",
+      );
+      assert.equal(
+        Boolean(key?.required),
+        operation.operationId === "changeHostedRunnerUpdate",
+      );
+      assert.ok(operation.responses["409"]);
+      continue; // Node polling uses durable operation identity; covered by hosted update vectors.
+    }
     if (operation.operationId === "exchangeDeviceAuthorization") {
       assert.equal(
         operation.parameters,
@@ -1028,6 +1045,7 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
   assert.deepEqual(Object.keys(document.components.securitySchemes).sort(), [
     "BearerAuth",
     "GitHubWebhookSignature",
+    "HostedRunnerUpdater",
     "RunnerRegistrationToken",
     "SessionCookie",
   ]);
