@@ -166,3 +166,33 @@ test("hosted fixed collections and privileged release URLs are bounded", () => {
     assert.equal(s.HostedRunnerUpdateView.properties[field].maxItems, 50);
   assert.equal(s.HostedRunnerRelease.properties.url.pattern, "^https://");
 });
+
+test("hosted polling preserves durable node-bound operation semantics", () => {
+  const p = doc.components.schemas.HostedUpdaterPoll;
+  assert.equal(p.additionalProperties, false);
+  assert.deepEqual(Object.keys(p.properties).sort(), ["operationId", "report"]);
+  assert.deepEqual(p.required, ["report"]);
+  assert.match(
+    p.description,
+    /idle without operationId selects the node[’']s durable active operation/,
+  );
+  assert.match(p.description, /All non-idle reports require its operationId/);
+  assert.match(
+    p.description,
+    /Repeating a report cannot select or mutate another node[’']s operation/,
+  );
+  const s = doc.components.schemas;
+  assert.equal(
+    s.HostedRunnerRelease.properties.signature.pattern,
+    "^[A-Za-z0-9+/]{86}==$",
+  );
+  for (const type of [
+    "HostedRunnerUpdateRequest",
+    "HostedRunnerRequest",
+    "HostedInstallProfile",
+  ])
+    assert.equal(
+      s[type].properties.releasePublicKey.pattern,
+      "^[A-Za-z0-9+/]{43}=$",
+    );
+});

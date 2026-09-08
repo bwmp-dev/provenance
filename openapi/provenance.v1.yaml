@@ -4628,6 +4628,7 @@ components:
           minLength: 64
           maxLength: 64
         signature:
+          pattern: ^[A-Za-z0-9+/]{86}==$
           maxLength: 88
           minLength: 88
           type: string
@@ -4642,6 +4643,8 @@ components:
           type: string
           pattern: ^https://
         version:
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$
           type: string
           maxLength: 128
       required:

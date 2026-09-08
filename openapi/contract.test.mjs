@@ -709,7 +709,7 @@ test("every mutation has deterministic idempotency semantics", () => {
         ),
       );
       assert.ok(operation.responses["409"]);
-      continue; // Node polling uses durable operation identity; covered by hosted update vectors.
+      continue; // Node polling uses durable operation identity; hosted-runner-updates.test.mjs pins the normative rules, and platform lifecycle integration tests verify replay.
     }
     if (operation.operationId === "exchangeDeviceAuthorization") {
       assert.equal(
