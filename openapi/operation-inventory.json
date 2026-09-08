@@ -1,6 +1,66 @@
 [
   {
     "method": "get",
+    "operationId": "listAlphaOrganizations",
+    "path": "/v1/admin/organizations",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "getAlphaAccount",
+    "path": "/v1/account",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "listAlphaUsers",
+    "path": "/v1/admin/users",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "listAlphaInvitations",
+    "path": "/v1/admin/invitations",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "listAlphaRunners",
+    "path": "/v1/admin/runners",
+    "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "listAlphaExecutions",
+    "path": "/v1/admin/executions",
+    "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "listAlphaUsage",
+    "path": "/v1/admin/usage",
+    "tag": "usage"
+  },
+  {
+    "method": "post",
+    "operationId": "createAlphaInvitation",
+    "path": "/v1/admin/invitations",
+    "tag": "authentication"
+  },
+  {
+    "method": "delete",
+    "operationId": "revokeAlphaInvitation",
+    "path": "/v1/admin/invitations/{invitationId}",
+    "tag": "authentication"
+  },
+  {
+    "method": "put",
+    "operationId": "setAlphaAdministrator",
+    "path": "/v1/admin/users/{userId}/administrator",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
     "operationId": "getReleaseCandidatePublicationResult",
     "path": "/v1/release-candidates/{candidateId}/publication-result",
     "tag": "release-candidates"

@@ -1156,6 +1156,8 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       "device-login-states.json",
       "actions-grant-semantics.md",
       "actions-grant-vectors.json",
+      "alpha-administration-semantics.md",
+      "alpha-administration-vectors.json",
       "publication-result-semantics.md",
       "publication-result-vectors.json",
     ]) {

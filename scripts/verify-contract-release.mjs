@@ -1642,6 +1642,33 @@ if(false)void client.refreshCredential();
       resolve(root, "device-login-states.json"),
       "released device login states",
     );
+    const alphaSemantics = await readFile(
+      resolve(root, "alpha-administration-semantics.md"),
+      "utf8",
+    );
+    const alphaVectors = await readJson(
+      resolve(root, "alpha-administration-vectors.json"),
+      "released alpha administration vectors",
+    );
+    const expectedAlphaVectors = [
+      ["createSession", 403, "invitation_required"],
+      ["setAlphaAdministrator", 409, "last_administrator"],
+      ["revokeAlphaInvitation", 409, "invitation_not_revocable"],
+      ["createAlphaInvitation", 409, "account_already_admitted"],
+      ["createAlphaInvitation", 409, "idempotency_key_conflict"],
+    ];
+    invariant(
+      alphaSemantics.includes("# IFC-023: Invited alpha administration") &&
+        Array.isArray(alphaVectors) &&
+        alphaVectors.length === 5 &&
+        expectedAlphaVectors.every(
+          ([operationId, status, code], index) =>
+            alphaVectors[index].operationId === operationId &&
+            alphaVectors[index].status === status &&
+            alphaVectors[index].code === code,
+        ),
+      "released IFC-023 semantics and refusal vectors",
+    );
     const publicationSemantics = await readFile(
       resolve(root, "publication-result-semantics.md"),
       "utf8",

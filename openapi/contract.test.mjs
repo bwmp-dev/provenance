@@ -1,3 +1,5 @@
+import { beforeAlphaAdmission } from "./alpha-compat.mjs";
+import "./alpha-administration.test.mjs";
 import assert from "node:assert/strict";
 import { createHash, createPublicKey, verify } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -71,7 +73,7 @@ test("IFC018 leaves every released alpha14 path and component unchanged", async 
       hash(
         path === "/v1/auth/device-authorizations"
           ? deviceInitiationBaseline
-          : document.paths[path],
+          : beforeAlphaAdmission(path, document.paths[path]),
       ),
       digest,
       path,
@@ -647,13 +649,15 @@ test("every operation exposes structured failure responses", () => {
     }
     assert.equal(
       operation.responses.default?.$ref,
-      privateLogOperationIds.has(operation.operationId)
-        ? "#/components/responses/PrivateProblem"
-        : githubAuthOperations.has(operation.operationId)
-          ? "#/components/responses/GitHubAuthProblem"
-          : githubConnectionOperations.has(operation.operationId)
-            ? "#/components/responses/GitHubConnectionProblem"
-            : "#/components/responses/Problem",
+      operation.operationId.includes("Alpha")
+        ? "#/components/responses/AlphaProblem503"
+        : privateLogOperationIds.has(operation.operationId)
+          ? "#/components/responses/PrivateProblem"
+          : githubAuthOperations.has(operation.operationId)
+            ? "#/components/responses/GitHubAuthProblem"
+            : githubConnectionOperations.has(operation.operationId)
+              ? "#/components/responses/GitHubConnectionProblem"
+              : "#/components/responses/Problem",
       operation.operationId,
     );
   }
@@ -703,12 +707,19 @@ test("every mutation has deterministic idempotency semantics", () => {
     assert.match(conflict.description, /idempotency/i, operation.operationId);
     if (
       deviceOperations.has(operation.operationId) ||
-      operation.operationId === "createGitHubActionsGrant"
+      operation.operationId === "createGitHubActionsGrant" ||
+      operation.operationId.includes("Alpha")
     ) {
       assert.equal(parameter.required, true);
       assert.equal(
-        conflict.content["application/problem+json"].schema
-          .additionalProperties,
+        (conflict.content["application/problem+json"].schema.$ref
+          ? document.components.schemas[
+              conflict.content["application/problem+json"].schema.$ref
+                .split("/")
+                .at(-1)
+            ]
+          : conflict.content["application/problem+json"].schema
+        ).additionalProperties,
         false,
       );
       continue;
@@ -1090,11 +1101,15 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
     for (const [name, property] of Object.entries(schema.properties ?? {})) {
       if (name.endsWith("At") || name === "from" || name === "to") {
         assert.ok(
-          [
-            "#/components/schemas/Timestamp",
-            "#/components/schemas/BoundedTimestamp",
-            "#/components/schemas/LogTimestamp",
-          ].includes(property.$ref),
+          (property.anyOf ?? [property])
+            .filter((value) => value.type !== "null")
+            .every((value) =>
+              [
+                "#/components/schemas/Timestamp",
+                "#/components/schemas/BoundedTimestamp",
+                "#/components/schemas/LogTimestamp",
+              ].includes(value.$ref),
+            ),
           name,
         );
       }
@@ -1495,7 +1510,14 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
               ...operationById.get(name),
               operation: deviceInitiationBaseline.post,
             }
-          : operationById.get(name),
+          : name === "createSession"
+            ? {
+                ...operationById.get(name),
+                operation: beforeAlphaAdmission("/v1/auth/sessions", {
+                  post: operationById.get(name).operation,
+                }).post,
+              }
+            : operationById.get(name),
       ]),
     ),
     alpha5Compatibility.operations.sha256,

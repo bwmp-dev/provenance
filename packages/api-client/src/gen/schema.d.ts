@@ -4,6 +4,190 @@
  */
 
 export interface paths {
+    "/v1/admin/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alpha organizations
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        get: operations["listAlphaOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read current account and administrator access
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        get: operations["getAlphaAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alpha users
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        get: operations["listAlphaUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alpha invitations
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        get: operations["listAlphaInvitations"];
+        put?: never;
+        /**
+         * Invite a verified numeric GitHub account for seven days
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. Mutations are audited and use caller-scoped idempotency: an unchanged replay returns its original outcome; a changed request conflicts. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        post: operations["createAlphaInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alpha runners
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        get: operations["listAlphaRunners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alpha executions
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        get: operations["listAlphaExecutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alpha usage
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. Interval is half-open [from,to), maximum31 days. Quantities are exact decimal strings of recorded organization observations; pending ingestion is not included. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        get: operations["listAlphaUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an unaccepted invitation
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. Mutations are audited and use caller-scoped idempotency: an unchanged replay returns its original outcome; a changed request conflicts. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        delete: operations["revokeAlphaInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{userId}/administrator": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Grant or remove administrator access while retaining at least one administrator
+         * @description Invite-only alpha administration. Requires a current human session; API tokens and GitHub Actions grants are forbidden. Administrator authority is checked from durable state on every request. No credentials or raw logs are returned. Responses are private and Cache-Control: no-store. Mutations are audited and use caller-scoped idempotency: an unchanged replay returns its original outcome; a changed request conflicts. See alpha-administration-semantics.md for admission, conflict precedence, retention and pagination rules.
+         */
+        put: operations["setAlphaAdministrator"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/release-candidates/{candidateId}/publication-result": {
         parameters: {
             query?: never;
@@ -1126,6 +1310,135 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AlphaOrganization: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            slug: string;
+            personalOwnerId: string | null;
+            memberCount: number;
+            projectCount: number;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        AlphaOrganizationPage: {
+            items: components["schemas"]["AlphaOrganization"][];
+            nextCursor: string | null;
+        };
+        AlphaAccount: {
+            /** Format: uuid */
+            userId: string;
+            displayName: string;
+            githubUserId: number | null;
+            isAdmin: boolean;
+            inviteOnly: boolean;
+        };
+        AlphaUser: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            githubUserId: number | null;
+            isAdmin: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+            personalOrganizationId: string | null;
+            organizationCount: number;
+        };
+        AlphaInvitation: {
+            /** Format: uuid */
+            id: string;
+            githubUserId: number;
+            githubLogin: string;
+            createdAt: components["schemas"]["Timestamp"];
+            expiresAt: components["schemas"]["Timestamp"];
+            acceptedAt: components["schemas"]["Timestamp"] | null;
+            revokedAt: components["schemas"]["Timestamp"] | null;
+        };
+        AlphaInvitationRequest: {
+            githubLogin: string;
+        };
+        AlphaAdministratorRequest: {
+            isAdmin: boolean;
+        };
+        AlphaRunner: {
+            /** Format: uuid */
+            id: string;
+            organizationId: string | null;
+            organizationName: string | null;
+            /** @enum {string} */
+            trust: "hosted" | "self-hosted";
+            /** @enum {string} */
+            state: "registering" | "active" | "draining" | "offline" | "quarantined" | "revoked";
+            version: string;
+            lastSeenAt: components["schemas"]["Timestamp"] | null;
+            capacity: number | null;
+            activeExecutions: number;
+        };
+        AlphaExecution: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            organizationId: string;
+            /** Format: uuid */
+            projectId: string;
+            projectName: string;
+            /** Format: uuid */
+            candidateId: string;
+            runnerId: string | null;
+            /** @enum {string} */
+            state: "queued" | "offered" | "leased" | "preparing" | "running" | "succeeded" | "failed" | "cancelled" | "orphaned";
+            attempt: number;
+            createdAt: components["schemas"]["Timestamp"];
+            startedAt: components["schemas"]["Timestamp"] | null;
+            completedAt: components["schemas"]["Timestamp"] | null;
+        };
+        AlphaUsage: {
+            /** Format: uuid */
+            organizationId: string;
+            organizationName: string;
+            metrics: {
+                /** @enum {string} */
+                metric: "runner-seconds" | "cpu-seconds" | "memory-byte-seconds" | "artifact-bytes" | "log-bytes" | "egress-bytes" | "matrix-executions" | "publication-attempts";
+                quantity: string;
+                unit: string;
+            }[];
+        };
+        AlphaUserPage: {
+            items: components["schemas"]["AlphaUser"][];
+            nextCursor: string | null;
+        };
+        AlphaInvitationPage: {
+            items: components["schemas"]["AlphaInvitation"][];
+            nextCursor: string | null;
+        };
+        AlphaRunnerPage: {
+            items: components["schemas"]["AlphaRunner"][];
+            nextCursor: string | null;
+        };
+        AlphaExecutionPage: {
+            items: components["schemas"]["AlphaExecution"][];
+            nextCursor: string | null;
+        };
+        AlphaUsagePage: {
+            items: components["schemas"]["AlphaUsage"][];
+            nextCursor: string | null;
+        };
+        AlphaConflictProblem: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 409;
+            /** @enum {string} */
+            code: "idempotency_key_conflict" | "last_administrator" | "invitation_not_revocable" | "account_already_admitted";
+        };
+        AlphaInvitationRequiredProblem: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 403;
+            /** @constant */
+            code: "invitation_required";
+        };
         PublicationResult: {
             /** @constant */
             version: 1;
@@ -2034,6 +2347,60 @@ export interface components {
             matrixExecutions: number;
             publicationAttempts: number;
         };
+        AlphaProblem400: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 400;
+            /** @constant */
+            code: "invalid_request";
+        };
+        AlphaProblem401: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 401;
+            /** @constant */
+            code: "authentication_required";
+        };
+        AlphaProblem403: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 403;
+            /** @constant */
+            code: "admin_required";
+        };
+        AlphaProblem404: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 404;
+            /** @constant */
+            code: "not_found";
+        };
+        AlphaProblem429: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 429;
+            /** @constant */
+            code: "rate_limited";
+        };
+        AlphaProblem503: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 503;
+            /** @constant */
+            code: "admin_unavailable";
+        };
         sha256: string;
         version: string;
         digest: {
@@ -2256,6 +2623,26 @@ export interface components {
         };
     };
     responses: {
+        /** @description The idempotency key conflicts with a different request, the target account is already admitted, the invitation has been accepted, or this change would remove the final administrator. The code identifies the precise refusal. */
+        AlphaConflict: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaConflictProblem"];
+            };
+        };
+        /** @description The authenticated GitHub account has neither prior admission nor an unexpired, unrevoked invitation. No session or new identity is created. */
+        AlphaInvitationRequired: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaInvitationRequiredProblem"];
+            };
+        };
         /** @description Closed request admission failure. */
         ActionsGrant405: {
             headers: {
@@ -3152,6 +3539,66 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem400: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem400"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem401: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem401"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem403: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem403"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem404: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem404"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem429: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem429"];
+            };
+        };
+        /** @description Closed private administration failure. See alpha-administration-semantics.md for status/code pairs. */
+        AlphaProblem503: {
+            headers: {
+                "Cache-Control": components["headers"]["AlphaNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AlphaProblem503"];
+            };
+        };
     };
     parameters: {
         /** @description IFC-020 device initiation/decision key. Different payload reuse conflicts. Successful initiation retains only hashes: identical replay returns credential_not_replayable, never the original device secret. Decisions replay only the matching nonsecret outcome for the same currently active user identity. See device-login-semantics.md for deadline precedence. */
@@ -3312,6 +3759,8 @@ export interface components {
         };
     };
     headers: {
+        /** @description Never cache account or administrator responses. */
+        AlphaNoStore: "no-store";
         /** @description Confidential issuance and all failures must not be cached. */
         ActionsGrantNoStore: "no-store";
         /** @description Required for every device-login response, including errors. */
@@ -3341,6 +3790,345 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listAlphaOrganizations: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bounded collection at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaOrganizationPage"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    getAlphaAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current account at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaAccount"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    listAlphaUsers: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bounded collection at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaUserPage"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    listAlphaInvitations: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bounded collection at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaInvitationPage"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    createAlphaInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlphaInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description The seven-day invitation, bound to the verified numeric GitHub user. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaInvitation"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            409: components["responses"]["AlphaConflict"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    listAlphaRunners: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bounded collection at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaRunnerPage"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    listAlphaExecutions: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+                runnerId?: string;
+                active?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bounded collection at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaExecutionPage"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    listAlphaUsage: {
+        parameters: {
+            query: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+                organizationId?: string;
+                from: components["schemas"]["Timestamp"];
+                to: components["schemas"]["Timestamp"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bounded collection at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaUsagePage"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    revokeAlphaInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                invitationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The revoked invitation at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaInvitation"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            409: components["responses"]["AlphaConflict"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
+    setAlphaAdministrator: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlphaAdministratorRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated user access at request time. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["AlphaNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlphaUser"];
+                };
+            };
+            400: components["responses"]["AlphaProblem400"];
+            401: components["responses"]["AlphaProblem401"];
+            403: components["responses"]["AlphaProblem403"];
+            404: components["responses"]["AlphaProblem404"];
+            409: components["responses"]["AlphaConflict"];
+            429: components["responses"]["AlphaProblem429"];
+            503: components["responses"]["AlphaProblem503"];
+            default: components["responses"]["AlphaProblem503"];
+        };
+    };
     getReleaseCandidatePublicationResult: {
         parameters: {
             query: {
@@ -3548,6 +4336,7 @@ export interface operations {
                     "application/json": components["schemas"]["Session"];
                 };
             };
+            403: components["responses"]["AlphaInvitationRequired"];
             409: components["responses"]["SessionCreationConflict"];
             default: components["responses"]["Problem"];
         };
