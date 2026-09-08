@@ -5,3 +5,7 @@ packages:
 allowBuilds:
   "@bufbuild/buf": true
   esbuild: false
+
+# Security fix for the transitive OpenAPI tooling parser (GHSA-2883-xcg3-v3hh).
+overrides:
+  js-yaml@4.3.1: 4.3.2
