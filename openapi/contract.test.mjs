@@ -1,3 +1,4 @@
+import "./hosted-runner-updates.test.mjs";
 import { beforeAlphaAdmission } from "./alpha-compat.mjs";
 import "./alpha-administration.test.mjs";
 import assert from "node:assert/strict";
@@ -644,8 +645,14 @@ test("operation and path inventory matches the public v1 skeleton", () => {
 
 test("every operation exposes structured failure responses", () => {
   for (const { operation } of operations) {
+    if (hostedUpdateOperations.has(operation.operationId)) {
+      assert.equal(
+        operation.responses.default?.$ref,
+        "#/components/responses/HostedProblem503",
+      );
+      continue;
+    }
     if (
-      hostedUpdateOperations.has(operation.operationId) ||
       deviceOperations.has(operation.operationId) ||
       operation.operationId === "createGitHubActionsGrant" ||
       operation.operationId === "getReleaseCandidatePublicationResult"

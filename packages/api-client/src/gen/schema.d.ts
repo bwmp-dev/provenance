@@ -1441,55 +1441,13 @@ export interface components {
             /** @enum {string} */
             phase: "wait" | "install" | "verify" | "complete";
             previousVersion: string;
-            release: components["schemas"]["HostedRunnerRelease"];
+            release: components["schemas"]["HostedRunnerRelease"] | null;
         };
+        /** @description Polling idle without operationId selects the node’s durable active operation, if any. All non-idle reports require its operationId. Repeating a report cannot select or mutate another node’s operation. */
         HostedUpdaterPoll: {
             operationId?: string;
             /** @enum {string} */
             report: "idle" | "verifying" | "health" | "rollback-health" | "succeeded" | "rolled_back" | "failed";
-        };
-        HostedUpdateErrorModel: {
-            /**
-             * @description A human-readable explanation specific to this occurrence of the problem.
-             * @example Property foo is required but is missing.
-             */
-            detail?: string;
-            /** @description Optional list of individual error details */
-            errors?: components["schemas"]["HostedUpdateErrorDetail"][] | null;
-            /**
-             * Format: uri
-             * @description A URI reference that identifies the specific occurrence of the problem.
-             * @example https://example.com/error-log/abc123
-             */
-            instance?: string;
-            /**
-             * Format: int64
-             * @description HTTP status code
-             * @example 400
-             */
-            status?: number;
-            /**
-             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
-             * @example Bad Request
-             */
-            title?: string;
-            /**
-             * Format: uri
-             * @description A URI reference to human-readable documentation for the error.
-             * @default about:blank
-             * @example https://example.com/errors/example
-             */
-            type: string;
-            /** @description Stable application error code when supplied by the platform. */
-            code?: string;
-        };
-        HostedUpdateErrorDetail: {
-            /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
-            location?: string;
-            /** @description Error message text */
-            message?: string;
-            /** @description The value at the given location */
-            value?: unknown;
         };
         AlphaOrganization: {
             /** Format: uuid */
@@ -2595,47 +2553,6 @@ export interface components {
             state: "registering" | "active" | "draining" | "offline" | "quarantined" | "revoked";
             version: string;
         };
-        ErrorModel: {
-            /**
-             * @description A human-readable explanation specific to this occurrence of the problem.
-             * @example Property foo is required but is missing.
-             */
-            detail?: string;
-            /** @description Optional list of individual error details */
-            errors?: components["schemas"]["ErrorDetail"][] | null;
-            /**
-             * Format: uri
-             * @description A URI reference that identifies the specific occurrence of the problem.
-             * @example https://example.com/error-log/abc123
-             */
-            instance?: string;
-            /**
-             * Format: int64
-             * @description HTTP status code
-             * @example 400
-             */
-            status?: number;
-            /**
-             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
-             * @example Bad Request
-             */
-            title?: string;
-            /**
-             * Format: uri
-             * @description A URI reference to human-readable documentation for the error.
-             * @default about:blank
-             * @example https://example.com/errors/example
-             */
-            type: string;
-        };
-        ErrorDetail: {
-            /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
-            location?: string;
-            /** @description Error message text */
-            message?: string;
-            /** @description The value at the given location */
-            value?: unknown;
-        };
         HostedRunnerRequest: {
             /** @enum {string} */
             action: "create" | "rotate" | "drain" | "resume" | "revoke";
@@ -2650,8 +2567,9 @@ export interface components {
             runnerId: string;
         };
         HostedInstallProfile: {
+            /** Format: uri */
             apiOrigin: string;
-            artifactHosts: string[] | null;
+            artifactHosts: string[];
             bundle: components["schemas"]["HostedAsset"];
             gatewayAddress: string;
             preparedRuntime: components["schemas"]["HostedRuntime"];
@@ -2661,27 +2579,85 @@ export interface components {
         };
         HostedAsset: {
             sha256: string;
-            /** Format: int64 */
             sizeBytes: number;
+            /** Format: uri */
             uri: string;
         };
         HostedRuntime: {
-            /** Format: int64 */
             maximumExpandedBytes: number;
             sha256: string;
-            /** Format: int64 */
             sizeBytes: number;
+            /** Format: uri */
             uri: string;
         };
         HostedResources: {
-            /** Format: int64 */
             cpuMillis: number;
-            /** Format: int64 */
             diskBytes: number;
-            /** Format: int64 */
             memoryBytes: number;
-            /** Format: int64 */
             processCount: number;
+        };
+        HostedProblem400: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 400;
+            /** @enum {string} */
+            code: "invalid_request";
+        };
+        HostedProblem401: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 401;
+            /** @enum {string} */
+            code: "authentication_required";
+        };
+        HostedProblem403: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 403;
+            /** @enum {string} */
+            code: "admin_required";
+        };
+        HostedProblem404: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 404;
+            /** @enum {string} */
+            code: "not_found";
+        };
+        HostedProblem409: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 409;
+            /** @enum {string} */
+            code: "idempotency_key_conflict" | "runner_update_conflict";
+        };
+        HostedProblem429: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 429;
+            /** @enum {string} */
+            code: "rate_limited";
+        };
+        HostedProblem503: {
+            /** @constant */
+            type: "about:blank";
+            title: string;
+            /** @constant */
+            status: 503;
+            /** @enum {string} */
+            code: "admin_unavailable";
         };
         sha256: string;
         version: string;
@@ -3881,6 +3857,76 @@ export interface components {
                 "application/problem+json": components["schemas"]["AlphaProblem503"];
             };
         };
+        /** @description Hosted runner request failed (400). No request values or credentials are reflected. */
+        HostedProblem400: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem400"];
+            };
+        };
+        /** @description Hosted runner request failed (401). No request values or credentials are reflected. */
+        HostedProblem401: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem401"];
+            };
+        };
+        /** @description Hosted runner request failed (403). No request values or credentials are reflected. */
+        HostedProblem403: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem403"];
+            };
+        };
+        /** @description Hosted runner request failed (404). No request values or credentials are reflected. */
+        HostedProblem404: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem404"];
+            };
+        };
+        /** @description Hosted runner request failed (409). No request values or credentials are reflected. */
+        HostedProblem409: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem409"];
+            };
+        };
+        /** @description Hosted runner request failed (429). No request values or credentials are reflected. */
+        HostedProblem429: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem429"];
+            };
+        };
+        /** @description Hosted runner request failed (503). No request values or credentials are reflected. */
+        HostedProblem503: {
+            headers: {
+                "Cache-Control"?: "no-store";
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["HostedProblem503"];
+            };
+        };
     };
     parameters: {
         /** @description IFC-020 device initiation/decision key. Different payload reuse conflicts. Successful initiation retains only hashes: identical replay returns credential_not_replayable, never the original device secret. Decisions replay only the matching nonsecret outcome for the same currently active user identity. See device-login-semantics.md for deadline precedence. */
@@ -4083,102 +4129,40 @@ export interface operations {
                 from?: string;
                 to?: string;
             };
-            header?: {
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: {
-                provenance_session?: string;
-            };
+            cookie?: never;
         };
         requestBody?: never;
         responses: {
             /** @description OK */
             200: {
                 headers: {
-                    "Cache-Control"?: string;
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["HostedRunnerUpdateView"];
                 };
             };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
         };
     };
     changeHostedRunnerUpdate: {
         parameters: {
             query?: never;
             header: {
-                Authorization?: string;
                 "Idempotency-Key": string;
             };
             path?: never;
-            cookie?: {
-                provenance_session?: string;
-            };
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -4189,93 +4173,27 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
-                    "Cache-Control"?: string;
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["HostedRunnerMutationResult"];
                 };
             };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
         };
     };
     pollHostedRunnerUpdate: {
         parameters: {
             query?: never;
-            header?: {
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 runnerId: string;
             };
@@ -4290,85 +4208,21 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
-                    "Cache-Control"?: string;
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["HostedUpdaterCommand"];
                 };
             };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HostedUpdateErrorModel"];
-                };
-            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
         };
     };
     listAlphaOrganizations: {
@@ -6557,102 +6411,40 @@ export interface operations {
                 from?: string;
                 to?: string;
             };
-            header?: {
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: {
-                provenance_session?: string;
-            };
+            cookie?: never;
         };
         requestBody?: never;
         responses: {
             /** @description OK */
             200: {
                 headers: {
-                    "Cache-Control"?: string;
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["HostedRunnerList"];
                 };
             };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
         };
     };
     changeHostedRunner: {
         parameters: {
             query?: never;
             header: {
-                Authorization?: string;
                 "Idempotency-Key": string;
             };
             path?: never;
-            cookie?: {
-                provenance_session?: string;
-            };
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -6663,85 +6455,21 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
-                    "Cache-Control"?: string;
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["HostedRunnerResult"];
                 };
             };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
         };
     };
     getHostedRunnerInstallProfile: {
@@ -6755,89 +6483,30 @@ export interface operations {
                 from?: string;
                 to?: string;
             };
-            header?: {
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: {
-                provenance_session?: string;
-            };
+            cookie?: never;
         };
         requestBody?: never;
         responses: {
             /** @description OK */
             200: {
                 headers: {
-                    "Cache-Control"?: string;
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["HostedInstallProfile"];
                 };
             };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
         };
     };
     downloadHostedRunnerRelease: {
@@ -6854,27 +6523,21 @@ export interface operations {
             /** @description Assigned binary. Verify its signed digest before installation. */
             200: {
                 headers: {
-                    "Cache-Control"?: string;
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/octet-stream": string;
                 };
             };
-            /** @description Missing updater credential */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description No assigned release is available for this credential */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
         };
     };
 }

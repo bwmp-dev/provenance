@@ -55,3 +55,45 @@ test("hosted update states and signed release identity remain bounded", () => {
   );
   assert.equal(s.HostedRunnerUpdateRequest.properties.credential, undefined);
 });
+test("every hosted operation has closed non-reflective no-store failures", () => {
+  const paths = [
+    "/v1/admin/runner-updates",
+    "/v1/runner-updater/{runnerId}/poll",
+    "/v1/admin/hosted-runners",
+    "/v1/admin/hosted-runners/install-profile",
+    "/v1/runner-releases/{sha256}",
+  ];
+  let count = 0;
+  for (const path of paths)
+    for (const op of Object.values(doc.paths[path])) {
+      count++;
+      assert.ok(
+        !(op.parameters ?? []).some((p) =>
+          ["Authorization", "provenance_session"].includes(p.name),
+        ),
+      );
+      for (const status of [400, 401, 403, 404, 409, 429, 503]) {
+        const response =
+          doc.components.responses[op.responses[status].$ref.split("/").at(-1)];
+        assert.equal(
+          response.headers["Cache-Control"].schema.const,
+          "no-store",
+        );
+        assert.deepEqual(Object.keys(response.content), [
+          "application/problem+json",
+        ]);
+        const schema =
+          doc.components.schemas[
+            response.content["application/problem+json"].schema.$ref
+              .split("/")
+              .at(-1)
+          ];
+        assert.equal(schema.additionalProperties, false);
+        assert.deepEqual(schema.required, ["type", "title", "status", "code"]);
+        assert.deepEqual(Object.keys(schema.properties), schema.required);
+        assert.equal(schema.properties.status.const, status);
+        assert.ok(schema.properties.code.enum.length);
+      }
+    }
+  assert.equal(count, 7);
+});
