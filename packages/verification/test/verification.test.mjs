@@ -705,3 +705,30 @@ for (const mode of ["streaming", "retaining-negative-control"]) {
     }
   });
 }
+
+test("modern Paper attestation keeps exact 26.x identity inside its signature", async () => {
+  const document = await readJson("valid/hosted.json");
+  const vector = await readJson("vectors/hosted.json");
+  const environment = document.statement.environments[0];
+  environment.minecraftVersion = "26.1.2";
+  environment.javaVersion = 25;
+  signDocument(document, privateKeyFromVector(vector));
+  assert.doesNotThrow(() => validateAttestation(document));
+  assert.equal(
+    verifyAttestationSignature(
+      document,
+      Buffer.from(vector.publicKeyHex, "hex"),
+    ),
+    true,
+  );
+  environment.minecraftVersion = "26.1.3";
+  assert.equal(
+    verifyAttestationSignature(
+      document,
+      Buffer.from(vector.publicKeyHex, "hex"),
+    ),
+    false,
+  );
+  environment.minecraftVersion = "26.0";
+  assert.throws(() => validateAttestation(document), AttestationSchemaError);
+});

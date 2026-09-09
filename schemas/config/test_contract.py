@@ -78,6 +78,12 @@ def set_path(document, path, value):
 def main() -> None:
     Draft202012Validator.check_schema(SCHEMA)
     validator = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
+    version_validator = Draft202012Validator(SCHEMA["$defs"]["minecraftVersion"])
+    for version in ["1.20.6", "1.21", "26.1", "26.1.2", "26.12.0"]:
+        assert version_validator.is_valid(version), version
+    for version in ["26.0", "26.01", "26.1-rc1", "27.1", "latest"]:
+        assert not version_validator.is_valid(version), version
+
 
     hosted_yaml = load_document(FIXTURES / "valid/hosted.yml")
     hosted_json = load_document(FIXTURES / "valid/hosted.normalized.json")
