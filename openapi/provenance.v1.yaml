@@ -1295,6 +1295,7 @@ paths:
       tags: [organizations-projects]
       security:
         - BearerAuth: []
+        - SessionCookie: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
