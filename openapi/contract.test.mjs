@@ -1072,8 +1072,8 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
   ]);
   assert.deepEqual(
     operation("createProject").security,
-    [{ BearerAuth: [] }],
-    "project creation is bearer-only for tenant/capability-scoped callers",
+    [{ BearerAuth: [] }, { SessionCookie: [] }],
+    "project creation accepts tenant/capability-authorized tokens or sessions",
   );
 
   for (const { operation: listOperation } of operations.filter(
@@ -1547,10 +1547,10 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
               ...operationById.get(name),
               operation: deviceInitiationBaseline.post,
             }
-          : name === "createSession"
+          : name === "createSession" || name === "createProject"
             ? {
                 ...operationById.get(name),
-                operation: beforeAlphaAdmission("/v1/auth/sessions", {
+                operation: beforeAlphaAdmission(operationById.get(name).path, {
                   post: operationById.get(name).operation,
                 }).post,
               }
