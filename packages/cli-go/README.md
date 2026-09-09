@@ -26,10 +26,8 @@ Linux native-store acceptance uses an isolated Docker filesystem, session bus,
 and GNOME Secret Service. It tests actual storage and locking, not a mock.
 Provisioning the fixture uses the network; execution is network-disabled.
 Native Keychain and Windows Credential Manager adapters are selected on their
-respective platforms. CI exercises an actual set/get/read/remove round trip,
-origin and credential-kind isolation, and a native CLI build on disposable
-macOS amd64 and Windows amd64 runners. macOS uses a native cgo build;
-cross-compilation is not treated as native-store proof.
+respective platforms, but **macOS/Windows native acceptance is not claimed**.
+macOS requires a native cgo build. Cross-compilation is not native-store proof.
 
 ## Login
 
