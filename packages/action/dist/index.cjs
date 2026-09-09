@@ -16511,11 +16511,14 @@ async function runAction(input2, runtime) {
     const headers = new Headers();
     if (upload.requiredHeaders !== void 0 && !object(upload.requiredHeaders))
       fail("invalid_response");
+    const seenHeaders = /* @__PURE__ */ new Set();
     for (const [name, value] of Object.entries(upload.requiredHeaders || {})) {
-      if (!/^(content-type|content-md5|x-amz-checksum-sha256|x-amz-content-sha256|x-amz-meta-[a-z0-9-]+)$/i.test(
+      const normalizedName = name.toLowerCase();
+      if (!/^(content-type|content-md5|if-none-match|x-amz-checksum-sha256|x-amz-content-sha256|x-amz-meta-[a-z0-9-]+)$/i.test(
         name
-      ) || typeof value !== "string" || value.length > 2048 || /[\r\n\x00]/.test(value))
+      ) || seenHeaders.has(normalizedName) || normalizedName === "if-none-match" && value !== "*" || typeof value !== "string" || value.length > 2048 || /[\r\n\x00]/.test(value))
         fail("storage_headers_denied");
+      seenHeaders.add(normalizedName);
       headers.set(name, value);
     }
     check();

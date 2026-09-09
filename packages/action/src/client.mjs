@@ -424,17 +424,22 @@ export async function runAction(input, runtime) {
     const headers = new Headers();
     if (upload.requiredHeaders !== undefined && !object(upload.requiredHeaders))
       fail("invalid_response");
+    const seenHeaders = new Set();
     for (const [name, value] of Object.entries(upload.requiredHeaders || {})) {
+      const normalizedName = name.toLowerCase();
       // No credential-bearing or routing headers, including provider Authorization.
       if (
-        !/^(content-type|content-md5|x-amz-checksum-sha256|x-amz-content-sha256|x-amz-meta-[a-z0-9-]+)$/i.test(
+        !/^(content-type|content-md5|if-none-match|x-amz-checksum-sha256|x-amz-content-sha256|x-amz-meta-[a-z0-9-]+)$/i.test(
           name,
         ) ||
+        seenHeaders.has(normalizedName) ||
+        (normalizedName === "if-none-match" && value !== "*") ||
         typeof value !== "string" ||
         value.length > 2048 ||
         /[\r\n\x00]/.test(value)
       )
         fail("storage_headers_denied");
+      seenHeaders.add(normalizedName);
       headers.set(name, value);
     }
     check();

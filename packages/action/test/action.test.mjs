@@ -108,7 +108,12 @@ async function scenario(t, opts = {}) {
     } catch {
       body = bytes;
     }
-    calls.push({ path: url.pathname, headers: req.headers, body });
+    calls.push({
+      path: url.pathname,
+      method: req.method,
+      headers: req.headers,
+      body,
+    });
     if (url.pathname === "/oidc") {
       assert.equal(req.headers.authorization, "Bearer oidc-fixture-token");
       assert.equal(url.searchParams.get("audience"), "fixture-audience");
@@ -222,9 +227,11 @@ async function scenario(t, opts = {}) {
         artifactId: id(3),
         uploadUrl: `${origin}/storage?fixture-private-signature`,
         expiresAt: new Date(Date.now() + 60000).toISOString(),
-        requiredHeaders: opts.unsafeHeader
-          ? { Authorization: "private-provider-value" }
-          : { "Content-Type": "application/java-archive" },
+        requiredHeaders:
+          opts.requiredHeaders ??
+          (opts.unsafeHeader
+            ? { Authorization: "private-provider-value" }
+            : { "Content-Type": "application/java-archive" }),
       });
     }
     if (url.pathname.endsWith("/complete"))
@@ -342,6 +349,43 @@ test("compiled distribution submits real normalized configuration and exact byte
   assert.ok(s.masks.includes(grantToken));
   assert.ok(!JSON.stringify(s.result).includes("private"));
 });
+for (const name of ["If-None-Match", "if-none-match", "IF-NONE-MATCH"]) {
+  test(`immutable storage condition reaches PUT: ${name}`, async (t) => {
+    const s = await scenario(t, { requiredHeaders: { [name]: "*" } });
+    assert.equal(s.result.outcome, "submitted");
+    const puts = s.calls.filter((c) => c.method === "PUT");
+    assert.equal(puts.length, 1);
+    assert.equal(puts[0].headers["if-none-match"], "*");
+    assert.equal(puts[0].headers.authorization, undefined);
+    assert.equal(puts[0].headers.cookie, undefined);
+  });
+}
+for (const [name, requiredHeaders] of [
+  ["arbitrary ETag", { "If-None-Match": '"etag"' }],
+  ["empty condition", { "If-None-Match": "" }],
+  ["whitespace condition", { "If-None-Match": " * " }],
+  ["duplicate condition", { "If-None-Match": "*", "if-none-match": "*" }],
+  ["overridden condition", { "If-None-Match": "*", "if-none-match": '"etag"' }],
+  [
+    "reverse overridden condition",
+    { "if-none-match": '"etag"', "If-None-Match": "*" },
+  ],
+  ...[
+    "Authorization",
+    "Cookie",
+    "Host",
+    "Proxy-Authorization",
+    "x-amz-security-token",
+    "If-Match",
+  ].map((name) => [name, { "If-None-Match": "*", [name]: "forbidden" }]),
+]) {
+  test(`storage condition refusal before PUT: ${name}`, async (t) => {
+    const s = await scenario(t, { requiredHeaders });
+    assert.equal(s.result.outcome, "incomplete");
+    assert.equal(s.result.reason, "storage_headers_denied");
+    assert.equal(s.calls.filter((c) => c.method === "PUT").length, 0);
+  });
+}
 test("compiled optional wait does not interpret test_completed as publication", async (t) => {
   const s = await scenario(t, { wait: true, report: true });
   assert.equal(s.result.outcome, "published");

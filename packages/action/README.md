@@ -35,7 +35,10 @@ authority is supplied. See [examples](examples/README.md).
 The JAR is opened without following a symlink, read once into an explicit bounded
 buffer, hashed and checked against its retained file identity before each resource
 operation. The same bytes are uploaded with no platform/GitHub credentials. Only
-an allowlist of content/checksum/storage metadata headers is accepted; redirects
+an allowlist of content/checksum/storage metadata headers and the exact
+`If-None-Match: *` immutable-upload condition is accepted. Header names are
+case-insensitive; duplicate names and other conditions are refused before upload.
+Credential and routing headers remain forbidden; redirects
 are rejected for every credential domain, including storage. Resource identity,
 hash and byte count are checked against server verification before candidate creation.
 
