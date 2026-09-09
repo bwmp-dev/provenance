@@ -103,5 +103,40 @@
     "value": "https://example.invalid/plugin.jar",
     "validator": "oneOf",
     "errorPath": ["dependencies", 0]
+  },
+  {
+    "name": "unsupported modern Minecraft version 26.0",
+    "path": ["paper", "matrix", 0, "minecraftVersion"],
+    "value": "26.0",
+    "validator": "pattern",
+    "errorPath": ["paper", "matrix", 0, "minecraftVersion"]
+  },
+  {
+    "name": "unsupported modern Minecraft version 26.01",
+    "path": ["paper", "matrix", 0, "minecraftVersion"],
+    "value": "26.01",
+    "validator": "pattern",
+    "errorPath": ["paper", "matrix", 0, "minecraftVersion"]
+  },
+  {
+    "name": "unsupported modern Minecraft version 26.1-rc1",
+    "path": ["paper", "matrix", 0, "minecraftVersion"],
+    "value": "26.1-rc1",
+    "validator": "pattern",
+    "errorPath": ["paper", "matrix", 0, "minecraftVersion"]
+  },
+  {
+    "name": "unsupported modern Minecraft version 27.1",
+    "path": ["paper", "matrix", 0, "minecraftVersion"],
+    "value": "27.1",
+    "validator": "pattern",
+    "errorPath": ["paper", "matrix", 0, "minecraftVersion"]
+  },
+  {
+    "name": "unsupported modern API floor",
+    "path": ["paper", "recommendations", "apiFloor"],
+    "value": "26.0",
+    "validator": "pattern",
+    "errorPath": ["paper", "recommendations", "apiFloor"]
   }
 ]

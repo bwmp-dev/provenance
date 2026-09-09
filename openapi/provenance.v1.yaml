@@ -8202,16 +8202,170 @@ components:
           maxLength: 44
         resources:
           $ref: "#/components/schemas/HostedResources"
+        paperCatalogs:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/HostedPaperCatalog"
       required:
         - gatewayAddress
         - apiOrigin
         - artifactHosts
-        - probe
-        - preparedRuntime
         - bundle
         - resources
         - releasePublicKey
       type: object
+      oneOf:
+        - required:
+            - probe
+            - preparedRuntime
+          properties:
+            paperCatalogs: false
+        - required:
+            - paperCatalogs
+          properties:
+            probe: false
+            preparedRuntime: false
+    HostedPaperCatalog:
+      type: object
+      additionalProperties: false
+      properties:
+        environmentId:
+          type: string
+          pattern: ^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._+-]*$
+          minLength: 1
+          maxLength: 128
+        paper:
+          $ref: "#/components/schemas/HostedCatalogPaper"
+        java:
+          $ref: "#/components/schemas/HostedCatalogJava"
+        probeVersion:
+          type: string
+          const: 0.1.0
+        probeSourceCommit:
+          type: string
+          const: f82dcbf8244354059731ba533f73909ed5528bbd
+        probe:
+          allOf:
+            - $ref: "#/components/schemas/HostedCatalogArtifact"
+            - properties:
+                sha256:
+                  const: 040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868
+                sizeBytes:
+                  const: 478853
+                filename:
+                  const: paper-probe.jar
+        preparedRuntime:
+          $ref: "#/components/schemas/HostedCatalogRuntime"
+      required:
+        - environmentId
+        - paper
+        - java
+        - probeVersion
+        - probeSourceCommit
+        - probe
+        - preparedRuntime
+      description:
+        An operator-approved immutable Paper runtime. Hosted support starts
+        at Paper 1.20.6 and requires the matching Java 21 or 25 release and the
+        accepted probe. Environment IDs, resolved Paper/Java identities and
+        prepared-runtime digests must be unique across the profile. Artifact hosts
+        and byte limits are validated before provisioning; jobs cannot extend this
+        catalog.
+    HostedCatalogPaper:
+      type: object
+      additionalProperties: false
+      properties:
+        gameVersion:
+          type: string
+          pattern: ^(1\.20\.([6-9]|[1-9][0-9]+)|1\.21(\.[0-9]+)?|26\.[1-9][0-9]*(\.[0-9]+)?)$
+          maxLength: 32
+        build:
+          type: integer
+          minimum: 1
+          maximum: 4294967295
+        artifact:
+          $ref: "#/components/schemas/HostedCatalogArtifact"
+      required:
+        - gameVersion
+        - build
+        - artifact
+    HostedCatalogJava:
+      type: object
+      additionalProperties: false
+      properties:
+        distribution:
+          type: string
+          const: eclipse-temurin
+        version:
+          type: string
+          pattern: ^(21|25)\.[0-9]+\.[0-9]+(?:\.[0-9]+)?\+[0-9]+$
+          maxLength: 64
+        os:
+          type: string
+          const: linux
+        architecture:
+          type: string
+          const: amd64
+        archiveRoot:
+          type: string
+          pattern: ^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._+-]*$
+          minLength: 1
+          maxLength: 200
+        artifact:
+          $ref: "#/components/schemas/HostedCatalogArtifact"
+        maximumExpandedBytes: &a1
+          type: integer
+          minimum: 1
+          maximum: 1073741824
+      required:
+        - distribution
+        - version
+        - os
+        - architecture
+        - archiveRoot
+        - artifact
+        - maximumExpandedBytes
+    HostedCatalogArtifact:
+      additionalProperties: false
+      properties:
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          minLength: 64
+          maxLength: 64
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 536870912
+        uri:
+          type: string
+          format: uri
+          pattern: ^https://[^/?#@\s]+(?:/[^#\s]*)?$
+          maxLength: 8192
+        filename:
+          type: string
+          pattern: ^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._+-]*$
+          minLength: 1
+          maxLength: 200
+      required:
+        - uri
+        - sha256
+        - sizeBytes
+        - filename
+      type: object
+    HostedCatalogRuntime:
+      type: object
+      additionalProperties: false
+      properties:
+        artifact:
+          $ref: "#/components/schemas/HostedCatalogArtifact"
+        maximumExpandedBytes: *a1
+      required:
+        - artifact
+        - maximumExpandedBytes
     HostedAsset:
       additionalProperties: false
       properties:

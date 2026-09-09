@@ -2577,10 +2577,63 @@ export interface components {
             artifactHosts: string[];
             bundle: components["schemas"]["HostedAsset"];
             gatewayAddress: string;
-            preparedRuntime: components["schemas"]["HostedRuntime"];
-            probe: components["schemas"]["HostedAsset"];
+            preparedRuntime?: components["schemas"]["HostedRuntime"];
+            probe?: components["schemas"]["HostedAsset"];
             releasePublicKey: string;
             resources: components["schemas"]["HostedResources"];
+            paperCatalogs?: components["schemas"]["HostedPaperCatalog"][];
+        } & ({
+            paperCatalogs?: never;
+        } | {
+            probe?: never;
+            preparedRuntime?: never;
+        });
+        /** @description An operator-approved immutable Paper runtime. Hosted support starts at Paper 1.20.6 and requires the matching Java 21 or 25 release and the accepted probe. Environment IDs, resolved Paper/Java identities and prepared-runtime digests must be unique across the profile. Artifact hosts and byte limits are validated before provisioning; jobs cannot extend this catalog. */
+        HostedPaperCatalog: {
+            environmentId: string;
+            paper: components["schemas"]["HostedCatalogPaper"];
+            java: components["schemas"]["HostedCatalogJava"];
+            /** @constant */
+            probeVersion: "0.1.0";
+            /** @constant */
+            probeSourceCommit: "f82dcbf8244354059731ba533f73909ed5528bbd";
+            probe: components["schemas"]["HostedCatalogArtifact"] & {
+                /** @constant */
+                sha256?: "040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868";
+                /** @constant */
+                sizeBytes?: 478853;
+                /** @constant */
+                filename?: "paper-probe.jar";
+            };
+            preparedRuntime: components["schemas"]["HostedCatalogRuntime"];
+        };
+        HostedCatalogPaper: {
+            gameVersion: string;
+            build: number;
+            artifact: components["schemas"]["HostedCatalogArtifact"];
+        };
+        HostedCatalogJava: {
+            /** @constant */
+            distribution: "eclipse-temurin";
+            version: string;
+            /** @constant */
+            os: "linux";
+            /** @constant */
+            architecture: "amd64";
+            archiveRoot: string;
+            artifact: components["schemas"]["HostedCatalogArtifact"];
+            maximumExpandedBytes: number;
+        };
+        HostedCatalogArtifact: {
+            sha256: string;
+            sizeBytes: number;
+            /** Format: uri */
+            uri: string;
+            filename: string;
+        };
+        HostedCatalogRuntime: {
+            artifact: components["schemas"]["HostedCatalogArtifact"];
+            maximumExpandedBytes: number;
         };
         HostedAsset: {
             sha256: string;

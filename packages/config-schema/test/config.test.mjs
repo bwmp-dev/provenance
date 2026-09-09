@@ -82,3 +82,11 @@ test("unsafe YAML and incomplete timestamp input are rejected", async () => {
     assert.throws(() => parseConfiguration(source), ConfigurationError, name);
   }
 });
+
+test("modern Paper config preserves 26.x matrix and API floor identities", async () => {
+  const value = parseConfiguration(await read("valid/paper-26.yml"));
+  assert.equal(value.paper.matrix[0].minecraftVersion, "26.1.2");
+  assert.equal(value.paper.matrix[0].javaVersion, 25);
+  assert.equal(value.paper.recommendations.apiFloor, "26.1");
+  assert.deepEqual(JSON.parse(normalizeConfiguration(value)), value);
+});

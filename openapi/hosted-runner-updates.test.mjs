@@ -221,3 +221,133 @@ test("hosted mutations retain canonical idempotency and bounded views signal tru
     /unbound or unavailable runner.*403 updater_forbidden/,
   );
 });
+
+test("hosted install profiles accept either legacy pins or bounded complete Paper catalogs", async () => {
+  const { createRequire } = await import("node:module");
+  const require = createRequire(
+    new URL("../packages/verification/package.json", import.meta.url),
+  );
+  const Ajv = require("ajv/dist/2020.js");
+  const addFormats = require("ajv-formats");
+  const ajv = new Ajv({ strict: false });
+  addFormats(ajv);
+  ajv.addSchema({ $id: "hosted", components: doc.components });
+  const validate = ajv.compile({
+    $ref: "hosted#/components/schemas/HostedInstallProfile",
+  });
+  const asset = {
+    uri: "https://artifacts.example/asset",
+    sha256: "a".repeat(64),
+    sizeBytes: 100,
+  };
+  const artifact = { ...asset, filename: "paper.jar" };
+  const catalog = {
+    environmentId: "paper-1.21.11-42-java-21",
+    paper: { gameVersion: "1.21.11", build: 42, artifact },
+    java: {
+      distribution: "eclipse-temurin",
+      version: "21.0.8+9",
+      os: "linux",
+      architecture: "amd64",
+      archiveRoot: "jdk-21.0.8+9-jre",
+      artifact: { ...artifact, filename: "java.tar.gz" },
+      maximumExpandedBytes: 1000,
+    },
+    probeVersion: "0.1.0",
+    probeSourceCommit: "f82dcbf8244354059731ba533f73909ed5528bbd",
+    probe: {
+      ...artifact,
+      filename: "paper-probe.jar",
+      sha256:
+        "040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868",
+      sizeBytes: 478853,
+    },
+    preparedRuntime: {
+      artifact: { ...artifact, filename: "runtime.tar.gz" },
+      maximumExpandedBytes: 1000,
+    },
+  };
+  const profile = {
+    gatewayAddress: "gateway.example:443",
+    apiOrigin: "https://api.example",
+    artifactHosts: ["artifacts.example"],
+    bundle: asset,
+    releasePublicKey: "A".repeat(43) + "=",
+    resources: {
+      cpuMillis: 2000,
+      memoryBytes: 6442450944,
+      diskBytes: 17179869184,
+      processCount: 1024,
+    },
+    paperCatalogs: [catalog],
+  };
+  assert.equal(validate(profile), true, JSON.stringify(validate.errors));
+  const modern = structuredClone(profile);
+  modern.paperCatalogs[0].paper.gameVersion = "26.1.2";
+  modern.paperCatalogs[0].java.version = "25.0.4.1+1";
+  assert.equal(validate(modern), true, JSON.stringify(validate.errors));
+  modern.paperCatalogs[0].paper.gameVersion = "26.0";
+  assert.equal(validate(modern), false);
+  const legacy = {
+    ...profile,
+    probe: asset,
+    preparedRuntime: { ...asset, maximumExpandedBytes: 1000 },
+  };
+  delete legacy.paperCatalogs;
+  assert.equal(validate(legacy), true, JSON.stringify(validate.errors));
+  for (const invalid of [
+    { ...profile, probe: asset },
+    { ...profile, preparedRuntime: legacy.preparedRuntime },
+    { ...legacy, paperCatalogs: [catalog] },
+    { ...profile, paperCatalogs: [] },
+    { ...profile, paperCatalogs: Array(33).fill(catalog) },
+    { ...profile, paperCatalogs: [catalog, catalog] },
+    { ...profile, paperCatalogs: null },
+  ])
+    assert.equal(validate(invalid), false, JSON.stringify(invalid));
+  for (const mutate of [
+    (c) => {
+      c.paper.artifact.filename = "../paper.jar";
+    },
+    (c) => {
+      c.paper.artifact.sizeBytes = 536870913;
+    },
+    (c) => {
+      c.paper.build = 0;
+    },
+    (c) => {
+      c.paper.gameVersion = "latest";
+    },
+    (c) => {
+      c.paper.gameVersion = "1.19.4";
+    },
+    (c) => {
+      c.java.version = "21";
+    },
+    (c) => {
+      c.java.architecture = "arm64";
+    },
+    (c) => {
+      c.java.archiveRoot = "../java";
+    },
+    (c) => {
+      c.preparedRuntime.maximumExpandedBytes = 1073741825;
+    },
+    (c) => {
+      c.probe.sha256 = "b".repeat(64);
+    },
+    (c) => {
+      c.probeVersion = "latest";
+    },
+    (c) => {
+      c.unknown = true;
+    },
+    (c) => {
+      delete c.preparedRuntime;
+    },
+  ]) {
+    const invalid = structuredClone(profile);
+    mutate(invalid.paperCatalogs[0]);
+    assert.equal(validate(invalid), false, JSON.stringify(invalid));
+  }
+});

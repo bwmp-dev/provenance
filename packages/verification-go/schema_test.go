@@ -111,3 +111,22 @@ func TestMalformedEnvelopeNeverReadsArtifact(t *testing.T) {
 		})
 	}
 }
+
+func TestModernMinecraftIdentityRemainsSignatureBound(t *testing.T) {
+	v, _, key := small(t)
+	for _, version := range []string{"26.1", "26.1.2"} {
+		doc := object(t, v.Document)
+		setPath(t, doc, []any{"statement", "environments", float64(0), "minecraftVersion"}, version)
+		// The changed version is schema-valid but the old signature must fail.
+		if _, err := VerifyEnvelope(marshal(t, doc), key); !errors.Is(err, ErrSignature) {
+			t.Fatalf("%s: %v", version, err)
+		}
+	}
+	for _, version := range []string{"26.0", "26.01", "26.1-rc1", "27.1"} {
+		doc := object(t, v.Document)
+		setPath(t, doc, []any{"statement", "environments", float64(0), "minecraftVersion"}, version)
+		if _, err := VerifyEnvelope(marshal(t, doc), key); !errors.Is(err, ErrSchema) {
+			t.Fatalf("%s: %v", version, err)
+		}
+	}
+}
