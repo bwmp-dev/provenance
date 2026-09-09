@@ -60,3 +60,61 @@ jobs:
         run: >-
           pnpm exec buf breaking proto/provenance/runner/v1
           --against "https://github.com/${{ github.repository }}.git#branch=${{ github.event.repository.default_branch }},subdir=proto/provenance/runner/v1"
+
+  cli-native-desktop:
+    name: CLI native store (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-amd64
+            runner: macos-15-intel
+            cgo: "1"
+            executable: provenance
+          - platform: windows-amd64
+            runner: windows-2025
+            cgo: "0"
+            executable: provenance.exe
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+          cache-dependency-path: packages/cli-go/go.sum
+      - name: Verify native credential store
+        env:
+          CGO_ENABLED: ${{ matrix.cgo }}
+          CLI_NATIVE_STORE_REQUIRED: "1"
+          GOTOOLCHAIN: local
+        shell: bash
+        run: >-
+          go -C packages/cli-go test
+          -count=1
+          -run '^TestNativeDesktopCredentialStore$'
+          ./internal/securestore
+      - name: Build native CLI
+        env:
+          CGO_ENABLED: ${{ matrix.cgo }}
+          GOTOOLCHAIN: local
+        shell: bash
+        run: |
+          mkdir -p dist
+          go -C packages/cli-go build \
+            -mod=readonly \
+            -trimpath \
+            -buildvcs=true \
+            -o "../../dist/${{ matrix.executable }}" \
+            ./cmd/provenance
+      - name: Verify native build identity
+        env:
+          EXECUTABLE: dist/${{ matrix.executable }}
+        shell: bash
+        run: |
+          test -f "$EXECUTABLE"
+          info="$(go version -m "$EXECUTABLE")"
+          grep -F "vcs.revision=$GITHUB_SHA" <<<"$info"
+          grep -F 'vcs.modified=false' <<<"$info"
