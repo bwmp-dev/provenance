@@ -37,6 +37,46 @@ const methods = new Set([
   "post",
   "put",
 ]);
+
+test("attestation HTTP endpoints preserve explicit v1 and v2 selection", async () => {
+  const response =
+    document.paths["/v1/verifications/{verificationId}/attestation"].get
+      .responses["200"];
+  assert.deepEqual(response.content["application/json"].schema, {
+    $ref: "../schemas/attestation/v1/schema.json",
+  });
+  assert.deepEqual(
+    document.paths["/v1/verifications/{verificationId}/attestations/v2"].get
+      .responses["200"].content["application/json"].schema,
+    {
+      $ref: "../schemas/attestation/v2/schema.json",
+    },
+  );
+  for (const version of [1, 2]) {
+    const schema = JSON.parse(
+      await readFile(
+        new URL(`../schemas/attestation/v${version}/schema.json`, root),
+        "utf8",
+      ),
+    );
+    assert.equal(
+      schema.properties.mediaType.const,
+      `application/vnd.provenance.attestation.v${version}+json`,
+    );
+    assert.equal(
+      schema.$defs.statement.properties.apiVersion.const,
+      `provenance.dev/attestation/v${version}`,
+    );
+    assert.ok(
+      generatedClient.includes(
+        `application/vnd.provenance.attestation.v${version}+json`,
+      ),
+    );
+    assert.ok(
+      generatedClient.includes(`provenance.dev/attestation/v${version}`),
+    );
+  }
+});
 const hostedUpdateOperations = new Set([
   "getHostedCatalogs",
   "changeHostedCatalog",

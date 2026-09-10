@@ -1513,6 +1513,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/verifications/{verificationId}/attestations/v2": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                verificationId: components["parameters"]["VerificationId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the signed v2 attestation for a verification
+         * @description Explicit v2 selection. The v1 endpoint remains v1-only; neither endpoint relabels or converts signed records between versions.
+         */
+        get: operations["getVerificationAttestationV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3208,6 +3230,135 @@ export interface components {
                 /** @enum {string} */
                 status: "active" | "retired";
             }[];
+        };
+        "$defs-assertion": {
+            id: string;
+            environmentId: components["schemas"]["identifier"];
+            /** @enum {unknown} */
+            type: "startup-ready" | "plugin-enabled" | "dependency-present" | "console-regex" | "clean-shutdown" | "console-contains";
+            /** @enum {unknown} */
+            outcome: "passed" | "failed" | "skipped";
+            evidenceDigest: components["schemas"]["digest"];
+        };
+        "$defs-statement": {
+            /** @constant */
+            apiVersion: "provenance.dev/attestation/v2";
+            subject: components["schemas"]["subject"];
+            source: components["schemas"]["source"];
+            configuration: components["schemas"]["configuration"];
+            dependencies: components["schemas"]["dependency"][];
+            environments: components["schemas"]["environment"][];
+            assertions: components["schemas"]["$defs-assertion"][];
+            runner: components["schemas"]["runner"];
+            /** Format: date-time */
+            verifiedAt: string;
+        };
+        /** Provenance attestation envelope v2 */
+        "schema-3": {
+            /** @constant */
+            mediaType: "application/vnd.provenance.attestation.v2+json";
+            statement: components["schemas"]["$defs-statement"];
+            signature: components["schemas"]["signature"];
+            $defs: {
+                identifier: string;
+                version: string;
+                minecraftVersion: string;
+                sha256: string;
+                digest: {
+                    /** @constant */
+                    algorithm: "sha256";
+                    value: components["schemas"]["sha256"];
+                };
+                statement: {
+                    /** @constant */
+                    apiVersion: "provenance.dev/attestation/v2";
+                    subject: components["schemas"]["subject"];
+                    source: components["schemas"]["source"];
+                    configuration: components["schemas"]["configuration"];
+                    dependencies: components["schemas"]["dependency"][];
+                    environments: components["schemas"]["environment"][];
+                    assertions: components["schemas"]["$defs-assertion"][];
+                    runner: components["schemas"]["runner"];
+                    /** Format: date-time */
+                    verifiedAt: string;
+                };
+                subject: {
+                    name: string;
+                    version: components["schemas"]["version"];
+                    sizeBytes: number;
+                    digest: components["schemas"]["digest"];
+                };
+                source: {
+                    /** @constant */
+                    provider: "github";
+                    repository: string;
+                    commit: string;
+                    ref: string;
+                };
+                configuration: {
+                    /** @constant */
+                    apiVersion: "provenance.dev/v1";
+                    digest: components["schemas"]["digest"];
+                };
+                dependency: {
+                    id: components["schemas"]["identifier"];
+                    /** @enum {unknown} */
+                    provider: "modrinth" | "organization-upload";
+                    sourceId: string;
+                    version: string;
+                    digest: components["schemas"]["digest"];
+                    /** Format: date-time */
+                    resolvedAt: string;
+                    metadataDigest: components["schemas"]["digest"];
+                };
+                environment: {
+                    id: components["schemas"]["identifier"];
+                    /** @constant */
+                    provider: "paper";
+                    minecraftVersion: components["schemas"]["minecraftVersion"];
+                    paperBuild: number;
+                    javaVersion: number;
+                    runnerImageDigest: components["schemas"]["digest"];
+                    /** @enum {unknown} */
+                    policy: "required" | "informational";
+                    /** @enum {unknown} */
+                    outcome: "passed" | "failed";
+                };
+                assertion: {
+                    id: string;
+                    environmentId: components["schemas"]["identifier"];
+                    /** @enum {unknown} */
+                    type: "startup-ready" | "plugin-enabled" | "dependency-present" | "console-regex" | "clean-shutdown" | "console-contains";
+                    /** @enum {unknown} */
+                    outcome: "passed" | "failed" | "skipped";
+                    evidenceDigest: components["schemas"]["digest"];
+                };
+                sandbox: {
+                    /** @enum {unknown} */
+                    kind: "gvisor" | "container" | "process";
+                    version: string;
+                    imageDigest: components["schemas"]["digest"];
+                    /** @enum {unknown} */
+                    networkMode: "none" | "restricted" | "allowlist" | "unrestricted";
+                };
+                runner: {
+                    id: components["schemas"]["identifier"];
+                    /** @enum {unknown} */
+                    hosting: "hosted" | "self-hosted";
+                    /** @enum {unknown} */
+                    trust: "provenance-hosted" | "organization-reported";
+                    version: components["schemas"]["version"];
+                    sandbox: components["schemas"]["sandbox"];
+                } & unknown;
+                signature: {
+                    /** @constant */
+                    algorithm: "Ed25519";
+                    /** @constant */
+                    canonicalization: "RFC8785";
+                    keyId: string;
+                    value: string;
+                };
+            };
         };
     };
     responses: {
@@ -7091,6 +7242,29 @@ export interface operations {
             429: components["responses"]["HostedProblem429"];
             503: components["responses"]["HostedUpdaterProblem503"];
             default: components["responses"]["HostedUpdaterProblem503"];
+        };
+    };
+    getVerificationAttestationV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                verificationId: components["parameters"]["VerificationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed Provenance v2 attestation with its distinct schema and signing domain. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["schema-3"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
     };
 }

@@ -99,6 +99,7 @@ test("IFC022 is additive to every alpha17 path and component", () => {
     [
       "/v1/release-candidates/{candidateId}/publication-result",
       "/v1/auth/github-actions/grants",
+      "/v1/verifications/{verificationId}/attestations/v2",
     ],
   );
   assert.equal(op.operationId, "createGitHubActionsGrant");
