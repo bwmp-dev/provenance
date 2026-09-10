@@ -689,7 +689,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     runWorkspaceBuild();
     const inspectorJar = resolve(
       import.meta.dirname,
-      "../plugins/paper-probe/build/libs/paper-probe-0.1.0.jar",
+      "../plugins/paper-probe/build/libs/paper-probe-0.2.0.jar",
     );
     const firstInspector = await readFile(inspectorJar);
     const inspectorRebuild = runGradleBuild(

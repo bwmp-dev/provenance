@@ -1,9 +1,15 @@
 # Provenance Paper probe
 
-The probe declares and compiles against Paper API 1.20.6 (Java 21). Its compile
-API artifact is hash-pinned; the opt-in same-artifact matrix producer proof
-exercises the built probe on Paper 1.20.6, 1.21.4, and 1.21.8. The probe floor
-does not change a target plugin's declared compatibility.
+Probe 0.2.0 emits Java 8 bytecode, including its bundled dependencies. It retains
+the hash-pinned Paper API compile artifact, but uses longstanding Bukkit APIs
+and resolves optional modern command-sender APIs lazily. Legacy servers use a
+console-sender adapter. Startup readiness begins on the first server tick after
+plugin enablement, without requiring the newer `ServerLoadEvent` class.
+The `api-version: 1.13` declaration avoids modern material remapping; pre-1.13
+Bukkit ignores that field.
+The probe does not change a target plugin's declared compatibility or Java
+requirements. Production support also requires the matching Java runtime and
+verified offline Paperclip preparation; discovery alone is not acceptance.
 
 Install the probe JAR beside the plugin under test and set:
 

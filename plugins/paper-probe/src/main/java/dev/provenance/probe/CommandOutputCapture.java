@@ -33,7 +33,7 @@ final class CommandOutputCapture {
   }
 
   List<String> lines() {
-    return captured.toString().lines().toList();
+    return Java8.lines(captured.toString());
   }
 
   long observedBytes() {

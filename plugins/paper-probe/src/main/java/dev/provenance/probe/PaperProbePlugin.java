@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
@@ -16,23 +15,19 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.PluginEnableEvent;
-import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class PaperProbePlugin extends JavaPlugin implements Listener {
-  private static final PlainTextComponentSerializer PLAIN_TEXT =
-      PlainTextComponentSerializer.plainText();
-
   private final PluginMetadataDiscovery discovery = new PluginMetadataDiscovery();
   private final LifecycleValidator validator = new LifecycleValidator();
   private final Set<Logger> observedLoggers = new LinkedHashSet<>();
-  private List<PluginDescriptor> discoveredPlugins = List.of();
+  private List<PluginDescriptor> discoveredPlugins = Java8.list();
   private ProbeConfiguration configuration;
   private EventSink sink;
   private LifecycleExceptionHandler exceptionHandler;
   private Log4jLifecycleExceptionAppender log4jExceptionAppender;
-  private CommandTestPlan commandTestPlan = new CommandTestPlan(List.of());
+  private CommandTestPlan commandTestPlan = new CommandTestPlan(Java8.list());
   private boolean commandTestPlanValid;
   private CommandTestRunner commandTestRunner;
   private boolean shutdownRequested;
@@ -43,12 +38,12 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
     try {
       sink = new NdjsonEventSink(configuration.eventFile());
       List<MetadataInspection> inspections =
-          discovery.inspectDirectory(Bukkit.getPluginsFolder().toPath());
+          discovery.inspectDirectory(getDataFolder().getParentFile().toPath());
       discoveredPlugins =
           inspections.stream()
               .filter(inspection -> inspection.status() == MetadataStatus.VALID)
               .map(MetadataInspection::descriptor)
-              .toList();
+              .collect(Java8.toList());
       inspections.forEach(this::emitMetadataInspection);
       readCommandTestPlan();
     } catch (IOException exception) {
@@ -75,7 +70,7 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
     }
     emit(
         EventType.PROBE_LOADED,
-        Map.of(
+        Java8.map(
             "eventFile",
             configuration.eventFile().toString(),
             "lifecycleKind",
@@ -86,9 +81,11 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
   @Override
   public void onEnable() {
     Bukkit.getPluginManager().registerEvents(this, this);
-    commandTestRunner =
-        new CommandTestRunner(sink, configuration.maximumCommandOutputBytes());
+    commandTestRunner = new CommandTestRunner(sink, configuration.maximumCommandOutputBytes());
     emitLoadedPluginStates();
+    // The first server tick follows startup and POSTWORLD plugin enablement,
+    // including on servers predating ServerLoadEvent (1.13).
+    Bukkit.getScheduler().runTask(this, this::onServerLoaded);
   }
 
   @Override
@@ -107,7 +104,7 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
     if (sink != null) {
       emit(
           EventType.SERVER_STOPPED,
-          Map.of(
+          Java8.map(
               "lifecycleKind",
               "LIFECYCLE_EVENT_KIND_SERVER_STOPPED",
               "shutdownRequested",
@@ -128,16 +125,15 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
     emitPluginState(plugin.getName(), "", mainClass(plugin), true, true, false);
   }
 
-  @EventHandler(priority = EventPriority.MONITOR)
-  public void onServerLoaded(ServerLoadEvent event) {
-    emit(EventType.SERVER_LOADED, Map.of("loadType", event.getType().name()));
+  private void onServerLoaded() {
+    emit(EventType.SERVER_LOADED, Java8.map("loadType", "STARTUP"));
     List<PluginSnapshot> snapshots = snapshots();
     for (PluginSnapshot plugin : snapshots) {
       emitPluginState(plugin.name(), "", "", true, plugin.loaded(), plugin.enabled());
     }
     emit(
         EventType.STABILIZATION_STARTED,
-        Map.of("durationMillis", configuration.stabilizationMillis()));
+        Java8.map("durationMillis", configuration.stabilizationMillis()));
     long delayTicks = Math.max(1, (configuration.stabilizationMillis() + 49) / 50);
     Bukkit.getScheduler().runTaskLater(this, this::finishStabilization, delayTicks);
   }
@@ -146,10 +142,10 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
     boolean requirementsSatisfied = emitRequirementStatuses(snapshots());
     emit(
         EventType.STABILIZATION_COMPLETED,
-        Map.of("durationMillis", configuration.stabilizationMillis()));
+        Java8.map("durationMillis", configuration.stabilizationMillis()));
     emit(
         EventType.SERVER_READY,
-        Map.of(
+        Java8.map(
             "requirementsSatisfied",
             requirementsSatisfied,
             "lifecycleKind",
@@ -159,14 +155,14 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
           commandTestRunner.run(commandTestPlan.console(), new PaperCommandDispatcher());
       emit(
           EventType.TEST_PLAN,
-          Map.of(
+          Java8.map(
               "status", "COMPLETED",
               "consoleTests", commandTestPlan.console().size(),
               "passed", result.passed(),
               "timedOut", result.timedOut()));
     }
     if (configuration.requestShutdown()) {
-      emit(EventType.CLEAN_SHUTDOWN_REQUESTED, Map.of("reason", "probe test plan complete"));
+      emit(EventType.CLEAN_SHUTDOWN_REQUESTED, Java8.map("reason", "probe test plan complete"));
       shutdownRequested = true;
       Bukkit.shutdown();
     }
@@ -178,7 +174,7 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
       commandTestPlanValid = true;
       emit(
           EventType.TEST_PLAN,
-          Map.of(
+          Java8.map(
               "status", "LOADED",
               "consoleTests", commandTestPlan.console().size(),
               "maximumCommandOutputBytes", configuration.maximumCommandOutputBytes()));
@@ -188,12 +184,10 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
           exception instanceof TestPlanException
               ? exception.getMessage()
               : "could not read test plan";
-      emit(
-          EventType.TEST_PLAN,
-          Map.of("status", "INVALID", "issue", issue));
+      emit(EventType.TEST_PLAN, Java8.map("status", "INVALID", "issue", issue));
       emit(
           EventType.CLASSIFICATION,
-          ProbeClassification.INVALID_TEST_PLAN.data(Map.of("issue", issue)));
+          ProbeClassification.INVALID_TEST_PLAN.data(Java8.map("issue", issue)));
     }
   }
 
@@ -207,7 +201,7 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
           .ifPresent(plugin -> requiredDependencies.addAll(plugin.requiredDependencies()));
       Plugin target = Bukkit.getPluginManager().getPlugin(configuration.target());
       if (target != null) {
-        requiredDependencies.addAll(target.getPluginMeta().getPluginDependencies());
+        requiredDependencies.addAll(target.getDescription().getDepend());
       }
     }
 
@@ -255,7 +249,7 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
       emit(
           EventType.CLASSIFICATION,
           ProbeClassification.INVALID_METADATA.data(
-              Map.of(
+              Java8.map(
                   "artifact", inspection.source().getFileName().toString(),
                   "issues", inspection.issues())));
     }
@@ -281,7 +275,7 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
     }
     emit(
         EventType.CLASSIFICATION,
-        classification.data(Map.of("plugin", status.name(), "role", status.role())));
+        classification.data(Java8.map("plugin", status.name(), "role", status.role())));
   }
 
   private void emitConfiguredDependencySuggestions() {
@@ -310,11 +304,11 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
     for (Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
       snapshots.add(new PluginSnapshot(plugin.getName(), true, plugin.isEnabled()));
     }
-    return List.copyOf(snapshots);
+    return Java8.listCopy(snapshots);
   }
 
   private String mainClass(Plugin plugin) {
-    return plugin.getPluginMeta().getMainClass();
+    return plugin.getDescription().getMain();
   }
 
   private void emitPluginState(
@@ -352,14 +346,12 @@ public final class PaperProbePlugin extends JavaPlugin implements Listener {
   private final class PaperCommandDispatcher implements CommandTestRunner.CommandDispatcher {
     @Override
     public boolean isRegistered(String commandLabel) {
-      return Bukkit.getServer().getCommandMap().getCommand(commandLabel) != null;
+      return BukkitCompatibility.commandMap().getCommand(commandLabel) != null;
     }
 
     @Override
     public boolean dispatch(String command, CommandOutputCapture output) {
-      CommandSender sender =
-          Bukkit.getServer()
-              .createCommandSender(component -> output.append(PLAIN_TEXT.serialize(component)));
+      CommandSender sender = BukkitCompatibility.commandSender(output);
       return Bukkit.dispatchCommand(sender, command);
     }
   }

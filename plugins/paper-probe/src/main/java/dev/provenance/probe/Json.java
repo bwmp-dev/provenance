@@ -19,13 +19,15 @@ final class Json {
     if (value == null) {
       return "null";
     }
-    if (value instanceof String string) {
+    if (value instanceof String) {
+      String string = (String) value;
       return quote(string);
     }
     if (value instanceof Boolean || value instanceof Number) {
       return value.toString();
     }
-    if (value instanceof Map<?, ?> map) {
+    if (value instanceof Map<?, ?>) {
+      Map<?, ?> map = (Map<?, ?>) value;
       StringBuilder json = new StringBuilder("{");
       Iterator<? extends Map.Entry<?, ?>> entries = map.entrySet().iterator();
       while (entries.hasNext()) {
@@ -37,7 +39,8 @@ final class Json {
       }
       return json.append('}').toString();
     }
-    if (value instanceof Iterable<?> iterable) {
+    if (value instanceof Iterable<?>) {
+      Iterable<?> iterable = (Iterable<?>) value;
       StringBuilder json = new StringBuilder("[");
       Iterator<?> values = iterable.iterator();
       while (values.hasNext()) {
@@ -56,20 +59,35 @@ final class Json {
     for (int index = 0; index < value.length(); index++) {
       char character = value.charAt(index);
       switch (character) {
-        case '"' -> escaped.append("\\\"");
-        case '\\' -> escaped.append("\\\\");
-        case '\b' -> escaped.append("\\b");
-        case '\f' -> escaped.append("\\f");
-        case '\n' -> escaped.append("\\n");
-        case '\r' -> escaped.append("\\r");
-        case '\t' -> escaped.append("\\t");
-        default -> {
-          if (character < 0x20) {
-            escaped.append(String.format("\\u%04x", (int) character));
-          } else {
-            escaped.append(character);
+        case '"':
+          escaped.append("\\\"");
+          break;
+        case '\\':
+          escaped.append("\\\\");
+          break;
+        case '\b':
+          escaped.append("\\b");
+          break;
+        case '\f':
+          escaped.append("\\f");
+          break;
+        case '\n':
+          escaped.append("\\n");
+          break;
+        case '\r':
+          escaped.append("\\r");
+          break;
+        case '\t':
+          escaped.append("\\t");
+          break;
+        default:
+          {
+            if (character < 0x20) {
+              escaped.append(String.format("\\u%04x", (int) character));
+            } else {
+              escaped.append(character);
+            }
           }
-        }
       }
     }
     return escaped.append('"').toString();

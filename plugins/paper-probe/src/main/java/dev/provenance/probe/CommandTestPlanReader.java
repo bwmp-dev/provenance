@@ -21,11 +21,11 @@ final class CommandTestPlanReader {
   private static final int MAX_ASSERTIONS = 20;
   private static final int MAX_COMMAND_EVENTS = 512;
   private static final Set<String> ROOT_FIELDS =
-      Set.of("targetPlugin", "requiredDependencies", "stabilizationMilliseconds", "console");
+      Java8.set("targetPlugin", "requiredDependencies", "stabilizationMilliseconds", "console");
   private static final Set<String> COMMAND_FIELDS =
-      Set.of("id", "command", "timeoutSeconds", "assertions");
+      Java8.set("id", "command", "timeoutSeconds", "assertions");
   private static final Set<String> ASSERTION_FIELDS =
-      Set.of("stream", "operator", "pattern", "match", "minimumOccurrences");
+      Java8.set("stream", "operator", "pattern", "match", "minimumOccurrences");
 
   CommandTestPlan read(Path path) throws IOException, TestPlanException {
     if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
@@ -35,7 +35,7 @@ final class CommandTestPlanReader {
     if (size > MAX_PLAN_BYTES) {
       throw new TestPlanException("test plan exceeds 262144 bytes");
     }
-    return parse(Files.readString(path, StandardCharsets.UTF_8));
+    return parse(new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
   }
 
   CommandTestPlan parse(String source) throws TestPlanException {
@@ -62,7 +62,7 @@ final class CommandTestPlanReader {
 
     Object consoleValue = root.get("console");
     if (consoleValue == null) {
-      return new CommandTestPlan(List.of());
+      return new CommandTestPlan(Java8.list());
     }
     List<?> commands = list(consoleValue, "console");
     if (commands.size() > MAX_COMMANDS) {
@@ -123,9 +123,7 @@ final class CommandTestPlanReader {
     rejectUnknownFields(assertion, ASSERTION_FIELDS, path);
     CommandOutputStream stream =
         enumValue(
-            requiredString(assertion, "stream", path),
-            path + ".stream",
-            CommandOutputStream.class);
+            requiredString(assertion, "stream", path), path + ".stream", CommandOutputStream.class);
     String operatorValue = optionalString(assertion, "operator", "regex", path);
     CommandAssertionOperator operator =
         enumValue(operatorValue, path + ".operator", CommandAssertionOperator.class);
@@ -135,14 +133,11 @@ final class CommandTestPlanReader {
     }
     CommandAssertionMatch match =
         enumValue(
-            requiredString(assertion, "match", path),
-            path + ".match",
-            CommandAssertionMatch.class);
+            requiredString(assertion, "match", path), path + ".match", CommandAssertionMatch.class);
     int minimumOccurrences = 1;
     if (assertion.containsKey("minimumOccurrences")) {
       minimumOccurrences =
-          Math.toIntExact(
-              requiredInteger(assertion, "minimumOccurrences", path, 1, 10_000));
+          Math.toIntExact(requiredInteger(assertion, "minimumOccurrences", path, 1, 10_000));
     }
     if (match == CommandAssertionMatch.ABSENT && assertion.containsKey("minimumOccurrences")) {
       throw new TestPlanException(path + ".minimumOccurrences is not allowed for absent matches");
@@ -176,7 +171,8 @@ final class CommandTestPlanReader {
         throw new TestPlanException("requiredDependencies must contain at most 64 entries");
       }
       for (Object dependency : dependencies) {
-        if (!(dependency instanceof String string) || string.isBlank() || string.length() > 64) {
+        String string = dependency instanceof String ? (String) dependency : null;
+        if (!(dependency instanceof String) || Java8.isBlank(string) || string.length() > 64) {
           throw new TestPlanException("requiredDependencies entries must be plugin names");
         }
       }
@@ -197,7 +193,8 @@ final class CommandTestPlanReader {
   private static String requiredString(Map<?, ?> mapping, String field, String path)
       throws TestPlanException {
     Object value = required(mapping, field, path);
-    if (!(value instanceof String string) || string.isBlank()) {
+    String string = value instanceof String ? (String) value : null;
+    if (!(value instanceof String) || Java8.isBlank(string)) {
       throw new TestPlanException(path + "." + field + " must be a non-empty string");
     }
     return string;
@@ -206,7 +203,8 @@ final class CommandTestPlanReader {
   private static String requiredNonEmptyString(Map<?, ?> mapping, String field, String path)
       throws TestPlanException {
     Object value = required(mapping, field, path);
-    if (!(value instanceof String string) || string.isEmpty()) {
+    String string = value instanceof String ? (String) value : null;
+    if (!(value instanceof String) || string.isEmpty()) {
       throw new TestPlanException(path + "." + field + " must be a non-empty string");
     }
     return string;
@@ -224,7 +222,8 @@ final class CommandTestPlanReader {
       Map<?, ?> mapping, String field, String path, long minimum, long maximum)
       throws TestPlanException {
     Object value = required(mapping, field, path);
-    if (!(value instanceof Number number)) {
+    Number number = value instanceof Number ? (Number) value : null;
+    if (!(value instanceof Number)) {
       throw new TestPlanException(path + "." + field + " must be an integer");
     }
     long integer = number.longValue();
@@ -252,7 +251,8 @@ final class CommandTestPlanReader {
   }
 
   private static Map<?, ?> mapping(Object value, String path) throws TestPlanException {
-    if (!(value instanceof Map<?, ?> mapping)) {
+    Map<?, ?> mapping = value instanceof Map<?, ?> ? (Map<?, ?>) value : null;
+    if (!(value instanceof Map<?, ?>)) {
       throw new TestPlanException(path + " must be an object");
     }
     for (Object key : mapping.keySet()) {
@@ -264,7 +264,8 @@ final class CommandTestPlanReader {
   }
 
   private static List<?> list(Object value, String path) throws TestPlanException {
-    if (!(value instanceof List<?> list)) {
+    List<?> list = value instanceof List<?> ? (List<?>) value : null;
+    if (!(value instanceof List<?>)) {
       throw new TestPlanException(path + " must be an array");
     }
     return list;
