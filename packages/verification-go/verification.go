@@ -1,4 +1,4 @@
-// Package verification independently verifies Provenance v1 envelopes and
+// Package verification independently verifies Provenance v1/v2 envelopes and
 // caller-supplied artifact streams. It performs no network or filesystem access.
 package verification
 
@@ -61,9 +61,19 @@ type VerifiedEnvelope struct {
 //go:embed schema.json
 var schemaBytes []byte
 
+//go:embed schema-v2.json
+var schemaV2Bytes []byte
+
 var compiledSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
+	return compileSchema(schemaBytes, "https://schemas.provenance.dev/attestation/v1/schema.json")
+})
+var compiledSchemaV2 = sync.OnceValues(func() (*jsonschema.Schema, error) {
+	return compileSchema(schemaV2Bytes, "https://schemas.provenance.dev/attestation/v2/schema.json")
+})
+
+func compileSchema(raw []byte, id string) (*jsonschema.Schema, error) {
 	var document any
-	if err := json.Unmarshal(schemaBytes, &document); err != nil {
+	if err := json.Unmarshal(raw, &document); err != nil {
 		return nil, err
 	}
 	compiler := jsonschema.NewCompiler()
@@ -77,12 +87,11 @@ var compiledSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
 		re.MatchTimeout = 100 * time.Millisecond
 		return ecmaRegexp{re}, nil
 	})
-	const id = "https://schemas.provenance.dev/attestation/v1/schema.json"
 	if err := compiler.AddResource(id, document); err != nil {
 		return nil, err
 	}
 	return compiler.Compile(id)
-})
+}
 
 type offlineLoader struct{}
 
@@ -117,6 +126,11 @@ func VerifyEnvelope(document []byte, publicKey ed25519.PublicKey) (VerifiedEnvel
 		return VerifiedEnvelope{}, &Error{Kind: ErrSchema}
 	}
 	schema, err := compiledSchema()
+	domain := "Provenance Attestation v1\n"
+	if envelope, ok := value.(map[string]any); ok && envelope["mediaType"] == "application/vnd.provenance.attestation.v2+json" {
+		schema, err = compiledSchemaV2()
+		domain = "Provenance Attestation v2\n"
+	}
 	if err != nil {
 		return VerifiedEnvelope{}, &Error{Kind: ErrSchema}
 	}
@@ -143,7 +157,7 @@ func VerifyEnvelope(document []byte, publicKey ed25519.PublicKey) (VerifiedEnvel
 	if err != nil {
 		return VerifiedEnvelope{}, &Error{Kind: ErrSchema}
 	}
-	input := append([]byte("Provenance Attestation v1\n"+keyID+"\n"), canonical...)
+	input := append([]byte(domain+keyID+"\n"), canonical...)
 	if !ed25519.Verify(key, input, sig) {
 		return VerifiedEnvelope{}, &Error{Kind: ErrSignature}
 	}

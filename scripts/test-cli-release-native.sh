@@ -21,4 +21,5 @@ docker build -f scripts/fixtures/cli-release/Dockerfile -t "$fixture_image" scri
 docker run --rm --name "$fixture_container" --network none \
   -v "$fixture_dir/provenance-cli-$version-linux-amd64/provenance:/proof/provenance:ro" \
   -v "$PWD/schemas/fixtures/attestation/interop/small-artifact.json:/proof/vector.json:ro" \
+  -v "$PWD/schemas/fixtures/attestation/interop/small-artifact-v2.json:/proof/vector-v2.json:ro" \
   "$fixture_image"

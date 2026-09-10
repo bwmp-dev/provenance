@@ -265,40 +265,42 @@ test("existing configuration package remains authoritative", async () => {
     { code: "configuration_invalid" },
   );
 });
-test("existing verifier authenticates signature before reading artifact bytes", async () => {
-  const fixture = JSON.parse(
-    await readFile(
-      new URL(
-        "../../../schemas/fixtures/attestation/interop/small-artifact.json",
-        import.meta.url,
+for (const name of ["small-artifact.json", "small-artifact-v2.json"]) {
+  test(`verifier authenticates ${name} before reading artifact bytes`, async () => {
+    const fixture = JSON.parse(
+      await readFile(
+        new URL(
+          `../../../schemas/fixtures/attestation/interop/${name}`,
+          import.meta.url,
+        ),
+        "utf8",
       ),
-      "utf8",
-    ),
-  );
-  const key = Buffer.from(fixture.publicKeyHex, "hex");
-  assert.equal(verifyAttestationSignature(fixture.document, key), true);
-  const identity = await verifyAttestedArtifact(fixture.document, key, [
-    Buffer.from(fixture.artifactHex, "hex"),
-  ]);
-  assert.equal(
-    identity.digest.value,
-    fixture.document.statement.subject.digest.value,
-  );
-  let read = false;
-  const altered = structuredClone(fixture.document);
-  altered.statement.subject.version = "SECRET";
-  await rejects(
-    verifyAttestedArtifact(altered, key, {
-      *[Symbol.iterator]() {
-        read = true;
-        throw new Error("SECRET");
-      },
-    }),
-    "verification_failed",
-  );
-  assert.equal(read, false);
-  await rejects(
-    verifyAttestedArtifact(fixture.document, key, [Buffer.from("SECRET")]),
-    "verification_failed",
-  );
-});
+    );
+    const key = Buffer.from(fixture.publicKeyHex, "hex");
+    assert.equal(verifyAttestationSignature(fixture.document, key), true);
+    const identity = await verifyAttestedArtifact(fixture.document, key, [
+      Buffer.from(fixture.artifactHex, "hex"),
+    ]);
+    assert.equal(
+      identity.digest.value,
+      fixture.document.statement.subject.digest.value,
+    );
+    let read = false;
+    const altered = structuredClone(fixture.document);
+    altered.statement.subject.version = "SECRET";
+    await rejects(
+      verifyAttestedArtifact(altered, key, {
+        *[Symbol.iterator]() {
+          read = true;
+          throw new Error("SECRET");
+        },
+      }),
+      "verification_failed",
+    );
+    assert.equal(read, false);
+    await rejects(
+      verifyAttestedArtifact(fixture.document, key, [Buffer.from("SECRET")]),
+      "verification_failed",
+    );
+  });
+}

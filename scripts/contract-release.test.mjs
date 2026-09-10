@@ -767,6 +767,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
         "go.sum",
         "json.go",
         "schema.json",
+        "schema-v2.json",
         "verification.go",
       ]
         .map((name) => `${attestationRoot}/go/${name}`)
@@ -1042,6 +1043,11 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       ["missing-discovery-semantics", "key-discovery/semantics.md", null],
       ["tampered-discovery-schema", null, "key-discovery/schema.json"],
       ["missing-go-schema", "go/schema.json", null],
+      ["missing-go-v2-schema", "go/schema-v2.json", null],
+      ["missing-v2-authority", "schema-v2/schema.json", null],
+      ["missing-js-v2-schema", "package/dist/schema-v2.json", null],
+      ["missing-v2-golden", "fixtures/interop/small-artifact-v2.json", null],
+      ["tampered-go-v2-schema", null, "go/schema-v2.json"],
       ["tampered-go-schema", null, "go/schema.json"],
       ["tampered-go-module", null, "go/go.mod"],
     ]) {

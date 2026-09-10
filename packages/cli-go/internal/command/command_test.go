@@ -339,7 +339,13 @@ func TestStatusPaginationAndOriginIsolation(t *testing.T) {
 	}
 }
 func TestVerifyUsesAcceptedSmallArtifactVector(t *testing.T) {
-	raw, e := os.ReadFile("../../../../schemas/fixtures/attestation/interop/small-artifact.json")
+	for _, fixture := range []string{"small-artifact.json", "small-artifact-v2.json"} {
+		t.Run(fixture, func(t *testing.T) { verifyAcceptedSmallArtifactVector(t, fixture) })
+	}
+}
+func verifyAcceptedSmallArtifactVector(t *testing.T, fixture string) {
+	t.Helper()
+	raw, e := os.ReadFile("../../../../schemas/fixtures/attestation/interop/" + fixture)
 	if e != nil {
 		t.Fatal(e)
 	}

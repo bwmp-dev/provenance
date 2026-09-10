@@ -57,6 +57,7 @@ export const legacyContractBundles = [
         destination: "package/dist",
       },
       { source: "schemas/attestation/v1", destination: "schema" },
+      { source: "schemas/attestation/v2", destination: "schema-v2" },
       { source: "schemas/fixtures/attestation", destination: "fixtures" },
       {
         source: "schemas/key-discovery/v1/schema.json",
@@ -74,6 +75,7 @@ export const legacyContractBundles = [
         "verification.go",
         "json.go",
         "schema.json",
+        "schema-v2.json",
         "go.mod",
         "go.sum",
         "README.md",

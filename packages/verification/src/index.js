@@ -10,8 +10,11 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
 import schema from "./schema.json" with { type: "json" };
+import schemaV2 from "./schema-v2.json" with { type: "json" };
 
 const domain = Buffer.from("Provenance Attestation v1\n", "utf8");
+const domainV2 = Buffer.from("Provenance Attestation v2\n", "utf8");
+const mediaTypeV2 = "application/vnd.provenance.attestation.v2+json";
 const rawEd25519Prefix = Buffer.from("302a300506032b6570032100", "hex");
 const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const typedArrayBuffer = Object.getOwnPropertyDescriptor(
@@ -49,6 +52,7 @@ const maxJwkKeyOperations = 32;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
 const validate = ajv.compile(schema);
+const validateV2 = ajv.compile(schemaV2);
 
 export class AttestationError extends Error {
   constructor(message, errors = [], options = undefined) {
@@ -60,8 +64,8 @@ export class AttestationError extends Error {
 }
 
 export class AttestationSchemaError extends AttestationError {
-  constructor(errors, options = undefined) {
-    super("attestation does not satisfy schema v1", errors, options);
+  constructor(errors, options = undefined, version = 1) {
+    super(`attestation does not satisfy schema v${version}`, errors, options);
     this.name = "AttestationSchemaError";
     this.code = "ERR_ATTESTATION_SCHEMA";
   }
@@ -591,11 +595,13 @@ function publicKeyObject(publicKey) {
 }
 
 export function validateAttestation(document) {
-  const errors = validate(document) ? [] : [...validate.errors];
+  const v2 = document?.mediaType === mediaTypeV2;
+  const validator = v2 ? validateV2 : validate;
+  const errors = validator(document) ? [] : [...validator.errors];
   const unicodeErrors = collectUnicodeScalarErrors(document);
   errors.push(...unicodeErrors);
   if (errors.length > 0) {
-    throw new AttestationSchemaError(errors);
+    throw new AttestationSchemaError(errors, undefined, v2 ? 2 : 1);
   }
   return document;
 }
@@ -607,7 +613,7 @@ export function canonicalizeStatement(statement) {
 export function createSigningInput(document) {
   validateAttestation(document);
   return Buffer.concat([
-    domain,
+    document.mediaType === mediaTypeV2 ? domainV2 : domain,
     Buffer.from(document.signature.keyId, "utf8"),
     Buffer.from("\n", "utf8"),
     canonicalizeStatement(document.statement),
@@ -702,4 +708,4 @@ export async function verifyAttestedArtifact(
   });
 }
 
-export { schema };
+export { schema, schemaV2 };
