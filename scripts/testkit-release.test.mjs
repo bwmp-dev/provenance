@@ -26,7 +26,7 @@ import {
 const tag = "testkit-v0.1.0-alpha.3";
 
 test("audited testkit matrix has the expected immutable identity", () => {
-  assert.equal(testkitSourceCommit, "f82dcbf8244354059731ba533f73909ed5528bbd");
+  assert.equal(testkitSourceCommit, "18400bb4a47d28c1d95c3f4067603af3f3409d5e");
   assert.equal(testkitMatrix.length, 15);
   assert.deepEqual(
     testkitMatrix.map(({ type }) => type),
@@ -35,9 +35,9 @@ test("audited testkit matrix has the expected immutable identity", () => {
   assert.deepEqual(testkitMatrix[0], {
     id: "paper-probe",
     type: "probe",
-    source: "plugins/paper-probe/build/libs/paper-probe-0.1.0.jar",
-    sha256: "040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868",
-    sizeBytes: 478853,
+    source: "plugins/paper-probe/build/libs/paper-probe-0.2.0.jar",
+    sha256: "141a535d495a3afd5f413cab04618e75421390f0e14acba0707d1573c5a8c96b",
+    sizeBytes: 480768,
   });
   const pidFixture = testkitMatrix.find(({ id }) => id === "fork-pid-bomb");
   assert.equal(

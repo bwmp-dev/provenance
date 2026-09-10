@@ -15,15 +15,15 @@ import { pathToFileURL } from "node:url";
 
 // Audited source and bytes move together. This policy does not relabel assets
 // from the previous source or add newer fixtures to the legacy 17-asset release.
-export const testkitSourceCommit = "f82dcbf8244354059731ba533f73909ed5528bbd";
+export const testkitSourceCommit = "18400bb4a47d28c1d95c3f4067603af3f3409d5e";
 
 export const testkitMatrix = Object.freeze([
   artifact(
     "paper-probe",
     "probe",
-    "plugins/paper-probe/build/libs/paper-probe-0.1.0.jar",
-    "040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868",
-    478853,
+    "plugins/paper-probe/build/libs/paper-probe-0.2.0.jar",
+    "141a535d495a3afd5f413cab04618e75421390f0e14acba0707d1573c5a8c96b",
+    480768,
   ),
   artifact(
     "success",

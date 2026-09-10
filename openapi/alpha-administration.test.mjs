@@ -10,6 +10,7 @@ const paths = Object.entries(doc.paths).filter(
     p === "/v1/account" ||
     (p.startsWith("/v1/admin/") &&
       p !== "/v1/admin/runner-updates" &&
+      p !== "/v1/admin/hosted-catalogs" &&
       !p.startsWith("/v1/admin/hosted-runners")),
 );
 const resolve = (value) =>

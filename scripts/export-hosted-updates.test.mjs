@@ -15,7 +15,7 @@ test("hosted projection dereferences nested schemas and canonical parameters", (
     assert.equal(r.status, 0, r.stderr);
     const raw = readFileSync(path, "utf8"),
       doc = JSON.parse(raw);
-    assert.equal(Object.keys(doc.paths).length, 5);
+    assert.equal(Object.keys(doc.paths).length, 8);
     assert.ok(!raw.includes('"$ref"'));
     const admin = doc.paths["/v1/admin/runner-updates"];
     assert.equal(admin.post.parameters[0].name, "Idempotency-Key");
@@ -33,6 +33,17 @@ test("hosted projection dereferences nested schemas and canonical parameters", (
         "application/json"
       ].schema.properties.truncated.type,
       "boolean",
+    );
+    assert.equal(
+      doc.paths["/v1/admin/hosted-catalogs"].post.requestBody.content[
+        "application/json"
+      ].schema.properties.runnerIds.maxItems,
+      200,
+    );
+    assert.equal(
+      doc.paths["/v1/runner-catalog-assets/{sha256}/{filename}"].get
+        .parameters[0].schema.pattern,
+      "^[a-f0-9]{64}$",
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -466,5 +466,53 @@
     "operationId": "downloadHostedRunnerRelease",
     "path": "/v1/runner-releases/{sha256}",
     "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "getHostedCatalogs",
+    "path": "/v1/admin/hosted-catalogs",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "changeHostedCatalog",
+    "path": "/v1/admin/hosted-catalogs",
+    "tag": "authentication"
+  },
+  {
+    "method": "post",
+    "operationId": "pollHostedCatalog",
+    "path": "/v1/runner-catalogs/{runnerId}/poll",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "downloadHostedCatalogAsset",
+    "path": "/v1/runner-catalog-assets/{sha256}/{filename}",
+    "tag": "authentication"
+  },
+  {
+    "method": "get",
+    "operationId": "getPaperRuntimeManifest",
+    "path": "/v1/paper-runtimes/{runtimeId}",
+    "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "downloadPaperRuntimeAsset",
+    "path": "/v1/paper-runtime-assets/{sha256}/{filename}",
+    "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "listPaperVersions",
+    "path": "/v1/paper-versions",
+    "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "listPaperBuilds",
+    "path": "/v1/paper-versions/{version}/builds",
+    "tag": "runners"
   }
 ]

@@ -1,4 +1,6 @@
 import "./hosted-runner-updates.test.mjs";
+import "./hosted-catalog-reconciliation.test.mjs";
+import "./automatic-paper-runtime.test.mjs";
 import { beforeAlphaAdmission } from "./alpha-compat.mjs";
 import "./alpha-administration.test.mjs";
 import assert from "node:assert/strict";
@@ -36,6 +38,10 @@ const methods = new Set([
   "put",
 ]);
 const hostedUpdateOperations = new Set([
+  "getHostedCatalogs",
+  "changeHostedCatalog",
+  "pollHostedCatalog",
+  "downloadHostedCatalogAsset",
   "getHostedRunnerUpdates",
   "listHostedRunners",
   "changeHostedRunner",
@@ -648,9 +654,12 @@ test("every operation exposes structured failure responses", () => {
     if (hostedUpdateOperations.has(operation.operationId)) {
       assert.equal(
         operation.responses.default?.$ref,
-        ["pollHostedRunnerUpdate", "downloadHostedRunnerRelease"].includes(
-          operation.operationId,
-        )
+        [
+          "pollHostedRunnerUpdate",
+          "downloadHostedRunnerRelease",
+          "pollHostedCatalog",
+          "downloadHostedCatalogAsset",
+        ].includes(operation.operationId)
           ? "#/components/responses/HostedUpdaterProblem503"
           : "#/components/responses/HostedProblem503",
       );
@@ -704,9 +713,11 @@ test("every mutation has deterministic idempotency semantics", () => {
         .find((p) => p.name === "Idempotency-Key");
       assert.equal(
         Boolean(key?.required),
-        ["changeHostedRunnerUpdate", "changeHostedRunner"].includes(
-          operation.operationId,
-        ),
+        [
+          "changeHostedRunnerUpdate",
+          "changeHostedRunner",
+          "changeHostedCatalog",
+        ].includes(operation.operationId),
       );
       assert.ok(operation.responses["409"]);
       continue; // Node polling uses durable operation identity; hosted-runner-updates.test.mjs pins the normative rules, and platform lifecycle integration tests verify replay.
@@ -1079,7 +1090,9 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
   for (const { operation: listOperation } of operations.filter(
     ({ operation: candidate }) =>
       candidate.operationId.startsWith("list") &&
-      candidate.operationId !== "listHostedRunners",
+      !["listHostedRunners", "listPaperVersions", "listPaperBuilds"].includes(
+        candidate.operationId,
+      ),
   )) {
     const names = listOperation.parameters
       .map(resolveParameter)
