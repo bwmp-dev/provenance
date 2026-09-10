@@ -22,7 +22,7 @@
     "test": "pnpm run build && pnpm run test:go-verifier && pnpm run test:cli && pnpm --recursive --if-present run test && pnpm run test:python && pnpm run test:vectors && pnpm run test:openapi && pnpm run test:proto && pnpm run test:release && pnpm run test:paper-harness",
     "test:cli": "test -z \"$(gofmt -l packages/cli-go)\" && go -C packages/cli-go test -race ./... && go -C packages/cli-go vet ./... && go -C packages/cli-go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...",
     "test:openapi": "node --test openapi/contract.test.mjs",
-    "test:proto": "node --test proto/provenance/runner/v1/contract.test.mjs",
+    "test:proto": "node --test proto/provenance/runner/v1/contract.test.mjs proto/provenance/runner/v1/terminal-evidence-v2/contract.test.mjs",
     "test:release": "node --test scripts/*.test.mjs",
     "test:paper-harness": "node --test packages/test-fixtures/scripts/paper-behavioral.test.mjs packages/test-fixtures/scripts/matrix-behavioral.test.mjs",
     "paper:matrix": "node packages/test-fixtures/scripts/run-matrix-behavioral.mjs",

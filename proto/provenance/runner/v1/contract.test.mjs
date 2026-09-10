@@ -33,6 +33,7 @@ const protocolFeature = Object.freeze({
   restartUploadRecovery: 4,
   objectUploadIdentity: 5,
   terminalEvidenceV1: 6,
+  terminalEvidenceV2: 7,
 });
 
 function validProtocolFeatures(features) {

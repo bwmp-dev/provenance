@@ -1,0 +1,28 @@
+package terminalevidence_test
+
+import (
+ "bytes"
+ "crypto/sha256"
+ "encoding/hex"
+ "encoding/json"
+ "os"
+ "testing"
+ p "github.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1"
+ "google.golang.org/protobuf/proto"
+)
+
+func TestReleasedTerminalEvidenceV2Roundtrip(t *testing.T) {
+ raw,err:=os.ReadFile("../proto/terminal-evidence-v2/vectors.json");if err!=nil {t.Fatal(err)}
+ var vector struct {Canonical string; SHA256 string};if err=json.Unmarshal(raw,&vector);err!=nil {t.Fatal(err)}
+ hash:=sha256.Sum256([]byte(vector.Canonical));if hex.EncodeToString(hash[:])!=vector.SHA256 {t.Fatal("vector digest mismatch")}
+ if p.ProtocolFeature_PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2!=7 {t.Fatal("feature changed")}
+ evidence:=&p.ExecutionEvidence{CanonicalJson:[]byte(vector.Canonical),Digest:&p.Digest{Algorithm:p.DigestAlgorithm_DIGEST_ALGORITHM_SHA256,Value:hash[:]}}
+ for _,message:=range []proto.Message{&p.JobCompleted{ExecutionEvidence:evidence},&p.JobFailed{ExecutionEvidence:evidence}} {
+  if message.ProtoReflect().Descriptor().Fields().ByName("execution_evidence").Number()!=10 {t.Fatal("field changed")}
+  encoded,err:=proto.MarshalOptions{Deterministic:true}.Marshal(message);if err!=nil {t.Fatal(err)}
+  decoded:=message.ProtoReflect().New().Interface();if err=proto.Unmarshal(encoded,decoded);err!=nil {t.Fatal(err)}
+  if !proto.Equal(message,decoded) {t.Fatal("proof changed in transit")}
+  replay,err:=proto.MarshalOptions{Deterministic:true}.Marshal(decoded);if err!=nil||!bytes.Equal(encoded,replay){t.Fatal("replay changed")}
+ }
+ for _,message:=range []proto.Message{&p.JobCompleted{},&p.JobFailed{}} {encoded,err:=proto.Marshal(message);if err!=nil||len(encoded)!=0 {t.Fatal("legacy absence changed")}}
+}
