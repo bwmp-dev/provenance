@@ -3061,6 +3061,23 @@ paths:
           $ref: "#/components/responses/HostedUpdaterProblem503"
         default:
           $ref: "#/components/responses/HostedUpdaterProblem503"
+  /v1/verifications/{verificationId}/attestations/v2:
+    parameters:
+      - $ref: "#/components/parameters/VerificationId"
+    get:
+      operationId: getVerificationAttestationV2
+      summary: Read the signed v2 attestation for a verification
+      description: Explicit v2 selection. The v1 endpoint remains v1-only; neither endpoint relabels or converts signed records between versions.
+      tags: [verification]
+      responses:
+        "200":
+          description: Signed Provenance v2 attestation with its distinct schema and signing domain.
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/attestation/v2/schema.json"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     HostedRunnerUpdater:

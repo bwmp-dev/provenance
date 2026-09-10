@@ -153,7 +153,7 @@ test("IFC021 leaves every alpha18 path/component and grant operation unchanged",
           "/v1/runner-catalog-assets/{sha256}/{filename}",
         ].includes(p),
     ),
-    [route],
+    [route, "/v1/verifications/{verificationId}/attestations/v2"],
   );
   const op = doc.paths[route].get;
   assert.equal(op.operationId, "getReleaseCandidatePublicationResult");
