@@ -351,6 +351,7 @@ export async function runAction(input, runtime) {
           const status = result.response.status;
           if (status === 401 || status === 403) fail("authority_denied");
           if (status === 404) fail("resource_not_owned");
+          if (status === 409) fail("conflict");
           if (status === 429 || status >= 500) fail("unavailable");
           if (status !== expectedStatus || !object(result.data))
             fail("invalid_response");

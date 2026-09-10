@@ -245,6 +245,8 @@ async function scenario(t, opts = {}) {
     if (url.pathname.endsWith("/release-candidates")) {
       candidateBody = body;
       assert.equal(body.configurationSnapshotId, id(2));
+      if (opts.candidateConflict)
+        return response(res, 409, { code: "version_conflict" });
       return response(res, 201, candidate());
     }
     if (url.pathname.endsWith("/events")) {
@@ -417,6 +419,7 @@ for (const [name, opts, reason] of [
   ["expired grant", { expiresIn: -1 }, "authority_expired"],
   ["revoked grant", { revoke: true }, "authority_denied"],
   ["foreign resource", { foreignResource: true }, "resource_not_owned"],
+  ["existing candidate version", { candidateConflict: true }, "conflict"],
   ["file mutation", { mutateFile: true }, "file_changed"],
   ["storage redirect", { storageRedirect: true }, "redirect_denied"],
   [
