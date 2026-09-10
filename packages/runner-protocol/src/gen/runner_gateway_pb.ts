@@ -632,7 +632,8 @@ export type JobCompleted = Message<"provenance.runner.v1.JobCompleted"> & {
   result?: StructuredResult | undefined;
 
   /**
-   * Only with TERMINAL_EVIDENCE_V1; legacy absence supplies no new proof.
+   * Only with the corresponding TERMINAL_EVIDENCE_V1 or V2 admission;
+   * legacy absence supplies no new proof. Never rewrite the queued version.
    *
    * @generated from field: provenance.runner.v1.ExecutionEvidence execution_evidence = 10;
    */

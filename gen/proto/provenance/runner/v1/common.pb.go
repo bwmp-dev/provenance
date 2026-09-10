@@ -825,6 +825,9 @@ const (
 	// Server-first rollout; see terminal-evidence/semantics.md. A queued proof
 	// must never be stripped or regenerated during reconnect or downgrade.
 	ProtocolFeature_PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1 ProtocolFeature = 6
+	// Independently negotiated v2 literal-console coverage. V1 admission alone
+	// never authorizes v2. Preserve exact queued version/bytes on downgrade.
+	ProtocolFeature_PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2 ProtocolFeature = 7
 )
 
 // Enum value maps for ProtocolFeature.
@@ -837,6 +840,7 @@ var (
 		4: "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
 		5: "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
 		6: "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1",
+		7: "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2",
 	}
 	ProtocolFeature_value = map[string]int32{
 		"PROTOCOL_FEATURE_UNSPECIFIED":                    0,
@@ -846,6 +850,7 @@ var (
 		"PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY":        4,
 		"PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY":         5,
 		"PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1":           6,
+		"PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2":           7,
 	}
 )
 
@@ -2888,7 +2893,8 @@ func (x *StructuredResult) GetCompleteLog() *LogObject {
 
 // Optional, negotiated observation proof, not an attestation or public claim.
 // canonical_json is at most 32768 bytes of exact RFC 8785 canonical UTF-8 JSON
-// conforming to terminal-evidence/schema.json. digest is SHA-256 of those exact
+// conforming to the explicitly admitted version: terminal-evidence/schema.json
+// for v1 or terminal-evidence-v2/schema.json for v2. digest is SHA-256 of those exact
 // bytes. The containing RunnerMessage remains bounded to 65536 encoded bytes.
 // Schema-valid completeness still requires immutable expected-plan validation.
 type ExecutionEvidence struct {
@@ -3328,7 +3334,7 @@ const file_common_proto_rawDesc = "" +
 	"\x15FAILURE_STAGE_STARTUP\x10\x03\x12\x1b\n" +
 	"\x17FAILURE_STAGE_EXECUTION\x10\x04\x12\x19\n" +
 	"\x15FAILURE_STAGE_CLEANUP\x10\x05\x12\x1f\n" +
-	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xc1\x02\n" +
+	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xec\x02\n" +
 	"\x0fProtocolFeature\x12 \n" +
 	"\x1cPROTOCOL_FEATURE_UNSPECIFIED\x10\x00\x123\n" +
 	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01\x12(\n" +
@@ -3336,7 +3342,8 @@ const file_common_proto_rawDesc = "" +
 	"#PROTOCOL_FEATURE_JOB_CORRELATION_V1\x10\x03\x12,\n" +
 	"(PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY\x10\x04\x12+\n" +
 	"'PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY\x10\x05\x12)\n" +
-	"%PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1\x10\x06BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
+	"%PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1\x10\x06\x12)\n" +
+	"%PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2\x10\aBHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once

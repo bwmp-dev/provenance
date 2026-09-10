@@ -434,11 +434,15 @@ enum ProtocolFeature {
   // Server-first rollout; see terminal-evidence/semantics.md. A queued proof
   // must never be stripped or regenerated during reconnect or downgrade.
   PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1 = 6;
+  // Independently negotiated v2 literal-console coverage. V1 admission alone
+  // never authorizes v2. Preserve exact queued version/bytes on downgrade.
+  PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2 = 7;
 }
 
 // Optional, negotiated observation proof, not an attestation or public claim.
 // canonical_json is at most 32768 bytes of exact RFC 8785 canonical UTF-8 JSON
-// conforming to terminal-evidence/schema.json. digest is SHA-256 of those exact
+// conforming to the explicitly admitted version: terminal-evidence/schema.json
+// for v1 or terminal-evidence-v2/schema.json for v2. digest is SHA-256 of those exact
 // bytes. The containing RunnerMessage remains bounded to 65536 encoded bytes.
 // Schema-valid completeness still requires immutable expected-plan validation.
 message ExecutionEvidence {

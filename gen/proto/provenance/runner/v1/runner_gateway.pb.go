@@ -1530,7 +1530,8 @@ type JobCompleted struct {
 	Lease   *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
 	Attempt *AttemptIdentity       `protobuf:"bytes,2,opt,name=attempt,proto3" json:"attempt,omitempty"`
 	Result  *StructuredResult      `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
-	// Only with TERMINAL_EVIDENCE_V1; legacy absence supplies no new proof.
+	// Only with the corresponding TERMINAL_EVIDENCE_V1 or V2 admission;
+	// legacy absence supplies no new proof. Never rewrite the queued version.
 	ExecutionEvidence *ExecutionEvidence `protobuf:"bytes,10,opt,name=execution_evidence,json=executionEvidence,proto3" json:"execution_evidence,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache

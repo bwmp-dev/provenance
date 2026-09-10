@@ -1095,6 +1095,21 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     for (const [name, omitted, changed] of [
       ["missing-terminal-schema", "proto/terminal-evidence/schema.json", null],
       ["missing-terminal-vector", "proto/terminal-evidence/vectors.json", null],
+      [
+        "missing-terminal-v2-schema",
+        "proto/terminal-evidence-v2/schema.json",
+        null,
+      ],
+      [
+        "missing-terminal-v2-vector",
+        "proto/terminal-evidence-v2/vectors.json",
+        null,
+      ],
+      [
+        "tampered-terminal-v2-vector",
+        null,
+        "proto/terminal-evidence-v2/vectors.json",
+      ],
       ["tampered-terminal-schema", null, "proto/terminal-evidence/schema.json"],
       [
         "tampered-terminal-vector",

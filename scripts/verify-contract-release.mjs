@@ -586,6 +586,30 @@ async function verifyArchive({
     }
   }
   if (archive.bundle === "runner-protocol") {
+    const common = await readFile(
+      filesystemPath(extractedRoot, "proto/common.proto"),
+      "utf8",
+    );
+    if (/PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2\s*=\s*7\s*;/.test(common)) {
+      for (const name of [
+        "schema.json",
+        "semantics.md",
+        "reference.mjs",
+        "fixtures.json",
+        "vectors.json",
+        "contract.test.mjs",
+        "wire-consumer.mjs",
+        "go-consumer.go.txt",
+        "golden-check.go",
+      ]) {
+        invariant(
+          embeddedManifest.files.some(
+            (file) => file.path === `proto/terminal-evidence-v2/${name}`,
+          ),
+          `released terminal evidence v2 file missing: ${name}`,
+        );
+      }
+    }
     for (const name of [
       "schema.json",
       "semantics.md",
@@ -1627,6 +1651,24 @@ if(false)void client.refreshCredential();
         resolve(root, "proto/terminal-evidence/go-consumer.go.txt"),
       ),
     );
+    if (protocol.ProtocolFeature.TERMINAL_EVIDENCE_V2 === 7) {
+      run(
+        process.execPath,
+        [
+          "--test",
+          resolve(root, "proto/terminal-evidence-v2/contract.test.mjs"),
+        ],
+        root,
+        "released isolated v2 evidence vectors and wire",
+        { TERMINAL_EVIDENCE_PROTOCOL_DIR: resolve(root, "typescript") },
+      );
+      await writeFile(
+        resolve(root, "go/terminal_evidence_v2_test.go"),
+        await readFile(
+          resolve(root, "proto/terminal-evidence-v2/go-consumer.go.txt"),
+        ),
+      );
+    }
     run("go", ["test", "./..."], resolve(root, "go"), "released Go bindings", {
       GOPROXY: "off",
     });

@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "0abc2b0e8d3dce52060d1941ee8d99dab619d1a1170abd020526b874a5bb34e8",
+  "descriptorSha256": "6a0ec7d21d094122217ad81dc60c7bd50519dfa1b7ddaf6c77fc35000ca5f3d3",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -119,7 +119,8 @@
       "3": "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
       "4": "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
       "5": "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
-      "6": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1"
+      "6": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1",
+      "7": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2"
     },
     "RunnerMessageDisposition": {
       "0": "RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED",
