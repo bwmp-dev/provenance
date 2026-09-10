@@ -1,0 +1,133 @@
+{
+  "document": {
+    "mediaType": "application/vnd.provenance.attestation.v2+json",
+    "statement": {
+      "apiVersion": "provenance.dev/attestation/v2",
+      "subject": {
+        "name": "plugin-😀-é-<>&  .jar",
+        "version": "1.4.0",
+        "sizeBytes": 33,
+        "digest": {
+          "algorithm": "sha256",
+          "value": "5595b8d5307ca9b2c8f05feccf3d07ca2f33fcbc335a2b49deaf2af125ff529b"
+        }
+      },
+      "source": {
+        "provider": "github",
+        "repository": "provenance-example/example-plugin",
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "ref": "refs/tags/v1.4.0"
+      },
+      "configuration": {
+        "apiVersion": "provenance.dev/v1",
+        "digest": {
+          "algorithm": "sha256",
+          "value": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "dependencies": [
+        {
+          "id": "luckperms",
+          "provider": "modrinth",
+          "sourceId": "7deKzE7F",
+          "version": "5.4.145",
+          "digest": {
+            "algorithm": "sha256",
+            "value": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "resolvedAt": "2026-08-30T20:00:00Z",
+          "metadataDigest": {
+            "algorithm": "sha256",
+            "value": "4444444444444444444444444444444444444444444444444444444444444444"
+          }
+        }
+      ],
+      "environments": [
+        {
+          "id": "paper-1.21.4",
+          "provider": "paper",
+          "minecraftVersion": "1.21.4",
+          "paperBuild": 232,
+          "javaVersion": 21,
+          "runnerImageDigest": {
+            "algorithm": "sha256",
+            "value": "5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "policy": "required",
+          "outcome": "passed"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "console-contains:smoke:0",
+          "environmentId": "paper-1.21.4",
+          "type": "console-contains",
+          "outcome": "passed",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        {
+          "id": "enabled",
+          "environmentId": "paper-1.21.4",
+          "type": "plugin-enabled",
+          "outcome": "passed",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "7777777777777777777777777777777777777777777777777777777777777777"
+          }
+        },
+        {
+          "id": "version-command",
+          "environmentId": "paper-1.21.4",
+          "type": "console-regex",
+          "outcome": "passed",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "8888888888888888888888888888888888888888888888888888888888888888"
+          }
+        },
+        {
+          "id": "clean-shutdown",
+          "environmentId": "paper-1.21.4",
+          "type": "clean-shutdown",
+          "outcome": "passed",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "9999999999999999999999999999999999999999999999999999999999999999"
+          }
+        }
+      ],
+      "runner": {
+        "id": "hosted-us-west-2",
+        "hosting": "hosted",
+        "trust": "provenance-hosted",
+        "version": "1.2.0",
+        "sandbox": {
+          "kind": "gvisor",
+          "version": "20260825.0",
+          "imageDigest": {
+            "algorithm": "sha256",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "networkMode": "allowlist"
+        }
+      },
+      "verifiedAt": "2026-08-30T20:15:30Z"
+    },
+    "signature": {
+      "algorithm": "Ed25519",
+      "canonicalization": "RFC8785",
+      "keyId": "https://api.provenance.dev/.well-known/provenance-keys.json#test-hosted-2026",
+      "value": "7RutHWel3t6Jn1i9ipZednZRR-ASzJZoVsp2zd_TO3UJvHRr4V1CItPGTOujs0T7CJ_h1egVRBM6ek2mS5dJAA"
+    }
+  },
+  "artifactHex": "504b030470726f76656e616e63652d76657269666965722d6669787475726500ff",
+  "publicKeyHex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+  "testOnlySeedFixture": "vectors/hosted.json",
+  "canonicalStatement": "{\"apiVersion\":\"provenance.dev/attestation/v2\",\"assertions\":[{\"environmentId\":\"paper-1.21.4\",\"evidenceDigest\":{\"algorithm\":\"sha256\",\"value\":\"6666666666666666666666666666666666666666666666666666666666666666\"},\"id\":\"console-contains:smoke:0\",\"outcome\":\"passed\",\"type\":\"console-contains\"},{\"environmentId\":\"paper-1.21.4\",\"evidenceDigest\":{\"algorithm\":\"sha256\",\"value\":\"7777777777777777777777777777777777777777777777777777777777777777\"},\"id\":\"enabled\",\"outcome\":\"passed\",\"type\":\"plugin-enabled\"},{\"environmentId\":\"paper-1.21.4\",\"evidenceDigest\":{\"algorithm\":\"sha256\",\"value\":\"8888888888888888888888888888888888888888888888888888888888888888\"},\"id\":\"version-command\",\"outcome\":\"passed\",\"type\":\"console-regex\"},{\"environmentId\":\"paper-1.21.4\",\"evidenceDigest\":{\"algorithm\":\"sha256\",\"value\":\"9999999999999999999999999999999999999999999999999999999999999999\"},\"id\":\"clean-shutdown\",\"outcome\":\"passed\",\"type\":\"clean-shutdown\"}],\"configuration\":{\"apiVersion\":\"provenance.dev/v1\",\"digest\":{\"algorithm\":\"sha256\",\"value\":\"2222222222222222222222222222222222222222222222222222222222222222\"}},\"dependencies\":[{\"digest\":{\"algorithm\":\"sha256\",\"value\":\"3333333333333333333333333333333333333333333333333333333333333333\"},\"id\":\"luckperms\",\"metadataDigest\":{\"algorithm\":\"sha256\",\"value\":\"4444444444444444444444444444444444444444444444444444444444444444\"},\"provider\":\"modrinth\",\"resolvedAt\":\"2026-08-30T20:00:00Z\",\"sourceId\":\"7deKzE7F\",\"version\":\"5.4.145\"}],\"environments\":[{\"id\":\"paper-1.21.4\",\"javaVersion\":21,\"minecraftVersion\":\"1.21.4\",\"outcome\":\"passed\",\"paperBuild\":232,\"policy\":\"required\",\"provider\":\"paper\",\"runnerImageDigest\":{\"algorithm\":\"sha256\",\"value\":\"5555555555555555555555555555555555555555555555555555555555555555\"}}],\"runner\":{\"hosting\":\"hosted\",\"id\":\"hosted-us-west-2\",\"sandbox\":{\"imageDigest\":{\"algorithm\":\"sha256\",\"value\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"kind\":\"gvisor\",\"networkMode\":\"allowlist\",\"version\":\"20260825.0\"},\"trust\":\"provenance-hosted\",\"version\":\"1.2.0\"},\"source\":{\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"provider\":\"github\",\"ref\":\"refs/tags/v1.4.0\",\"repository\":\"provenance-example/example-plugin\"},\"subject\":{\"digest\":{\"algorithm\":\"sha256\",\"value\":\"5595b8d5307ca9b2c8f05feccf3d07ca2f33fcbc335a2b49deaf2af125ff529b\"},\"name\":\"plugin-😀-é-<>&  .jar\",\"sizeBytes\":33,\"version\":\"1.4.0\"},\"verifiedAt\":\"2026-08-30T20:15:30Z\"}",
+  "canonicalStatementSha256": "c4a703aa3c348e01c0becf751f0a16d9ca0374397a18e9843fb4459407f708fd",
+  "signingInputSha256": "40c959a493569e49f608da6af79ff4c1201a2d9f1424de7df7a60a51f2e850f4",
+  "signatureBase64Url": "7RutHWel3t6Jn1i9ipZednZRR-ASzJZoVsp2zd_TO3UJvHRr4V1CItPGTOujs0T7CJ_h1egVRBM6ek2mS5dJAA"
+}

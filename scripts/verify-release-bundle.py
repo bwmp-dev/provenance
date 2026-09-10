@@ -172,7 +172,15 @@ def read_archive(directory, artifact, version, source_sha, inventory=BUNDLES):
         for name, files in (("api-client", ("index.js", "index.d.ts", "index.d.ts.map", "gen/schema.d.ts")), ("config-schema", ("index.js", "schema.json")), ("verification", ("index.js", "schema.json"))):
             sdk_paths.update((f"package/vendor/{name}/LICENSE", f"package/vendor/{name}/package.json"))
             sdk_paths.update(f"package/vendor/{name}/dist/{file}" for file in files)
+        if b"schema-v2.json" in file_contents.get(f"{root}/package/vendor/verification/dist/index.js", b""):
+            sdk_paths.add("package/vendor/verification/dist/schema-v2.json")
         require({record.get("path") for record in declared_files} == sdk_paths, "SDK exact file inventory differs")
+    if bundle == "attestation-schema" and b"//go:embed schema-v2.json" in file_contents.get(f"{root}/go/verification.go", b""):
+        required_v2 = ("schema-v2/schema.json", "schema-v2/canonicalization.md", "go/schema-v2.json", "package/dist/schema-v2.json", "fixtures/interop/small-artifact-v2.json")
+        for path in required_v2:
+            require(f"{root}/{path}" in file_contents, f"released v2 attestation file missing: {path}")
+        for path in ("go/schema-v2.json", "package/dist/schema-v2.json"):
+            require(file_contents[f"{root}/{path}"] == file_contents[f"{root}/schema-v2/schema.json"], "released v2 embedded schema differs")
     expected_entries = {embedded_name}
     sbom_files = [
         {

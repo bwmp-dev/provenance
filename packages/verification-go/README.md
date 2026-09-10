@@ -2,9 +2,9 @@
 
 Module: `github.com/bwmp-dev/provenance/packages/verification-go`
 
-This source module implements independent attestation v1 and local-byte verification.
+This source module implements independent attestation v1/v2 and local-byte verification.
 The attestation contract archive layout includes this module under `go/`, with
-its embedded schema, module checksums and license. Check the actual published
+its embedded schemas, module checksums and license. Check the actual published
 version's manifest before claiming delivery; source-tree inclusion alone is not
 release evidence. There is no separately published module version. It does not
 issue attestations or resolve trusted keys.
@@ -61,11 +61,16 @@ The parser rejects duplicate object keys (including escaped equivalents), BOM,
 malformed UTF-8, lone surrogates, trailing JSON, and non-JSON values. It bounds raw
 envelopes to 4 MiB, nesting to 64, values to 100,000, and arrays to 1,000 items.
 The complete embedded schema is byte-checked against the authoritative schema.
-Canonicalization uses UTF-16 member order and ECMAScript escaping, with v1 safe
+Canonicalization uses UTF-16 member order and ECMAScript escaping, with safe
 integer values; integer-valued decimal/exponent encodings remain interoperable.
 The signature binds the exact domain separator, key ID, and canonical statement.
+V2 adds literal `console-contains` assertions and bounded assertion identifiers;
+its envelope and statement version markers must agree, and it uses a distinct
+`Provenance Attestation v2` signing domain. V1 keeps its original schema and
+signing domain. Neither a version relabel nor a signature from the other domain
+is accepted. Both versions have independently reproduced shared golden fixtures.
 Artifact reads use a fixed 32 KiB buffer and stop after at most signed size + 1
-bytes; signed size is itself bounded by schema v1 to 1 GiB.
+bytes; signed size is itself bounded by both schemas to 1 GiB.
 
 An authenticated statement is not automatically a passing test, a trusted
 runner, or a safe plugin. Callers still assess the supplied key's provenance and

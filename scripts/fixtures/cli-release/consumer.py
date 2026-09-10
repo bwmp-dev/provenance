@@ -37,6 +37,14 @@ verify = ["verify", "--jar", str(jar), "--attestation", str(document), "--public
 cli(*verify)
 jar.write_bytes(jar.read_bytes() + b"tamper")
 cli(*verify, success=False)
+fixture_v2 = json.loads(pathlib.Path("/proof/vector-v2.json").read_text())
+jar.write_bytes(bytes.fromhex(fixture_v2["artifactHex"]))
+document.write_text(json.dumps(fixture_v2["document"], ensure_ascii=False))
+key.write_text(base64.urlsafe_b64encode(bytes.fromhex(fixture_v2["publicKeyHex"])).decode().rstrip("="))
+verify[-1] = fixture_v2["document"]["signature"]["keyId"]
+cli(*verify)
+jar.write_bytes(jar.read_bytes() + b"tamper")
+cli(*verify, success=False)
 cert, private = scratch / "certificate.pem", scratch / "private.pem"
 subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(private), "-out", str(cert), "-days", "1", "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"], check=True, capture_output=True, timeout=20)
 os.environ["SSL_CERT_FILE"] = str(cert)
@@ -107,4 +115,4 @@ assert counts == {"initiation": 1, "session": 1, "authenticatedReads": 3}
 server.shutdown()
 thread.join(timeout=5)
 assert not thread.is_alive()
-print(json.dumps({"extractedBinary": True, "nodeAbsent": True, "uid": os.getuid(), "signedFixture": "passed", "tamperedFixture": "rejected", "nativeSecretService": "actual", "storedSessionReadback": True, "lockedStorePreIssuance": True, "livePlatform": False}))
+print(json.dumps({"extractedBinary": True, "nodeAbsent": True, "uid": os.getuid(), "signedFixture": "passed", "tamperedFixture": "rejected", "signedV2Fixture": "passed", "tamperedV2Fixture": "rejected", "nativeSecretService": "actual", "storedSessionReadback": True, "lockedStorePreIssuance": True, "livePlatform": False}))

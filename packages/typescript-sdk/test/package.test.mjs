@@ -109,47 +109,46 @@ assert.equal(result.data.status,'passed');console.log('PACKAGED_SDK_IMPORT_PASS'
     resolve(repository, "examples/consumption/sdk-verify.mjs"),
     resolve(consumer, "sdk-verify.mjs"),
   );
-  const fixture = JSON.parse(
-    await readFile(
-      resolve(
-        repository,
-        "schemas/fixtures/attestation/interop/small-artifact.json",
+  for (const name of ["small-artifact.json", "small-artifact-v2.json"]) {
+    const fixture = JSON.parse(
+      await readFile(
+        resolve(repository, `schemas/fixtures/attestation/interop/${name}`),
+        "utf8",
       ),
-      "utf8",
-    ),
-  );
-  const publicKey = createPublicKey({
-    key: Buffer.concat([
-      Buffer.from("302a300506032b6570032100", "hex"),
-      Buffer.from(fixture.publicKeyHex, "hex"),
-    ]),
-    format: "der",
-    type: "spki",
-  }).export({ format: "pem", type: "spki" });
-  await writeFile(
-    resolve(consumer, "attestation.json"),
-    JSON.stringify(fixture.document),
-  );
-  await writeFile(
-    resolve(consumer, "artifact.jar"),
-    Buffer.from(fixture.artifactHex, "hex"),
-  );
-  await writeFile(resolve(consumer, "trusted.pem"), publicKey);
-  assert.equal(
-    run(
+    );
+    const publicKey = createPublicKey({
+      key: Buffer.concat([
+        Buffer.from("302a300506032b6570032100", "hex"),
+        Buffer.from(fixture.publicKeyHex, "hex"),
+      ]),
+      format: "der",
+      type: "spki",
+    }).export({ format: "pem", type: "spki" });
+    await writeFile(
+      resolve(consumer, "attestation.json"),
+      JSON.stringify(fixture.document),
+    );
+    await writeFile(
+      resolve(consumer, "artifact.jar"),
+      Buffer.from(fixture.artifactHex, "hex"),
+    );
+    await writeFile(resolve(consumer, "trusted.pem"), publicKey);
+    assert.equal(
+      run(
+        process.execPath,
+        ["sdk-verify.mjs", "attestation.json", "artifact.jar", "trusted.pem"],
+        consumer,
+      ).trim(),
+      "Artifact signature, size and SHA-256 verified",
+    );
+    await writeFile(resolve(consumer, "artifact.jar"), "PRIVATE-BYTES");
+    const rejected = spawnSync(
       process.execPath,
       ["sdk-verify.mjs", "attestation.json", "artifact.jar", "trusted.pem"],
-      consumer,
-    ).trim(),
-    "Artifact signature, size and SHA-256 verified",
-  );
-  await writeFile(resolve(consumer, "artifact.jar"), "PRIVATE-BYTES");
-  const rejected = spawnSync(
-    process.execPath,
-    ["sdk-verify.mjs", "attestation.json", "artifact.jar", "trusted.pem"],
-    { cwd: consumer, encoding: "utf8" },
-  );
-  assert.equal(rejected.status, 1);
-  assert.equal(rejected.stdout, "");
-  assert.equal(rejected.stderr, "Artifact verification failed\n");
+      { cwd: consumer, encoding: "utf8" },
+    );
+    assert.equal(rejected.status, 1);
+    assert.equal(rejected.stdout, "");
+    assert.equal(rejected.stderr, "Artifact verification failed\n");
+  }
 });

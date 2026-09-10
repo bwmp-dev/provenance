@@ -452,6 +452,12 @@ async function verifyArchive({
 
   let sdkSources;
   if (archive.bundle === "typescript-sdk") {
+    const verifierV2 = (
+      await readFile(
+        resolve(extractedRoot, "package/vendor/verification/dist/index.js"),
+        "utf8",
+      )
+    ).includes("schema-v2.json");
     sdkSources = new Map([
       ["LICENSE", "LICENSE"],
       ["README.md", "packages/typescript-sdk/README.md"],
@@ -467,7 +473,14 @@ async function verifyArchive({
           ["index.js", "index.d.ts", "index.d.ts.map", "gen/schema.d.ts"],
         ],
         ["config-schema", ["index.js", "schema.json"]],
-        ["verification", ["index.js", "schema.json"]],
+        [
+          "verification",
+          [
+            "index.js",
+            "schema.json",
+            ...(verifierV2 ? ["schema-v2.json"] : []),
+          ],
+        ],
       ].flatMap(([name, files]) => [
         [`package/vendor/${name}/LICENSE`, "LICENSE"],
         [
@@ -630,6 +643,32 @@ async function verifyArchive({
     }
   }
   if (archive.bundle === "attestation-schema") {
+    const verifierV2 = (
+      await readFile(resolve(extractedRoot, "go/verification.go"), "utf8")
+    ).includes("//go:embed schema-v2.json");
+    if (verifierV2) {
+      for (const path of [
+        "schema-v2/schema.json",
+        "schema-v2/canonicalization.md",
+        "go/schema-v2.json",
+        "package/dist/schema-v2.json",
+        "fixtures/interop/small-artifact-v2.json",
+      ]) {
+        invariant(
+          embeddedManifest.files.some((file) => file.path === path),
+          `released v2 attestation file missing: ${path}`,
+        );
+      }
+      const authority = await readFile(
+        resolve(extractedRoot, "schema-v2/schema.json"),
+      );
+      for (const path of ["go/schema-v2.json", "package/dist/schema-v2.json"]) {
+        invariant(
+          (await readFile(resolve(extractedRoot, path))).equals(authority),
+          "released v2 embedded schema differs",
+        );
+      }
+    }
     for (const path of [
       "key-discovery/schema.json",
       "key-discovery/semantics.md",
@@ -650,6 +689,7 @@ async function verifyArchive({
         "go/verification.go",
         "go/json.go",
         "go/schema.json",
+        ...(verifierV2 ? ["go/schema-v2.json"] : []),
         "go/go.mod",
         "go/go.sum",
         "go/README.md",
@@ -1232,16 +1272,26 @@ func TestReleasedVerifier(t *testing.T) {
       environment,
     );
     const offline = { ...environment, GOPROXY: "off", GOSUMDB: "off" };
-    run(
-      "go",
-      ["test", "-mod=readonly", "-count=1", "./..."],
-      consumer,
-      "isolated released Go verifier",
-      {
-        ...offline,
-        VERIFIER_FIXTURE: resolve(root, "fixtures/interop/small-artifact.json"),
-      },
-    );
+    const fixtures = ["small-artifact.json"];
+    if (
+      (
+        await readFile(resolve(moduleDirectory, "verification.go"), "utf8")
+      ).includes("//go:embed schema-v2.json")
+    ) {
+      fixtures.push("small-artifact-v2.json");
+    }
+    for (const fixture of fixtures) {
+      run(
+        "go",
+        ["test", "-mod=readonly", "-count=1", "./..."],
+        consumer,
+        "isolated released Go verifier",
+        {
+          ...offline,
+          VERIFIER_FIXTURE: resolve(root, "fixtures/interop", fixture),
+        },
+      );
+    }
   } finally {
     await rm(consumer, { recursive: true, force: true });
   }
@@ -1342,6 +1392,41 @@ if(false)void client.refreshCredential();
         consumer,
         "released SDK downstream runtime consumer",
       );
+      const fixtureNames = ["small-artifact.json"];
+      if (
+        (
+          await readFile(
+            resolve(root, "package/vendor/verification/dist/index.js"),
+            "utf8",
+          )
+        ).includes("schema-v2.json")
+      ) {
+        fixtureNames.push("small-artifact-v2.json");
+      }
+      const fixtureRoot = rootFor("attestation-schema");
+      await writeFile(
+        resolve(consumer, "verify.mjs"),
+        `
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {verifyAttestedArtifact} from '@bwmp-dev/typescript-sdk';
+const fixture = JSON.parse(await readFile(process.argv[2], 'utf8'));
+const key = Buffer.from(fixture.publicKeyHex, 'hex');
+const artifact = Buffer.from(fixture.artifactHex, 'hex');
+const identity = await verifyAttestedArtifact(fixture.document, key, [artifact]);
+assert.equal(identity.digest.value, fixture.document.statement.subject.digest.value);
+artifact[0] ^= 1;
+await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
+`,
+      );
+      for (const name of fixtureNames) {
+        run(
+          process.execPath,
+          ["verify.mjs", resolve(fixtureRoot, "fixtures/interop", name)],
+          consumer,
+          `released SDK artifact verification ${name}`,
+        );
+      }
     } finally {
       await rm(consumer, { recursive: true, force: true });
     }
@@ -1538,6 +1623,24 @@ if(false)void client.refreshCredential();
     const verification = await import(
       `${pathToFileURL(resolve(root, "package/dist/index.js")).href}?release=${version}`
     );
+    const fixtures = ["small-artifact.json"];
+    if (verification.schemaV2) fixtures.push("small-artifact-v2.json");
+    for (const name of fixtures) {
+      const fixture = await readJson(
+        resolve(root, "fixtures/interop", name),
+        "released artifact golden",
+      );
+      const identity = await verification.verifyAttestedArtifact(
+        fixture.document,
+        Buffer.from(fixture.publicKeyHex, "hex"),
+        [Buffer.from(fixture.artifactHex, "hex")],
+      );
+      invariant(
+        identity.digest.value ===
+          fixture.document.statement.subject.digest.value,
+        `released JavaScript verifier rejected ${name}`,
+      );
+    }
     const document = await readJson(
       resolve(root, "fixtures/valid/hosted.json"),
       "released hosted attestation",

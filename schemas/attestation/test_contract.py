@@ -54,7 +54,75 @@ def set_path(document, path, value):
     target[path[-1]] = value
 
 
+def check_v2_contract() -> None:
+    schema = json.loads((ROOT / "attestation/v2/schema.json").read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    # Freeze the precise versioned delta, rather than accidentally loosening
+    # unrelated subject/source/environment/key constraints while copying v1.
+    expected = copy.deepcopy(SCHEMA)
+    expected["$id"] = "https://schemas.provenance.dev/attestation/v2/schema.json"
+    expected["title"] = "Provenance attestation envelope v2"
+    expected["properties"]["mediaType"]["const"] = "application/vnd.provenance.attestation.v2+json"
+    expected["$defs"]["statement"]["properties"]["apiVersion"]["const"] = "provenance.dev/attestation/v2"
+    expected["$defs"]["assertion"]["properties"]["type"]["enum"].append("console-contains")
+    expected["$defs"]["assertion"]["properties"]["id"] = {
+        "type": "string", "minLength": 1, "maxLength": 128,
+        "pattern": r"^[A-Za-z0-9][A-Za-z0-9._:-]*(?![\s\S])",
+    }
+    assert schema == expected, "unexpected v2 contract change"
+    document = json.loads((FIXTURES / "valid/hosted.json").read_text(encoding="utf-8"))
+    assert not validator.is_valid(document), "v1 envelope admitted as v2"
+    document["mediaType"] = "application/vnd.provenance.attestation.v2+json"
+    document["statement"]["apiVersion"] = "provenance.dev/attestation/v2"
+    literal = document["statement"]["assertions"][2]
+    literal["type"] = "console-contains"
+    literal["id"] = "console-contains:smoke:0"
+    validator.validate(document)
+    assert not Draft202012Validator(SCHEMA).is_valid(document)
+    for path, value in [
+        (["mediaType"], "application/vnd.provenance.attestation.v1+json"),
+        (["statement", "apiVersion"], "provenance.dev/attestation/v1"),
+        (["statement", "assertions", 2, "type"], "console-default"),
+        (["statement", "assertions", 2, "id"], "literal\n"),
+        (["statement", "assertions", 2, "id"], "literal/unsafe"),
+        (["statement", "assertions", 2, "id"], "a" * 129),
+        (["statement", "assertions", 2, "pattern"], "private-pattern"),
+    ]:
+        invalid = copy.deepcopy(document)
+        set_path(invalid, path, value)
+        assert not validator.is_valid(invalid), (path, value)
+    vector = json.loads((FIXTURES / "vectors/hosted.json").read_text(encoding="utf-8"))
+    private = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(vector["privateKeySeedHex"]))
+    body = document["signature"]["keyId"].encode() + b"\n" + canonicalize(document["statement"])
+    payload = b"Provenance Attestation v2\n" + body
+    signature = private.sign(payload)
+    private.public_key().verify(signature, payload)
+    try:
+        private.public_key().verify(signature, DOMAIN + body)
+    except InvalidSignature:
+        pass
+    else:
+        raise AssertionError("v2 signature admitted in v1 domain")
+    golden = json.loads((FIXTURES / "interop/small-artifact-v2.json").read_text(encoding="utf-8"))
+    validator.validate(golden["document"])
+    canonical = canonicalize(golden["document"]["statement"])
+    assert canonical.decode() == golden["canonicalStatement"]
+    assert hashlib.sha256(canonical).hexdigest() == golden["canonicalStatementSha256"]
+    payload = b"Provenance Attestation v2\n" + golden["document"]["signature"]["keyId"].encode() + b"\n" + canonical
+    assert hashlib.sha256(payload).hexdigest() == golden["signingInputSha256"]
+    signature = decode_base64url(golden["signatureBase64Url"])
+    assert golden["document"]["signature"]["value"] == golden["signatureBase64Url"]
+    assert private.sign(payload) == signature
+    Ed25519PublicKey.from_public_bytes(bytes.fromhex(golden["publicKeyHex"])).verify(signature, payload)
+    artifact = bytes.fromhex(golden["artifactHex"])
+    assert len(artifact) == golden["document"]["statement"]["subject"]["sizeBytes"]
+    assert hashlib.sha256(artifact).hexdigest() == golden["document"]["statement"]["subject"]["digest"]["value"]
+    print("validated v2 literal schema, separate domain and shared Go/JS/Python golden")
+
+
 def main() -> None:
+    check_v2_contract()
     Draft202012Validator.check_schema(SCHEMA)
     validator = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
     version_validator = Draft202012Validator(SCHEMA["$defs"]["minecraftVersion"])

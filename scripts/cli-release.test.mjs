@@ -286,6 +286,8 @@ test(
         assert.equal(native.status, 0, native.stdout + native.stderr);
         assert.match(native.stdout, /"storedSessionReadback": true/);
         assert.match(native.stdout, /"lockedStorePreIssuance": true/);
+        assert.match(native.stdout, /"signedV2Fixture": "passed"/);
+        assert.match(native.stdout, /"tamperedV2Fixture": "rejected"/);
         console.log(
           native.stdout
             .split("\n")
