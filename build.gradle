@@ -121,7 +121,16 @@ project(":paper-api-stubs") {
 }
 
 project(":paper-probe") {
-    version = "0.1.0"
+    version = "0.2.0"
+
+    tasks.named("compileJava", JavaCompile) {
+        options.release = 8
+        options.compilerArgs.add("-Xlint:-options")
+    }
+    // javac 21 reads the verified compile-only API; emitted probe classes and
+    // bundled dependencies remain Java 8. Optional APIs are resolved lazily.
+    configurations.compileClasspath.attributes.attribute(
+        org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 21)
 
     def paperApiVersion = "1.20.6-R0.1-SNAPSHOT"
     def paperApiArtifact = configurations.create("paperApiArtifact") {
@@ -207,6 +216,28 @@ project(":paper-probe") {
             exclude("META-INF/MANIFEST.MF", "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/*.SF")
         }
     }
+
+    def probeJar = tasks.named("jar", Jar).flatMap { it.archiveFile }
+    tasks.register("verifyJava8Bytecode") {
+        group = "verification"
+        dependsOn("jar")
+        inputs.file(probeJar)
+        doLast {
+            new java.util.jar.JarFile(probeJar.get().asFile).withCloseable { archive ->
+                archive.entries().each { entry ->
+                    if (entry.name.endsWith(".class") && !entry.name.startsWith("META-INF/versions/")) {
+                        archive.getInputStream(entry).withCloseable { input ->
+                            def header = new DataInputStream(input)
+                            if (header.readInt() != (int) 0xcafebabe) throw new GradleException("Invalid class header")
+                            header.readUnsignedShort()
+                            if (header.readUnsignedShort() > 52) throw new GradleException("Non-Java-8 probe dependency: ${entry.name}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    tasks.named("check") { dependsOn("verifyJava8Bytecode") }
 
     def stagedPaperApi = layout.buildDirectory.dir("dependency-verification/paper-api")
     tasks.register("stagePaperApiArtifact", Sync) {

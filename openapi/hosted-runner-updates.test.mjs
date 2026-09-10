@@ -59,6 +59,9 @@ test("every hosted operation has closed non-reflective no-store failures", () =>
     "/v1/admin/hosted-runners",
     "/v1/admin/hosted-runners/install-profile",
     "/v1/runner-releases/{sha256}",
+    "/v1/admin/hosted-catalogs",
+    "/v1/runner-catalogs/{runnerId}/poll",
+    "/v1/runner-catalog-assets/{sha256}/{filename}",
   ];
   let count = 0;
   for (const path of paths)
@@ -79,16 +82,22 @@ test("every hosted operation has closed non-reflective no-store failures", () =>
           ? [{ SessionCookie: [] }]
           : [{ HostedRunnerUpdater: [] }],
       );
-      const statuses =
-        path === "/v1/runner-releases/{sha256}"
-          ? [401, 403, 429, 503]
-          : path.startsWith("/v1/runner-updater/")
-            ? [400, 401, 403, 409, 429, 503]
-            : method === "post"
-              ? [400, 401, 403, 404, 409, 429, 503]
-              : path === "/v1/admin/runner-updates"
-                ? [400, 401, 403, 404, 429, 503]
-                : [400, 401, 403, 429, 503];
+      const statuses = [
+        "/v1/runner-releases/{sha256}",
+        "/v1/runner-catalog-assets/{sha256}/{filename}",
+      ].includes(path)
+        ? [401, 403, 429, 503]
+        : path.startsWith("/v1/runner-updater/") ||
+            path.startsWith("/v1/runner-catalogs/")
+          ? [400, 401, 403, 409, 429, 503]
+          : method === "post"
+            ? [400, 401, 403, 404, 409, 429, 503]
+            : [
+                  "/v1/admin/runner-updates",
+                  "/v1/admin/hosted-catalogs",
+                ].includes(path)
+              ? [400, 401, 403, 404, 429, 503]
+              : [400, 401, 403, 429, 503];
       assert.deepEqual(
         Object.keys(op.responses)
           .filter((s) => s !== "200" && s !== "default")
@@ -132,7 +141,7 @@ test("every hosted operation has closed non-reflective no-store failures", () =>
         assert.deepEqual(schema.properties.code.enum, codes[status]);
       }
     }
-  assert.equal(count, 7);
+  assert.equal(count, 11);
 });
 
 test("release existence stays private and polling IDs are bounded", () => {
@@ -267,6 +276,35 @@ test("hosted install profiles accept either legacy pins or bounded complete Pape
       maximumExpandedBytes: 1000,
     },
   };
+  {
+    const validateCatalog = ajv.compile({
+      $ref: "hosted#/components/schemas/HostedPaperCatalog",
+    });
+    const legacy = structuredClone(catalog);
+    legacy.paper.gameVersion = "1.8.8";
+    legacy.java.version = "8.0.504+1";
+    assert.equal(
+      validateCatalog(legacy),
+      false,
+      "old probe cannot authorize legacy Paper",
+    );
+    legacy.probeVersion = "0.2.0";
+    legacy.probeSourceCommit = "18400bb4a47d28c1d95c3f4067603af3f3409d5e";
+    legacy.probe.sha256 =
+      "141a535d495a3afd5f413cab04618e75421390f0e14acba0707d1573c5a8c96b";
+    legacy.probe.sizeBytes = 480768;
+    assert.equal(
+      validateCatalog(legacy),
+      true,
+      JSON.stringify(validateCatalog.errors),
+    );
+    legacy.probeSourceCommit = catalog.probeSourceCommit;
+    assert.equal(
+      validateCatalog(legacy),
+      false,
+      "mixed probe pins must be rejected",
+    );
+  }
   const profile = {
     gatewayAddress: "gateway.example:443",
     apiOrigin: "https://api.example",

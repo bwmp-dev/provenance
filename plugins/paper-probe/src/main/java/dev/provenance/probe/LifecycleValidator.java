@@ -24,7 +24,7 @@ public final class LifecycleValidator {
     for (String dependency : dependencies) {
       statuses.add(status("REQUIRED_DEPENDENCY", dependency, byName));
     }
-    return List.copyOf(statuses);
+    return Java8.listCopy(statuses);
   }
 
   private RequirementStatus status(String role, String name, Map<String, PluginSnapshot> plugins) {

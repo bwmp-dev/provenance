@@ -4,6 +4,126 @@
  */
 
 export interface paths {
+    "/v1/paper-runtimes/{runtimeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an immutable automatically signed Paper runtime */
+        get: operations["getPaperRuntimeManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/paper-runtime-assets/{sha256}/{filename}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a verified public upstream runtime artifact */
+        get: operations["downloadPaperRuntimeAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/paper-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List automatically discovered Paper versions and harness coverage */
+        get: operations["listPaperVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/paper-versions/{version}/builds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List exact upstream builds from the latest retained snapshot */
+        get: operations["listPaperBuilds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosted-catalogs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inspect hosted Paper catalog desired and active state */
+        get: operations["getHostedCatalogs"];
+        put?: never;
+        /** Publish or assign an offline-signed hosted Paper catalog */
+        post: operations["changeHostedCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runner-catalogs/{runnerId}/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Poll and report assigned hosted catalog reconciliation */
+        post: operations["pollHostedCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runner-catalog-assets/{sha256}/{filename}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download an exact asset from the node's assigned catalog */
+        get: operations["downloadHostedCatalogAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/runner-updates": {
         parameters: {
             query?: never;
@@ -1397,6 +1517,106 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AutomaticPaperRuntimeManifest: {
+            /** @description Base64 of exact UTF-8 AutomaticPaperRuntimePayload JSON bytes, at most 65536 decoded bytes. */
+            payload: string;
+            /** @description Ed25519 signature over UTF-8 provenance.paper-runtime/v1 followed by LF and the decoded payload bytes. This key is separate from the runner release key. */
+            signature: string;
+        };
+        /** @description Every artifact URL must equal the configured runtime origin plus /v1/paper-runtime-assets/{sha256}/{filename}. The environmentId is paper-runtime- followed by runtimeId. Verify signature, request identity and artifact authority before use. */
+        AutomaticPaperRuntimePayload: {
+            /** @description SHA-256 of UTF-8 provenance.paper-runtime/v1 plus LF, then game version, decimal build, lowercase server SHA-256, Java distribution, exact Java version, linux and amd64 separated by NUL. No trailing separator. */
+            runtimeId: string;
+            catalog: components["schemas"]["HostedPaperCatalog"];
+        };
+        AutomaticPaperVersions: {
+            /** Format: uuid */
+            snapshotId: string;
+            versions: {
+                version: string;
+                requiredJava: number;
+                harnessSupported: boolean;
+                buildCount: number;
+            }[];
+        };
+        AutomaticPaperBuilds: {
+            /** Format: uuid */
+            snapshotId: string;
+            builds: {
+                buildId: string;
+                buildNumber: number;
+                /** @enum {string} */
+                channel: "ALPHA" | "BETA" | "STABLE" | "RECOMMENDED";
+                /** Format: date-time */
+                releasedAt: string;
+                available: boolean;
+                serverDownload: null | {
+                    name: string;
+                    /** Format: uri */
+                    url: string;
+                    sizeBytes: number;
+                    sha256: string;
+                };
+            }[];
+        };
+        /** @description Immutable administrator-approved catalog desired state. Hosts and entries are sorted before signing. SHA-256 covers canonical schemaVersion, artifactHosts and catalogs; the Ed25519 signature covers that digest. */
+        HostedCatalogRevision: {
+            /** @constant */
+            schemaVersion: "provenance.hosted-paper-catalog/v1";
+            artifactHosts: string[];
+            catalogs: components["schemas"]["HostedPaperCatalog"][];
+            sha256: string;
+            signature: string;
+        };
+        HostedCatalogReconciliation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            runnerId: string;
+            catalogSha256: string;
+            previousCatalogSha256?: string;
+            /** @enum {string} */
+            state: "draining" | "installing" | "verifying" | "succeeded" | "rolled_back" | "failed" | "cancelled";
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        HostedCatalogView: {
+            truncated: boolean;
+            desiredCatalogSha256?: string;
+            activeCatalogSha256?: string;
+            revisions: components["schemas"]["HostedCatalogRevision"][];
+            reconciliations: components["schemas"]["HostedCatalogReconciliation"][];
+        };
+        HostedCatalogRequest: {
+            /** @enum {string} */
+            action: "publish" | "reconcile" | "cancel";
+            /** @description Runner UUIDs in ascending lexical order for deterministic fleet locking. */
+            runnerIds?: string[];
+            revision?: components["schemas"]["HostedCatalogRevision"];
+            catalogSha256?: string;
+            /** Format: uuid */
+            operationId?: string;
+        };
+        HostedCatalogMutationResult: {
+            id: string;
+            operationIds?: string[];
+        };
+        HostedCatalogPoll: {
+            /** Format: uuid */
+            operationId?: string;
+            /** @enum {string} */
+            report: "idle" | "verifying" | "health" | "rollback-health" | "succeeded" | "rolled_back" | "failed";
+        };
+        HostedCatalogCommand: {
+            /** @enum {string} */
+            outcome: "" | "succeeded" | "rolled_back" | "failed" | "cancelled";
+            operationId: string;
+            /** @enum {string} */
+            phase: "wait" | "install" | "verify" | "complete";
+            revision: components["schemas"]["HostedCatalogRevision"] | null;
+            previousCatalogSha256: string;
+            healthy: boolean;
+        };
         HostedRunnerMutationResult: {
             id: string;
         };
@@ -2588,25 +2808,50 @@ export interface components {
             probe?: never;
             preparedRuntime?: never;
         });
-        /** @description An operator-approved immutable Paper runtime. Hosted support starts at Paper 1.20.6 and requires the matching Java 21 or 25 release and the accepted probe. Environment IDs, resolved Paper/Java identities and prepared-runtime digests must be unique across the profile. Artifact hosts and byte limits are validated before provisioning; jobs cannot extend this catalog. */
+        /** @description An immutable Paper runtime with exact Java and accepted probe pins. Probe 0.2.0 supports the legacy Java 8 baseline; retained probe 0.1.0 catalogs require Paper 1.20.6 or later. Exact prepared artifacts and matching Java runtimes are still required. Environment IDs, resolved Paper/Java identities and prepared-runtime digests must be unique across the profile. Artifact hosts and byte limits are validated before provisioning; jobs cannot extend this catalog. */
         HostedPaperCatalog: {
             environmentId: string;
             paper: components["schemas"]["HostedCatalogPaper"];
             java: components["schemas"]["HostedCatalogJava"];
-            /** @constant */
-            probeVersion: "0.1.0";
-            /** @constant */
-            probeSourceCommit: "f82dcbf8244354059731ba533f73909ed5528bbd";
+            /** @enum {string} */
+            probeVersion: "0.1.0" | "0.2.0";
+            /** @enum {string} */
+            probeSourceCommit: "f82dcbf8244354059731ba533f73909ed5528bbd" | "18400bb4a47d28c1d95c3f4067603af3f3409d5e";
             probe: components["schemas"]["HostedCatalogArtifact"] & {
-                /** @constant */
-                sha256?: "040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868";
-                /** @constant */
-                sizeBytes?: 478853;
+                /** @enum {unknown} */
+                sha256?: "040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868" | "141a535d495a3afd5f413cab04618e75421390f0e14acba0707d1573c5a8c96b";
+                /** @enum {unknown} */
+                sizeBytes?: 478853 | 480768;
                 /** @constant */
                 filename?: "paper-probe.jar";
             };
             preparedRuntime: components["schemas"]["HostedCatalogRuntime"];
-        };
+        } & ({
+            /** @constant */
+            probeVersion?: "0.1.0";
+            /** @constant */
+            probeSourceCommit?: "f82dcbf8244354059731ba533f73909ed5528bbd";
+            probe?: {
+                /** @constant */
+                sha256?: "040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868";
+                /** @constant */
+                sizeBytes?: 478853;
+            };
+            paper?: {
+                gameVersion?: unknown;
+            };
+        } | {
+            /** @constant */
+            probeVersion?: "0.2.0";
+            /** @constant */
+            probeSourceCommit?: "18400bb4a47d28c1d95c3f4067603af3f3409d5e";
+            probe?: {
+                /** @constant */
+                sha256?: "141a535d495a3afd5f413cab04618e75421390f0e14acba0707d1573c5a8c96b";
+                /** @constant */
+                sizeBytes?: 480768;
+            };
+        });
         HostedCatalogPaper: {
             gameVersion: string;
             build: number;
@@ -4233,6 +4478,228 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getPaperRuntimeManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact signed runtime bytes; clients pin the runtime signing key independently. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomaticPaperRuntimeManifest"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    downloadPaperRuntimeAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sha256: string;
+                filename: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Immutable artifact referenced by a successfully prepared public runtime. No customer artifacts are exposed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPaperVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest retained upstream snapshot; harness coverage does not guarantee that preparation will succeed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomaticPaperVersions"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPaperBuilds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Immutable build metadata, including channel and upstream SHA-256. Unknown versions return an empty array. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomaticPaperBuilds"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getHostedCatalogs: {
+        parameters: {
+            query: {
+                runnerId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedCatalogView"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
+        };
+    };
+    changeHostedCatalog: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostedCatalogRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedCatalogMutationResult"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedProblem403"];
+            404: components["responses"]["HostedProblem404"];
+            409: components["responses"]["HostedProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedProblem503"];
+            default: components["responses"]["HostedProblem503"];
+        };
+    };
+    pollHostedCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runnerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostedCatalogPoll"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedCatalogCommand"];
+                };
+            };
+            400: components["responses"]["HostedProblem400"];
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedUpdaterProblem403"];
+            409: components["responses"]["HostedUpdaterProblem409"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedUpdaterProblem503"];
+            default: components["responses"]["HostedUpdaterProblem503"];
+        };
+    };
+    downloadHostedCatalogAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sha256: string;
+                filename: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact content-addressed asset in this node's assigned revision. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["HostedProblem401"];
+            403: components["responses"]["HostedUpdaterProblem403"];
+            429: components["responses"]["HostedProblem429"];
+            503: components["responses"]["HostedUpdaterProblem503"];
+            default: components["responses"]["HostedUpdaterProblem503"];
+        };
+    };
     getHostedRunnerUpdates: {
         parameters: {
             query: {

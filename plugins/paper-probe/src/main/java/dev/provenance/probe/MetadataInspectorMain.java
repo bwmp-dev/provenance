@@ -27,6 +27,7 @@ public final class MetadataInspectorMain {
   private static final int EXIT_USAGE = 64;
   private static final int EXIT_INPUT = 65;
   private static final int EXIT_OPERATIONAL = 70;
+
   private MetadataInspectorMain() {}
 
   public static void main(String[] arguments) {
@@ -44,7 +45,7 @@ public final class MetadataInspectorMain {
 
     final Path source;
     try {
-      source = Path.of(arguments[2]);
+      source = java.nio.file.Paths.get(arguments[2]);
     } catch (InvalidPathException exception) {
       return fail(error, EXIT_INPUT, "artifact_path_invalid");
     }
@@ -117,11 +118,10 @@ public final class MetadataInspectorMain {
         output.write(buffer, 0, read);
       }
     }
-    return java.util.HexFormat.of().formatHex(digest.digest());
+    return Java8.hex(digest.digest());
   }
 
-  private static Map<String, Object> result(
-      String artifactSha256, MetadataInspection inspection) {
+  private static Map<String, Object> result(String artifactSha256, MetadataInspection inspection) {
     LinkedHashMap<String, Object> result = new LinkedHashMap<>();
     result.put("schemaVersion", SCHEMA_VERSION);
     result.put("artifactSha256", artifactSha256);
@@ -149,7 +149,7 @@ public final class MetadataInspectorMain {
     for (String issue : issues) {
       codes.add(issueCode(issue));
     }
-    return List.copyOf(codes);
+    return Java8.listCopy(codes);
   }
 
   private static String issueCode(String issue) {

@@ -1,7 +1,7 @@
 name: ProvenanceProbe
-version: 0.1.0
+version: 0.2.0
 main: dev.provenance.probe.PaperProbePlugin
-api-version: "1.20.6"
+api-version: "1.13"
 load: STARTUP
 description: Structured lifecycle and command instrumentation for Provenance Paper tests
 loadbefore:

@@ -7,7 +7,6 @@ import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.config.LoggerConfig;
-import org.apache.logging.log4j.core.config.Property;
 import org.apache.logging.log4j.core.impl.ThrowableProxy;
 
 final class Log4jLifecycleExceptionAppender extends AbstractAppender {
@@ -19,7 +18,7 @@ final class Log4jLifecycleExceptionAppender extends AbstractAppender {
       LifecycleExceptionHandler handler,
       LoggerContext context,
       Set<LoggerConfig> loggerConfigurations) {
-    super("ProvenanceLifecycleExceptions", null, null, true, Property.EMPTY_ARRAY);
+    super("ProvenanceLifecycleExceptions", null, null, true);
     this.handler = handler;
     this.context = context;
     this.loggerConfigurations = loggerConfigurations;
@@ -31,7 +30,7 @@ final class Log4jLifecycleExceptionAppender extends AbstractAppender {
         new LinkedHashSet<>(context.getConfiguration().getLoggers().values());
     configurations.add(context.getConfiguration().getRootLogger());
     Log4jLifecycleExceptionAppender appender =
-        new Log4jLifecycleExceptionAppender(handler, context, Set.copyOf(configurations));
+        new Log4jLifecycleExceptionAppender(handler, context, Java8.setCopy(configurations));
     appender.start();
     configurations.forEach(configuration -> configuration.addAppender(appender, null, null));
     context.updateLoggers();

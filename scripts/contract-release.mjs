@@ -163,7 +163,7 @@ export const legacyContractBundles = [
         destination: "schema/schema.json",
       },
       {
-        source: "plugins/paper-probe/build/libs/paper-probe-0.1.0.jar",
+        source: "plugins/paper-probe/build/libs/paper-probe-0.2.0.jar",
         destination: "paper-metadata-inspector.jar",
       },
       {

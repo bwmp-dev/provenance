@@ -1,0 +1,52 @@
+{
+  "observedAt": "2026-09-10T05:34:36Z",
+  "scope": "Representative legacy and modern execution, not every upstream build",
+  "probe": {
+    "version": "0.2.0",
+    "sha256": "141a535d495a3afd5f413cab04618e75421390f0e14acba0707d1573c5a8c96b",
+    "sizeBytes": 480768,
+    "baseClassMaximumMajor": 52
+  },
+  "isolation": {
+    "runtime": "runsc",
+    "network": "none",
+    "uid": 1000,
+    "readOnlyRoot": true,
+    "capabilities": [],
+    "noNewPrivileges": true,
+    "memoryBytes": 2147483648,
+    "pidsLimit": 256,
+    "cpus": 2,
+    "imageDigest": "sha256:7f63bb8d94e926b88ef4f9f3e39b9321b3c122adcf4480e07265aaed602ffb85"
+  },
+  "cases": [
+    {
+      "paperVersion": "1.8.8",
+      "paperBuild": 445,
+      "paperSha256": "7ff6d2cec671ef0d95b3723b5c92890118fb882d73b7f8fa0a2cd31d97c55f86",
+      "javaVersion": "8.0.504+1",
+      "javaArchiveSha256": "52dcd578baca1d3e449ea86768a9129c0ee04d7b22565695498353cc66940c61",
+      "paperclipPatchedSha256": "31d4623e880e2d8ee35f709b2f68ba417b7e58d41182f944e4f7f01372f989c2",
+      "target": "ProvenanceSuccess",
+      "targetEnabled": true,
+      "command": "version",
+      "assertionPassed": true,
+      "shutdownRequested": true,
+      "exitCode": 0
+    },
+    {
+      "paperVersion": "1.21.8",
+      "paperBuild": 60,
+      "paperSha256": "8de7c52c3b02403503d16fac58003f1efef7dd7a0256786843927fa92ee57f1e",
+      "javaVersion": "21.0.8+9",
+      "javaArchiveSha256": "968c283e104059dae86ea1d670672a80170f27a39529d815843ec9c1f0fa2a03",
+      "preparedRuntimeSha256": "ba1434cfc3af6fe145660e82f5b07ce9cb46cbc76d23c68a767a3717e7e5ca57",
+      "target": "ProvenanceSuccess",
+      "targetEnabled": true,
+      "command": "plugins",
+      "assertionPassed": true,
+      "shutdownRequested": true,
+      "exitCode": 0
+    }
+  ]
+}

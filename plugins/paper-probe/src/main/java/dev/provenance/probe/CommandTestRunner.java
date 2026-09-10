@@ -31,8 +31,7 @@ final class CommandTestRunner implements AutoCloseable {
             }));
   }
 
-  CommandTestRunner(
-      EventSink sink, int maximumOutputBytes, ScheduledExecutorService watchdog) {
+  CommandTestRunner(EventSink sink, int maximumOutputBytes, ScheduledExecutorService watchdog) {
     this.sink = sink;
     this.maximumOutputBytes = maximumOutputBytes;
     this.watchdog = watchdog;
@@ -58,7 +57,7 @@ final class CommandTestRunner implements AutoCloseable {
     } catch (RuntimeException exception) {
       emit(
           EventType.COMMAND_REGISTRATION,
-          Map.of(
+          Java8.map(
               "testId", test.id(),
               "commandLabel", test.commandLabel(),
               "registered", false,
@@ -66,21 +65,25 @@ final class CommandTestRunner implements AutoCloseable {
               "exceptionType", exception.getClass().getName()));
       classify(
           ProbeClassification.COMMAND_REGISTRATION_FAILURE,
-          Map.of("testId", test.id(), "commandLabel", test.commandLabel()));
+          Java8.map("testId", test.id(), "commandLabel", test.commandLabel()));
       completeTest(test.id(), false);
       return new CommandRunResult(false, false);
     }
     emit(
         EventType.COMMAND_REGISTRATION,
-        Map.of(
-            "testId", test.id(),
-            "commandLabel", test.commandLabel(),
-            "registered", registered,
-            "status", registered ? "REGISTERED" : "NOT_REGISTERED"));
+        Java8.map(
+            "testId",
+            test.id(),
+            "commandLabel",
+            test.commandLabel(),
+            "registered",
+            registered,
+            "status",
+            registered ? "REGISTERED" : "NOT_REGISTERED"));
     if (!registered) {
       classify(
           ProbeClassification.COMMAND_NOT_REGISTERED,
-          Map.of("testId", test.id(), "commandLabel", test.commandLabel()));
+          Java8.map("testId", test.id(), "commandLabel", test.commandLabel()));
       completeTest(test.id(), false);
       return new CommandRunResult(false, false);
     }
@@ -91,7 +94,7 @@ final class CommandTestRunner implements AutoCloseable {
     CountDownLatch timeoutEvidenceCompleted = new CountDownLatch(1);
     emit(
         EventType.COMMAND_EXECUTION_STARTED,
-        Map.of(
+        Java8.map(
             "testId", test.id(),
             "commandLabel", test.commandLabel(),
             "timeoutSeconds", test.timeoutSeconds()));
@@ -106,10 +109,10 @@ final class CommandTestRunner implements AutoCloseable {
                   try {
                     emit(
                         EventType.COMMAND_TIMEOUT,
-                        Map.of("testId", test.id(), "timeoutSeconds", test.timeoutSeconds()));
+                        Java8.map("testId", test.id(), "timeoutSeconds", test.timeoutSeconds()));
                     classify(
                         ProbeClassification.COMMAND_TIMEOUT,
-                        Map.of("testId", test.id(), "timeoutSeconds", test.timeoutSeconds()));
+                        Java8.map("testId", test.id(), "timeoutSeconds", test.timeoutSeconds()));
                   } catch (RuntimeException | Error failure) {
                     timeoutEvidenceFailure.set(failure);
                     throw failure;
@@ -135,14 +138,14 @@ final class CommandTestRunner implements AutoCloseable {
       emitOutput(test, output);
       emit(
           EventType.COMMAND_EXECUTION_COMPLETED,
-          Map.of(
+          Java8.map(
               "testId", test.id(),
               "status", timedOut ? "TIMED_OUT" : "EXECUTION_FAILED",
               "exceptionType", exception.getClass().getName()));
       if (!timedOut) {
         classify(
             ProbeClassification.COMMAND_EXECUTION_FAILURE,
-            Map.of("testId", test.id(), "exceptionType", exception.getClass().getName()));
+            Java8.map("testId", test.id(), "exceptionType", exception.getClass().getName()));
       }
       completeTest(test.id(), false);
       return new CommandRunResult(false, timedOut);
@@ -155,10 +158,13 @@ final class CommandTestRunner implements AutoCloseable {
     emitOutput(test, output);
     emit(
         EventType.COMMAND_EXECUTION_COMPLETED,
-        Map.of(
-            "testId", test.id(),
-            "status", timedOut ? "TIMED_OUT" : dispatched ? "COMPLETED" : "DISPATCH_REJECTED",
-            "dispatched", dispatched));
+        Java8.map(
+            "testId",
+            test.id(),
+            "status",
+            timedOut ? "TIMED_OUT" : dispatched ? "COMPLETED" : "DISPATCH_REJECTED",
+            "dispatched",
+            dispatched));
     if (timedOut) {
       completeTest(test.id(), false);
       return new CommandRunResult(false, true);
@@ -166,7 +172,7 @@ final class CommandTestRunner implements AutoCloseable {
     if (!dispatched) {
       classify(
           ProbeClassification.COMMAND_EXECUTION_FAILURE,
-          Map.of("testId", test.id(), "reason", "dispatch_rejected"));
+          Java8.map("testId", test.id(), "reason", "dispatch_rejected"));
       completeTest(test.id(), false);
       return new CommandRunResult(false, false);
     }
@@ -176,7 +182,7 @@ final class CommandTestRunner implements AutoCloseable {
       }
       classify(
           ProbeClassification.COMMAND_OUTPUT_TRUNCATED,
-          Map.of(
+          Java8.map(
               "testId", test.id(),
               "capturedBytes", output.capturedBytes(),
               "observedBytes", output.observedBytes()));
@@ -186,11 +192,7 @@ final class CommandTestRunner implements AutoCloseable {
 
     List<String> failedAssertions = new ArrayList<>();
     for (CommandAssertion assertion : test.assertions()) {
-      String selected =
-          switch (assertion.stream()) {
-            case STDOUT, COMBINED -> output.text();
-            case STDERR -> "";
-          };
+      String selected = assertion.stream() == CommandOutputStream.STDERR ? "" : output.text();
       int occurrences = assertion.occurrences(selected);
       boolean assertionPassed = assertion.passes(occurrences);
       emitAssertion(test.id(), assertion, occurrences, true, assertionPassed);
@@ -202,16 +204,14 @@ final class CommandTestRunner implements AutoCloseable {
     if (!passed) {
       classify(
           ProbeClassification.COMMAND_ASSERTION_FAILURE,
-          Map.of("testId", test.id(), "failedAssertions", failedAssertions));
+          Java8.map("testId", test.id(), "failedAssertions", failedAssertions));
     }
     completeTest(test.id(), passed);
     return new CommandRunResult(passed, false);
   }
 
   private void completeTest(String testId, boolean passed) {
-    emit(
-        EventType.COMMAND_TEST_COMPLETED,
-        Map.of("testId", testId, "passed", passed));
+    emit(EventType.COMMAND_TEST_COMPLETED, Java8.map("testId", testId, "passed", passed));
   }
 
   private void emitOutput(ConsoleCommandTest test, CommandOutputCapture output) {
@@ -250,9 +250,7 @@ final class CommandTestRunner implements AutoCloseable {
   }
 
   private void awaitTimeoutEvidence(
-      boolean timedOut,
-      CountDownLatch completed,
-      AtomicReference<Throwable> failureReference) {
+      boolean timedOut, CountDownLatch completed, AtomicReference<Throwable> failureReference) {
     if (!timedOut) {
       return;
     }
@@ -263,10 +261,12 @@ final class CommandTestRunner implements AutoCloseable {
       throw new IllegalStateException("interrupted while waiting for timeout evidence", exception);
     }
     Throwable failure = failureReference.get();
-    if (failure instanceof RuntimeException runtimeException) {
+    if (failure instanceof RuntimeException) {
+      RuntimeException runtimeException = (RuntimeException) failure;
       throw runtimeException;
     }
-    if (failure instanceof Error error) {
+    if (failure instanceof Error) {
+      Error error = (Error) failure;
       throw error;
     }
   }
@@ -326,9 +326,71 @@ final class CommandTestRunner implements AutoCloseable {
     boolean dispatch(String command, CommandOutputCapture output);
   }
 
-  record CommandSuiteResult(boolean passed, boolean timedOut) {}
+  static final class CommandSuiteResult {
+    private final boolean passed;
+    private final boolean timedOut;
 
-  private record CommandRunResult(boolean passed, boolean timedOut) {}
+    CommandSuiteResult(boolean passed, boolean timedOut) {
+
+      this.passed = passed;
+      this.timedOut = timedOut;
+    }
+
+    public boolean passed() {
+      return passed;
+    }
+
+    public boolean timedOut() {
+      return timedOut;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) return true;
+      if (!(other instanceof CommandSuiteResult)) return false;
+      CommandSuiteResult that = (CommandSuiteResult) other;
+      return java.util.Objects.equals(passed, that.passed)
+          && java.util.Objects.equals(timedOut, that.timedOut);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(passed, timedOut);
+    }
+  }
+
+  private static final class CommandRunResult {
+    private final boolean passed;
+    private final boolean timedOut;
+
+    CommandRunResult(boolean passed, boolean timedOut) {
+
+      this.passed = passed;
+      this.timedOut = timedOut;
+    }
+
+    public boolean passed() {
+      return passed;
+    }
+
+    public boolean timedOut() {
+      return timedOut;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) return true;
+      if (!(other instanceof CommandRunResult)) return false;
+      CommandRunResult that = (CommandRunResult) other;
+      return java.util.Objects.equals(passed, that.passed)
+          && java.util.Objects.equals(timedOut, that.timedOut);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(passed, timedOut);
+    }
+  }
 
   private enum ExecutionState {
     RUNNING,

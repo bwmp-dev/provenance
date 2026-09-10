@@ -28,6 +28,9 @@ const paths = Object.fromEntries(
     "/v1/admin/hosted-runners",
     "/v1/admin/hosted-runners/install-profile",
     "/v1/runner-releases/{sha256}",
+    "/v1/admin/hosted-catalogs",
+    "/v1/runner-catalogs/{runnerId}/poll",
+    "/v1/runner-catalog-assets/{sha256}/{filename}",
   ].map((p) => [p, dereference(doc.paths[p])]),
 );
 if (!process.argv[2]) throw new Error("Output path is required");

@@ -18,7 +18,7 @@ public final class LifecycleExceptionHandler extends Handler {
 
   public LifecycleExceptionHandler(EventSink sink, Map<String, String> pluginByMainClass) {
     this.sink = sink;
-    this.pluginByMainClass = Map.copyOf(pluginByMainClass);
+    this.pluginByMainClass = Java8.mapCopy(pluginByMainClass);
   }
 
   @Override
@@ -50,7 +50,7 @@ public final class LifecycleExceptionHandler extends Handler {
               : ProbeClassification.ON_ENABLE_FAILURE;
       sink.emit(
           ProbeEvent.now(
-              EventType.CLASSIFICATION, classification.data(Map.of("plugin", match.plugin()))));
+              EventType.CLASSIFICATION, classification.data(Java8.map("plugin", match.plugin()))));
     } catch (RuntimeException exception) {
       reportError("could not emit lifecycle exception", exception, ErrorManager.WRITE_FAILURE);
     }
@@ -95,8 +95,39 @@ public final class LifecycleExceptionHandler extends Handler {
       }
       current = current.getCause();
     }
-    return List.copyOf(frames);
+    return Java8.listCopy(frames);
   }
 
-  private record PhaseAndPlugin(String phase, String plugin) {}
+  private static final class PhaseAndPlugin {
+    private final String phase;
+    private final String plugin;
+
+    PhaseAndPlugin(String phase, String plugin) {
+
+      this.phase = phase;
+      this.plugin = plugin;
+    }
+
+    public String phase() {
+      return phase;
+    }
+
+    public String plugin() {
+      return plugin;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) return true;
+      if (!(other instanceof PhaseAndPlugin)) return false;
+      PhaseAndPlugin that = (PhaseAndPlugin) other;
+      return java.util.Objects.equals(phase, that.phase)
+          && java.util.Objects.equals(plugin, that.plugin);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(phase, plugin);
+    }
+  }
 }

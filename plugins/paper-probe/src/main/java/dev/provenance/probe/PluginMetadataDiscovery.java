@@ -45,17 +45,13 @@ public final class PluginMetadataDiscovery {
   private static final int MAX_API_VERSION_CHARACTERS = 32;
   private static final int MAX_PERMISSION_CHARACTERS = 128;
   private static final int MAX_COMMAND_CHARACTERS = 128;
-  private static final Set<String> PAPER_DEPENDENCY_SCOPES = Set.of("bootstrap", "server");
+  private static final Set<String> PAPER_DEPENDENCY_SCOPES = Java8.set("bootstrap", "server");
   private static final Set<String> PAPER_DEPENDENCY_FIELDS =
-      Set.of("load", "required", "join-classpath");
+      Java8.set("load", "required", "join-classpath");
   private static final Set<String> RESERVED_PLUGIN_NAMES =
-      Set.of("bukkit", "minecraft", "mojang", "spigot", "paper");
+      Java8.set("bukkit", "minecraft", "mojang", "spigot", "paper");
   private static final List<String> PAPER_FORBIDDEN_MAIN_PREFIXES =
-      List.of(
-          "net.minecraft.",
-          "org.bukkit.",
-          "io.papermc.paper.",
-          "com.destroystokoyo.paper.");
+      Java8.list("net.minecraft.", "org.bukkit.", "io.papermc.paper.", "com.destroystokoyo.paper.");
   private static final Pattern PLUGIN_NAME = Pattern.compile("[A-Za-z0-9_.-]{1,64}");
   private static final Pattern MAIN_CLASS =
       Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+");
@@ -65,27 +61,19 @@ public final class PluginMetadataDiscovery {
       Comparator.comparing((String value) -> value.toLowerCase(Locale.ROOT))
           .thenComparing(Comparator.naturalOrder());
   private static final Comparator<Path> CANONICAL_PATH_ORDER =
-      Comparator.comparing(
-              (Path path) -> path.getFileName().toString().toLowerCase(Locale.ROOT))
+      Comparator.comparing((Path path) -> path.getFileName().toString().toLowerCase(Locale.ROOT))
           .thenComparing(path -> path.getFileName().toString());
   private final int maximumJarEntries;
   private final long maximumJarEntryBytes;
   private final long maximumJarUncompressedBytes;
 
   public PluginMetadataDiscovery() {
-    this(
-        MAX_JAR_ENTRIES,
-        MAX_JAR_ENTRY_BYTES,
-        MAX_JAR_UNCOMPRESSED_BYTES);
+    this(MAX_JAR_ENTRIES, MAX_JAR_ENTRY_BYTES, MAX_JAR_UNCOMPRESSED_BYTES);
   }
 
   PluginMetadataDiscovery(
-      int maximumJarEntries,
-      long maximumJarEntryBytes,
-      long maximumJarUncompressedBytes) {
-    if (maximumJarEntries <= 0
-        || maximumJarEntryBytes <= 0
-        || maximumJarUncompressedBytes <= 0) {
+      int maximumJarEntries, long maximumJarEntryBytes, long maximumJarUncompressedBytes) {
+    if (maximumJarEntries <= 0 || maximumJarEntryBytes <= 0 || maximumJarUncompressedBytes <= 0) {
       throw new IllegalArgumentException("JAR verification limits must be positive");
     }
     this.maximumJarEntries = maximumJarEntries;
@@ -95,7 +83,7 @@ public final class PluginMetadataDiscovery {
 
   public List<MetadataInspection> inspectDirectory(Path pluginsDirectory) throws IOException {
     if (!Files.isDirectory(pluginsDirectory, LinkOption.NOFOLLOW_LINKS)) {
-      return List.of();
+      return Java8.list();
     }
     List<Path> jars;
     try (Stream<Path> paths = Files.list(pluginsDirectory)) {
@@ -103,25 +91,21 @@ public final class PluginMetadataDiscovery {
           paths
               .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
               .filter(
-                  path ->
-                      path.getFileName()
-                          .toString()
-                          .toLowerCase(Locale.ROOT)
-                          .endsWith(".jar"))
+                  path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar"))
               .limit(MAX_PLUGIN_ARTIFACTS + 1L)
-              .toList();
+              .collect(Java8.toList());
     }
     if (jars.size() > MAX_PLUGIN_ARTIFACTS) {
       throw new IOException("plugins directory contains more than 128 JAR files");
     }
-    return jars.stream().sorted(CANONICAL_PATH_ORDER).map(this::inspect).toList();
+    return jars.stream().sorted(CANONICAL_PATH_ORDER).map(this::inspect).collect(Java8.toList());
   }
 
   public List<PluginDescriptor> discover(Path pluginsDirectory) throws IOException {
     return inspectDirectory(pluginsDirectory).stream()
         .filter(inspection -> inspection.status() == MetadataStatus.VALID)
         .map(MetadataInspection::descriptor)
-        .toList();
+        .collect(Java8.toList());
   }
 
   public MetadataInspection inspect(Path jarPath) {
@@ -141,7 +125,7 @@ public final class PluginMetadataDiscovery {
       }
       if (metadata == null) {
         return new MetadataInspection(
-            jarPath, MetadataStatus.MISSING, null, List.of("plugin metadata is missing"));
+            jarPath, MetadataStatus.MISSING, null, Java8.list("plugin metadata is missing"));
       }
       if (metadata.isDirectory()) {
         return invalid(jarPath, "plugin metadata must be a regular JAR entry");
@@ -150,7 +134,7 @@ public final class PluginMetadataDiscovery {
         return invalid(jarPath, "plugin metadata exceeds 65536 bytes");
       }
       try (InputStream input = jar.getInputStream(metadata)) {
-        source = input.readNBytes(MAX_METADATA_BYTES + 1);
+        source = Java8.readNBytes(input, MAX_METADATA_BYTES + 1);
         if (source.length > MAX_METADATA_BYTES) {
           return invalid(jarPath, "plugin metadata exceeds 65536 bytes");
         }
@@ -210,7 +194,8 @@ public final class PluginMetadataDiscovery {
     for (String dependency : configuredDependencies) {
       count++;
       if (count > MAX_CONFIGURED_DEPENDENCIES) {
-        throw new IllegalArgumentException("configured dependencies must contain at most 64 entries");
+        throw new IllegalArgumentException(
+            "configured dependencies must contain at most 64 entries");
       }
       String normalized = normalizedPluginName(dependency);
       if (normalized == null) {
@@ -218,8 +203,7 @@ public final class PluginMetadataDiscovery {
       }
       String previous = configured.put(normalized.toLowerCase(Locale.ROOT), normalized);
       if (previous != null) {
-        throw new IllegalArgumentException(
-            "configured dependencies must be unique ignoring case");
+        throw new IllegalArgumentException("configured dependencies must be unique ignoring case");
       }
     }
 
@@ -231,7 +215,7 @@ public final class PluginMetadataDiscovery {
         .filter(entry -> !declared.contains(entry.getKey()))
         .map(Map.Entry::getValue)
         .sorted(CANONICAL_ORDER)
-        .toList();
+        .collect(Java8.toList());
   }
 
   private MetadataInspection parse(byte[] input, Path source, boolean paperMetadata) {
@@ -268,7 +252,8 @@ public final class PluginMetadataDiscovery {
     if (structureIssue != null) {
       return invalid(source, structureIssue);
     }
-    if (!(loaded instanceof Map<?, ?> root)) {
+    Map<?, ?> root = loaded instanceof Map<?, ?> ? (Map<?, ?>) loaded : null;
+    if (!(loaded instanceof Map<?, ?>)) {
       return invalid(source, "plugin metadata root must be a mapping");
     }
 
@@ -310,8 +295,7 @@ public final class PluginMetadataDiscovery {
 
     DependencyLists dependencies = new DependencyLists();
     addNames(
-        dependencies.required,
-        stringList(root.get("depend"), "depend", MAX_DEPENDENCIES, issues));
+        dependencies.required, stringList(root.get("depend"), "depend", MAX_DEPENDENCIES, issues));
     addNames(
         dependencies.soft,
         stringList(root.get("softdepend"), "softdepend", MAX_DEPENDENCIES, issues));
@@ -331,12 +315,7 @@ public final class PluginMetadataDiscovery {
             MAX_PERMISSION_CHARACTERS,
             issues);
     List<String> commands =
-        mappingKeys(
-            root.get("commands"),
-            "commands",
-            MAX_COMMANDS,
-            MAX_COMMAND_CHARACTERS,
-            issues);
+        mappingKeys(root.get("commands"), "commands", MAX_COMMANDS, MAX_COMMAND_CHARACTERS, issues);
     if (!issues.isEmpty()) {
       return new MetadataInspection(source, MetadataStatus.INVALID, null, issues);
     }
@@ -349,13 +328,13 @@ public final class PluginMetadataDiscovery {
             version,
             mainClass,
             apiVersion,
-            List.copyOf(dependencies.required.values()),
-            List.copyOf(dependencies.soft.values()),
-            List.copyOf(dependencies.loadBefore.values()),
+            Java8.listCopy(dependencies.required.values()),
+            Java8.listCopy(dependencies.soft.values()),
+            Java8.listCopy(dependencies.loadBefore.values()),
             permissions,
             commands,
             source),
-        List.of());
+        Java8.list());
   }
 
   private static String requiredString(Map<?, ?> root, String field, List<String> issues) {
@@ -371,7 +350,8 @@ public final class PluginMetadataDiscovery {
     if (value == null) {
       return null;
     }
-    if (!(value instanceof String string) || string.isBlank()) {
+    String string = value instanceof String ? (String) value : null;
+    if (!(value instanceof String) || Java8.isBlank(string)) {
       issues.add(field + " must be a non-empty string");
       return null;
     }
@@ -381,19 +361,20 @@ public final class PluginMetadataDiscovery {
   private static List<String> stringList(
       Object value, String field, int maximum, List<String> issues) {
     if (value == null) {
-      return List.of();
+      return Java8.list();
     }
-    if (!(value instanceof List<?> values)) {
+    List<?> values = value instanceof List<?> ? (List<?>) value : null;
+    if (!(value instanceof List<?>)) {
       issues.add(field + " must be a list of plugin names");
-      return List.of();
+      return Java8.list();
     }
     if (values.size() > maximum) {
       issues.add(field + " must contain at most " + maximum + " entries");
-      return List.of();
+      return Java8.list();
     }
     Map<String, String> result = new HashMap<>();
     for (Object item : values) {
-      String pluginName = item instanceof String string ? normalizedPluginName(string) : null;
+      String pluginName = item instanceof String ? normalizedPluginName((String) item) : null;
       if (pluginName == null) {
         issues.add(field + " entries must be plugin names");
         continue;
@@ -402,26 +383,27 @@ public final class PluginMetadataDiscovery {
         issues.add(field + " entries must be unique ignoring case");
       }
     }
-    return result.values().stream().sorted(CANONICAL_ORDER).toList();
+    return result.values().stream().sorted(CANONICAL_ORDER).collect(Java8.toList());
   }
 
   private static List<String> mappingKeys(
       Object value, String field, int maximum, int maximumCharacters, List<String> issues) {
     if (value == null) {
-      return List.of();
+      return Java8.list();
     }
-    if (!(value instanceof Map<?, ?> mapping)) {
+    Map<?, ?> mapping = value instanceof Map<?, ?> ? (Map<?, ?>) value : null;
+    if (!(value instanceof Map<?, ?>)) {
       issues.add(field + " must be a mapping");
-      return List.of();
+      return Java8.list();
     }
     if (mapping.size() > maximum) {
       issues.add(field + " must contain at most " + maximum + " entries");
-      return List.of();
+      return Java8.list();
     }
     Map<String, String> result = new HashMap<>();
     for (Object key : mapping.keySet()) {
       String normalized =
-          key instanceof String string ? normalizedOutputName(string, maximumCharacters) : null;
+          key instanceof String ? normalizedOutputName((String) key, maximumCharacters) : null;
       if (normalized == null) {
         issues.add(field + " keys must be bounded non-empty strings");
         continue;
@@ -430,7 +412,7 @@ public final class PluginMetadataDiscovery {
         issues.add(field + " keys must be unique ignoring case");
       }
     }
-    return result.values().stream().sorted(CANONICAL_ORDER).toList();
+    return result.values().stream().sorted(CANONICAL_ORDER).collect(Java8.toList());
   }
 
   private static void readPaperDependencies(
@@ -438,12 +420,14 @@ public final class PluginMetadataDiscovery {
     if (value == null) {
       return;
     }
-    if (!(value instanceof Map<?, ?> scopes)) {
+    Map<?, ?> scopes = value instanceof Map<?, ?> ? (Map<?, ?>) value : null;
+    if (!(value instanceof Map<?, ?>)) {
       issues.add("dependencies must be a mapping");
       return;
     }
     for (Object scope : scopes.keySet()) {
-      if (!(scope instanceof String string) || !PAPER_DEPENDENCY_SCOPES.contains(string)) {
+      String string = scope instanceof String ? (String) scope : null;
+      if (!(scope instanceof String) || !PAPER_DEPENDENCY_SCOPES.contains(string)) {
         issues.add("dependencies contains an unsupported scope");
       }
     }
@@ -457,7 +441,8 @@ public final class PluginMetadataDiscovery {
       return;
     }
     String field = "dependencies." + scope;
-    if (!(value instanceof Map<?, ?> declarations)) {
+    Map<?, ?> declarations = value instanceof Map<?, ?> ? (Map<?, ?>) value : null;
+    if (!(value instanceof Map<?, ?>)) {
       issues.add(field + " must be a mapping");
       return;
     }
@@ -468,7 +453,7 @@ public final class PluginMetadataDiscovery {
     Set<String> observedNames = new HashSet<>();
     for (Map.Entry<?, ?> entry : declarations.entrySet()) {
       String name =
-          entry.getKey() instanceof String string ? normalizedPluginName(string) : null;
+          entry.getKey() instanceof String ? normalizedPluginName((String) entry.getKey()) : null;
       if (name == null) {
         issues.add(field + " keys must be plugin names");
         continue;
@@ -477,7 +462,9 @@ public final class PluginMetadataDiscovery {
         issues.add(field + " keys must be unique ignoring case");
         continue;
       }
-      if (!(entry.getValue() instanceof Map<?, ?> settings)) {
+      Map<?, ?> settings =
+          entry.getValue() instanceof Map<?, ?> ? (Map<?, ?>) entry.getValue() : null;
+      if (!(entry.getValue() instanceof Map<?, ?>)) {
         issues.add(field + " dependency settings must be mappings");
         continue;
       }
@@ -498,19 +485,20 @@ public final class PluginMetadataDiscovery {
   private static void validatePaperDependencyFields(
       String field, Map<?, ?> settings, List<String> issues) {
     for (Object key : settings.keySet()) {
-      if (!(key instanceof String string) || !PAPER_DEPENDENCY_FIELDS.contains(string)) {
+      String string = key instanceof String ? (String) key : null;
+      if (!(key instanceof String) || !PAPER_DEPENDENCY_FIELDS.contains(string)) {
         issues.add(field + " dependency contains an unsupported field");
       }
     }
   }
 
-  private static Boolean paperRequired(
-      String field, Map<?, ?> settings, List<String> issues) {
+  private static Boolean paperRequired(String field, Map<?, ?> settings, List<String> issues) {
     if (!settings.containsKey("required")) {
       return true;
     }
     Object value = settings.get("required");
-    if (!(value instanceof Boolean required)) {
+    Boolean required = value instanceof Boolean ? (Boolean) value : null;
+    if (!(value instanceof Boolean)) {
       issues.add(field + ".required must be a boolean");
       return null;
     }
@@ -522,20 +510,20 @@ public final class PluginMetadataDiscovery {
       return "OMIT";
     }
     Object value = settings.get("load");
-    if (!(value instanceof String load)) {
+    String load = value instanceof String ? (String) value : null;
+    if (!(value instanceof String)) {
       issues.add(field + ".load must be BEFORE, AFTER, or OMIT");
       return null;
     }
     String normalized = load.toUpperCase(Locale.ROOT);
-    if (!Set.of("BEFORE", "AFTER", "OMIT").contains(normalized)) {
+    if (!Java8.set("BEFORE", "AFTER", "OMIT").contains(normalized)) {
       issues.add(field + ".load must be BEFORE, AFTER, or OMIT");
       return null;
     }
     return normalized;
   }
 
-  private static void validateJoinClasspath(
-      String field, Map<?, ?> settings, List<String> issues) {
+  private static void validateJoinClasspath(String field, Map<?, ?> settings, List<String> issues) {
     if (settings.containsKey("join-classpath")
         && !(settings.get("join-classpath") instanceof Boolean)) {
       issues.add(field + ".join-classpath must be a boolean");
@@ -555,7 +543,8 @@ public final class PluginMetadataDiscovery {
       if (current.depth() > MAX_YAML_DEPTH) {
         return "plugin metadata exceeds 16 levels of nesting";
       }
-      if (current.value() instanceof Map<?, ?> mapping) {
+      if (current.value() instanceof Map<?, ?>) {
+        Map<?, ?> mapping = (Map<?, ?>) current.value();
         for (Map.Entry<?, ?> entry : mapping.entrySet()) {
           if (entry.getKey() != null) {
             pending.push(new StructuredValue(entry.getKey(), current.depth() + 1));
@@ -564,7 +553,8 @@ public final class PluginMetadataDiscovery {
             pending.push(new StructuredValue(entry.getValue(), current.depth() + 1));
           }
         }
-      } else if (current.value() instanceof List<?> list) {
+      } else if (current.value() instanceof List<?>) {
+        List<?> list = (List<?>) current.value();
         for (Object value : list) {
           if (value != null) {
             pending.push(new StructuredValue(value, current.depth() + 1));
@@ -626,8 +616,7 @@ public final class PluginMetadataDiscovery {
     }
   }
 
-  private static void validateDependencyBounds(
-      DependencyLists dependencies, List<String> issues) {
+  private static void validateDependencyBounds(DependencyLists dependencies, List<String> issues) {
     validateDependencyBound(dependencies.required, "required", issues);
     validateDependencyBound(dependencies.soft, "soft", issues);
     validateDependencyBound(dependencies.loadBefore, "load-before", issues);
@@ -660,7 +649,7 @@ public final class PluginMetadataDiscovery {
   }
 
   private static MetadataInspection invalid(Path source, String issue) {
-    return new MetadataInspection(source, MetadataStatus.INVALID, null, List.of(issue));
+    return new MetadataInspection(source, MetadataStatus.INVALID, null, Java8.list(issue));
   }
 
   private static final class DependencyLists {
@@ -669,5 +658,36 @@ public final class PluginMetadataDiscovery {
     private final Map<String, String> loadBefore = new HashMap<>();
   }
 
-  private record StructuredValue(Object value, int depth) {}
+  private static final class StructuredValue {
+    private final Object value;
+    private final int depth;
+
+    StructuredValue(Object value, int depth) {
+
+      this.value = value;
+      this.depth = depth;
+    }
+
+    public Object value() {
+      return value;
+    }
+
+    public int depth() {
+      return depth;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) return true;
+      if (!(other instanceof StructuredValue)) return false;
+      StructuredValue that = (StructuredValue) other;
+      return java.util.Objects.equals(value, that.value)
+          && java.util.Objects.equals(depth, that.depth);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(value, depth);
+    }
+  }
 }

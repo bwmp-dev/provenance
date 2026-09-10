@@ -36,6 +36,258 @@ tags:
   - name: usage
     description: Organization usage observations.
 paths:
+  /v1/paper-runtimes/{runtimeId}:
+    get:
+      operationId: getPaperRuntimeManifest
+      summary: Read an immutable automatically signed Paper runtime
+      tags: [runners]
+      security: []
+      parameters:
+        - name: runtimeId
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+      responses:
+        "200":
+          description: Exact signed runtime bytes; clients pin the runtime signing key independently.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/AutomaticPaperRuntimeManifest" }
+        "404": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /v1/paper-runtime-assets/{sha256}/{filename}:
+    get:
+      operationId: downloadPaperRuntimeAsset
+      summary: Download a verified public upstream runtime artifact
+      tags: [runners]
+      security: []
+      parameters:
+        - name: sha256
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+        - name: filename
+          in: path
+          required: true
+          schema:
+            { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}$" }
+      responses:
+        "200":
+          description: Immutable artifact referenced by a successfully prepared public runtime. No customer artifacts are exposed.
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+  /v1/paper-versions:
+    get:
+      operationId: listPaperVersions
+      summary: List automatically discovered Paper versions and harness coverage
+      tags: [runners]
+      security: []
+      responses:
+        "200":
+          description: Latest retained upstream snapshot; harness coverage does not guarantee that preparation will succeed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutomaticPaperVersions" }
+        default: { $ref: "#/components/responses/Problem" }
+  /v1/paper-versions/{version}/builds:
+    get:
+      operationId: listPaperBuilds
+      summary: List exact upstream builds from the latest retained snapshot
+      tags: [runners]
+      security: []
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200":
+          description: Immutable build metadata, including channel and upstream SHA-256. Unknown versions return an empty array.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutomaticPaperBuilds" }
+        default: { $ref: "#/components/responses/Problem" }
+  /v1/admin/hosted-catalogs:
+    get:
+      operationId: getHostedCatalogs
+      parameters:
+        - name: runnerId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+            maxLength: 36
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostedCatalogView"
+        "400":
+          $ref: "#/components/responses/HostedProblem400"
+        "401":
+          $ref: "#/components/responses/HostedProblem401"
+        "403":
+          $ref: "#/components/responses/HostedProblem403"
+        "404":
+          $ref: "#/components/responses/HostedProblem404"
+        "429":
+          $ref: "#/components/responses/HostedProblem429"
+        "503":
+          $ref: "#/components/responses/HostedProblem503"
+        default:
+          $ref: "#/components/responses/HostedProblem503"
+      security:
+        - SessionCookie: []
+      summary: Inspect hosted Paper catalog desired and active state
+      tags:
+        - authentication
+    post:
+      operationId: changeHostedCatalog
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HostedCatalogRequest"
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostedCatalogMutationResult"
+        "400":
+          $ref: "#/components/responses/HostedProblem400"
+        "401":
+          $ref: "#/components/responses/HostedProblem401"
+        "403":
+          $ref: "#/components/responses/HostedProblem403"
+        "404":
+          $ref: "#/components/responses/HostedProblem404"
+        "409":
+          $ref: "#/components/responses/HostedProblem409"
+        "429":
+          $ref: "#/components/responses/HostedProblem429"
+        "503":
+          $ref: "#/components/responses/HostedProblem503"
+        default:
+          $ref: "#/components/responses/HostedProblem503"
+      security:
+        - SessionCookie: []
+      summary: Publish or assign an offline-signed hosted Paper catalog
+      tags:
+        - authentication
+  /v1/runner-catalogs/{runnerId}/poll:
+    post:
+      operationId: pollHostedCatalog
+      parameters:
+        - name: runnerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            maxLength: 36
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HostedCatalogPoll"
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostedCatalogCommand"
+        "400":
+          $ref: "#/components/responses/HostedProblem400"
+        "401":
+          $ref: "#/components/responses/HostedProblem401"
+        "403":
+          $ref: "#/components/responses/HostedUpdaterProblem403"
+        "409":
+          $ref: "#/components/responses/HostedUpdaterProblem409"
+        "429":
+          $ref: "#/components/responses/HostedProblem429"
+        "503":
+          $ref: "#/components/responses/HostedUpdaterProblem503"
+        default:
+          $ref: "#/components/responses/HostedUpdaterProblem503"
+      security:
+        - HostedRunnerUpdater: []
+      summary: Poll and report assigned hosted catalog reconciliation
+      tags:
+        - authentication
+  /v1/runner-catalog-assets/{sha256}/{filename}:
+    get:
+      operationId: downloadHostedCatalogAsset
+      parameters:
+        - in: path
+          name: sha256
+          required: true
+          schema:
+            type: string
+            pattern: ^[a-f0-9]{64}$
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+            pattern: ^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._+-]{0,199}$
+      responses:
+        "200":
+          description: Exact content-addressed asset in this node's assigned revision.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/HostedProblem401"
+        "403":
+          $ref: "#/components/responses/HostedUpdaterProblem403"
+        "429":
+          $ref: "#/components/responses/HostedProblem429"
+        "503":
+          $ref: "#/components/responses/HostedUpdaterProblem503"
+        default:
+          $ref: "#/components/responses/HostedUpdaterProblem503"
+      security:
+        - HostedRunnerUpdater: []
+      summary: Download an exact asset from the node's assigned catalog
+      tags:
+        - authentication
   /v1/admin/runner-updates:
     get:
       operationId: getHostedRunnerUpdates
@@ -4597,6 +4849,316 @@ components:
           schema:
             $ref: "#/components/schemas/RevokeRunnerCredentialsRequest"
   schemas:
+    AutomaticPaperRuntimeManifest:
+      type: object
+      additionalProperties: false
+      required: [payload, signature]
+      properties:
+        payload:
+          type: string
+          contentEncoding: base64
+          maxLength: 87384
+          contentMediaType: application/json
+          contentSchema:
+            $ref: "#/components/schemas/AutomaticPaperRuntimePayload"
+          description: Base64 of exact UTF-8 AutomaticPaperRuntimePayload JSON bytes, at most 65536 decoded bytes.
+        signature:
+          type: string
+          contentEncoding: base64
+          minLength: 88
+          maxLength: 88
+          description: Ed25519 signature over UTF-8 provenance.paper-runtime/v1 followed by LF and the decoded payload bytes. This key is separate from the runner release key.
+    AutomaticPaperRuntimePayload:
+      type: object
+      additionalProperties: false
+      required: [runtimeId, catalog]
+      properties:
+        runtimeId:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+          description: SHA-256 of UTF-8 provenance.paper-runtime/v1 plus LF, then game version, decimal build, lowercase server SHA-256, Java distribution, exact Java version, linux and amd64 separated by NUL. No trailing separator.
+        catalog:
+          $ref: "#/components/schemas/HostedPaperCatalog"
+      description: Every artifact URL must equal the configured runtime origin plus /v1/paper-runtime-assets/{sha256}/{filename}. The environmentId is paper-runtime- followed by runtimeId. Verify signature, request identity and artifact authority before use.
+    AutomaticPaperVersions:
+      type: object
+      additionalProperties: false
+      required: [snapshotId, versions]
+      properties:
+        snapshotId: { type: string, format: uuid }
+        versions:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            additionalProperties: false
+            required: [version, requiredJava, harnessSupported, buildCount]
+            properties:
+              version: { type: string, maxLength: 64 }
+              requiredJava: { type: integer, minimum: 1 }
+              harnessSupported: { type: boolean }
+              buildCount: { type: integer, minimum: 0, maximum: 2048 }
+    AutomaticPaperBuilds:
+      type: object
+      additionalProperties: false
+      required: [snapshotId, builds]
+      properties:
+        snapshotId: { type: string, format: uuid }
+        builds:
+          type: array
+          maxItems: 2048
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [
+                buildId,
+                buildNumber,
+                channel,
+                releasedAt,
+                available,
+                serverDownload,
+              ]
+            properties:
+              buildId: { type: string }
+              buildNumber: { type: integer, minimum: 0 }
+              channel:
+                { type: string, enum: [ALPHA, BETA, STABLE, RECOMMENDED] }
+              releasedAt: { type: string, format: date-time }
+              available: { type: boolean }
+              serverDownload:
+                oneOf:
+                  - type: "null"
+                  - type: object
+                    additionalProperties: false
+                    required: [name, url, sizeBytes, sha256]
+                    properties:
+                      name: { type: string, maxLength: 255 }
+                      url: { type: string, format: uri, maxLength: 2048 }
+                      sizeBytes:
+                        { type: integer, minimum: 1, maximum: 1073741824 }
+                      sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+    HostedCatalogRevision:
+      type: object
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: string
+          const: provenance.hosted-paper-catalog/v1
+        artifactHosts:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            pattern: ^[a-z0-9.-]+$
+            maxLength: 253
+        catalogs:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/HostedPaperCatalog"
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          minLength: 64
+          maxLength: 64
+        signature:
+          type: string
+          pattern: "^[A-Za-z0-9+/]{86}==$"
+          minLength: 88
+          maxLength: 88
+      required:
+        - schemaVersion
+        - artifactHosts
+        - catalogs
+        - sha256
+        - signature
+      description:
+        Immutable administrator-approved catalog desired state. Hosts and entries
+        are sorted before signing. SHA-256 covers canonical schemaVersion,
+        artifactHosts and catalogs; the Ed25519 signature covers that digest.
+    HostedCatalogReconciliation:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+          maxLength: 36
+        runnerId:
+          type: string
+          format: uuid
+          maxLength: 36
+        catalogSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          minLength: 64
+          maxLength: 64
+        previousCatalogSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          maxLength: 64
+        state:
+          type: string
+          enum:
+            - draining
+            - installing
+            - verifying
+            - succeeded
+            - rolled_back
+            - failed
+            - cancelled
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "#/components/schemas/Timestamp"
+      required:
+        - id
+        - runnerId
+        - catalogSha256
+        - state
+        - createdAt
+        - updatedAt
+    HostedCatalogView:
+      type: object
+      additionalProperties: false
+      properties:
+        truncated:
+          type: boolean
+        desiredCatalogSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          maxLength: 64
+        activeCatalogSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          maxLength: 64
+        revisions:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/HostedCatalogRevision"
+        reconciliations:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/HostedCatalogReconciliation"
+      required:
+        - truncated
+        - revisions
+        - reconciliations
+    HostedCatalogRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum:
+            - publish
+            - reconcile
+            - cancel
+        runnerIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+            maxLength: 36
+          description: Runner UUIDs in ascending lexical order for deterministic fleet locking.
+        revision:
+          $ref: "#/components/schemas/HostedCatalogRevision"
+        catalogSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          maxLength: 64
+        operationId:
+          type: string
+          format: uuid
+          maxLength: 36
+      required:
+        - action
+    HostedCatalogMutationResult:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        operationIds:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+            format: uuid
+            maxLength: 36
+      required:
+        - id
+    HostedCatalogPoll:
+      type: object
+      additionalProperties: false
+      properties:
+        operationId:
+          type: string
+          format: uuid
+          maxLength: 36
+        report:
+          type: string
+          enum:
+            - idle
+            - verifying
+            - health
+            - rollback-health
+            - succeeded
+            - rolled_back
+            - failed
+      required:
+        - report
+    HostedCatalogCommand:
+      type: object
+      additionalProperties: false
+      properties:
+        outcome:
+          type: string
+          enum:
+            - ""
+            - succeeded
+            - rolled_back
+            - failed
+            - cancelled
+        operationId:
+          type: string
+          maxLength: 36
+        phase:
+          type: string
+          enum:
+            - wait
+            - install
+            - verify
+            - complete
+        revision:
+          anyOf:
+            - $ref: "#/components/schemas/HostedCatalogRevision"
+            - type: "null"
+        previousCatalogSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          maxLength: 64
+        healthy:
+          type: boolean
+      required:
+        - outcome
+        - operationId
+        - phase
+        - revision
+        - previousCatalogSha256
+        - healthy
     HostedRunnerMutationResult:
       additionalProperties: false
       properties:
@@ -8243,22 +8805,57 @@ components:
           $ref: "#/components/schemas/HostedCatalogJava"
         probeVersion:
           type: string
-          const: 0.1.0
+          enum: [0.1.0, 0.2.0]
         probeSourceCommit:
           type: string
-          const: f82dcbf8244354059731ba533f73909ed5528bbd
+          enum:
+            [
+              f82dcbf8244354059731ba533f73909ed5528bbd,
+              18400bb4a47d28c1d95c3f4067603af3f3409d5e,
+            ]
         probe:
           allOf:
             - $ref: "#/components/schemas/HostedCatalogArtifact"
             - properties:
                 sha256:
-                  const: 040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868
+                  enum:
+                    [
+                      040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868,
+                      141a535d495a3afd5f413cab04618e75421390f0e14acba0707d1573c5a8c96b,
+                    ]
                 sizeBytes:
-                  const: 478853
+                  enum: [478853, 480768]
                 filename:
                   const: paper-probe.jar
         preparedRuntime:
           $ref: "#/components/schemas/HostedCatalogRuntime"
+      oneOf:
+        - properties:
+            probeVersion:
+              const: 0.1.0
+            probeSourceCommit:
+              const: f82dcbf8244354059731ba533f73909ed5528bbd
+            probe:
+              properties:
+                sha256:
+                  const: 040062e4ea15fdffe3c37e4402b978527dd4864870edefe2c662209e12d63868
+                sizeBytes:
+                  const: 478853
+            paper:
+              properties:
+                gameVersion:
+                  pattern: ^(1\.20\.([6-9]|[1-9][0-9]+)|1\.21(\.[0-9]+)?|26\.[1-9][0-9]*(\.[0-9]+)?)$
+        - properties:
+            probeVersion:
+              const: 0.2.0
+            probeSourceCommit:
+              const: 18400bb4a47d28c1d95c3f4067603af3f3409d5e
+            probe:
+              properties:
+                sha256:
+                  const: 141a535d495a3afd5f413cab04618e75421390f0e14acba0707d1573c5a8c96b
+                sizeBytes:
+                  const: 480768
       required:
         - environmentId
         - paper
@@ -8268,9 +8865,10 @@ components:
         - probe
         - preparedRuntime
       description:
-        An operator-approved immutable Paper runtime. Hosted support starts
-        at Paper 1.20.6 and requires the matching Java 21 or 25 release and the
-        accepted probe. Environment IDs, resolved Paper/Java identities and
+        An immutable Paper runtime with exact Java and accepted probe pins.
+        Probe 0.2.0 supports the legacy Java 8 baseline; retained probe 0.1.0
+        catalogs require Paper 1.20.6 or later. Exact prepared artifacts and
+        matching Java runtimes are still required. Environment IDs, resolved Paper/Java identities and
         prepared-runtime digests must be unique across the profile. Artifact hosts
         and byte limits are validated before provisioning; jobs cannot extend this
         catalog.
@@ -8280,7 +8878,7 @@ components:
       properties:
         gameVersion:
           type: string
-          pattern: ^(1\.20\.([6-9]|[1-9][0-9]+)|1\.21(\.[0-9]+)?|26\.[1-9][0-9]*(\.[0-9]+)?)$
+          pattern: ^(1\.(7\.10|[89](\.[0-9]+)?|1[0-9](\.[0-9]+)?|2[01](\.[0-9]+)?)|26\.[1-9][0-9]*(\.[0-9]+)?)$
           maxLength: 32
         build:
           type: integer
@@ -8301,7 +8899,7 @@ components:
           const: eclipse-temurin
         version:
           type: string
-          pattern: ^(21|25)\.[0-9]+\.[0-9]+(?:\.[0-9]+)?\+[0-9]+$
+          pattern: ^(8|11|16|17|21|25)\.[0-9]+\.[0-9]+(?:\.[0-9]+)?\+[0-9]+$
           maxLength: 64
         os:
           type: string
