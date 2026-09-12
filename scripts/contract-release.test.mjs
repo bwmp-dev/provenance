@@ -1181,6 +1181,8 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       "alpha-administration-vectors.json",
       "publication-result-semantics.md",
       "publication-result-vectors.json",
+      "execution-evidence-v1.json",
+      "execution-evidence-v2.json",
     ]) {
       assert.ok(deviceEntries.includes(`${deviceRoot}/${file}`));
       for (const mutation of ["missing", "tampered"]) {
