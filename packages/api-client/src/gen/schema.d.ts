@@ -978,6 +978,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/release-candidates/{candidateId}/inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read immutable private candidate input identities
+         * @description Returns exact stored candidate source, artifact and configuration identities, with the immutable resolved dependency set when retained. A null dependency resolution means unavailable or not yet resolved, not an empty dependency set. An empty items array inside a resolution means an actual retained zero-dependency result. The candidate source and configuration snapshot source are distinct identities and must not be substituted for each other. Never resolve dependencies again, consult mutable repository state, or infer compatibility for this read. Requires private-result capability in the candidate organization/project. Authentication and resource visibility precede validation; unknown or repeated query parameters are rejected (this operation accepts none). Missing and hidden candidates both return 404. Actions submission grants are not accepted. Fail closed rather than returning partial, malformed or oversized evidence. Raw configuration, changelogs, registry/inspection metadata, secret values, object keys, storage locations and signed URLs are excluded. No public trust, successful execution or publication claim is made.
+         */
+        get: operations["getReleaseCandidateInputs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/release-candidates/{candidateId}/matrix": {
         parameters: {
             query?: never;
@@ -2439,6 +2461,60 @@ export interface components {
         ExecutionLogDescriptorPage: {
             items: components["schemas"]["ExecutionLogDescriptor"][];
             page: components["schemas"]["PageInfo"];
+        };
+        CandidateInputs: {
+            /** Format: uuid */
+            candidateId: string;
+            /** Format: uuid */
+            projectId: string;
+            /** @description Exact stored source identity; not a claim of a verified GitHub commit. */
+            sourceCommit: string;
+            sourceRef: string | null;
+            artifact: components["schemas"]["CandidateInputArtifact"];
+            configuration: components["schemas"]["CandidateInputConfiguration"];
+            dependencyResolution: components["schemas"]["CandidateDependencyResolution"] | null;
+        };
+        CandidateInputArtifact: {
+            /** Format: uuid */
+            id: string;
+            fileName: string;
+            sha256: string;
+            sizeBytes: number;
+        };
+        CandidateInputConfiguration: {
+            /** Format: uuid */
+            id: string;
+            sha256: string;
+            /** @constant */
+            schemaVersion: 1;
+            sourceCommit: string;
+            sourceRef: string | null;
+        };
+        /** @description Retained immutable resolution, ordered by resolutionOrder (contiguous from zero); not a re-resolution or current registry view. */
+        CandidateDependencyResolution: {
+            sha256: string;
+            targetInspectionSha256: string;
+            resolvedAt: components["schemas"]["LogTimestamp"];
+            items: components["schemas"]["CandidateResolvedDependency"][];
+        };
+        CandidateResolvedDependency: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            artifactId: string;
+            declaredName: string;
+            required: boolean;
+            resolutionOrder: number;
+            /** @enum {string} */
+            sourceType: "modrinth" | "organization";
+            sourceId: string;
+            sourceVersion: string;
+            pluginName: string;
+            sha256: string;
+            sizeBytes: number;
+            inspectionSha256: string;
+            registryMetadataSha256: string;
+            resolvedAt: components["schemas"]["LogTimestamp"];
         };
         CandidateMatrixPage: {
             /** Format: uuid */
@@ -6585,6 +6661,34 @@ export interface operations {
                 };
             };
             default: components["responses"]["Problem"];
+        };
+    };
+    getReleaseCandidateInputs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Complete bounded identity projection, at most 128 KiB JSON. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateInputs"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     listReleaseCandidateMatrix: {

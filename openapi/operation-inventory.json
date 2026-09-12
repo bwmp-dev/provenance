@@ -1,6 +1,12 @@
 [
   {
     "method": "get",
+    "operationId": "getReleaseCandidateInputs",
+    "path": "/v1/release-candidates/{candidateId}/inputs",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "get",
     "operationId": "getVerificationAttestationV2",
     "path": "/v1/verifications/{verificationId}/attestations/v2",
     "tag": "verification"
