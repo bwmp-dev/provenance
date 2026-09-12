@@ -367,6 +367,12 @@
   },
   {
     "method": "get",
+    "operationId": "listReleaseCandidateMatrix",
+    "path": "/v1/release-candidates/{candidateId}/matrix",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "get",
     "operationId": "readExecutionLogs",
     "path": "/v1/release-candidates/{candidateId}/executions/{executionId}/logs",
     "tag": "release-candidates"

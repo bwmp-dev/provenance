@@ -2231,6 +2231,56 @@ paths:
                 type: string
         default:
           $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/matrix:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    get:
+      operationId: listReleaseCandidateMatrix
+      summary: Read the authoritative private candidate matrix
+      description: >-
+        Lists stored matrix entries, including entries with no execution yet,
+        across retained retry generations, ordered by immutable matrix entry ID.
+        Each entry identifies its generation; currentGeneration is the candidate
+        generation observed for this page, not a snapshot promise across pages.
+        Requires private-result viewing
+        capability in the candidate organization and project. Missing and hidden
+        candidates both return 404. Authentication and resource authorization
+        precede query validation. Actions submission grants are not accepted.
+        Pagination is bounded and does not promise a snapshot across pages.
+        Cursors are opaque, authenticated, expiring and bound to organization,
+        project and candidate; wrong-resource cursors return 404 before expiry
+        validation. Unknown or repeated query parameters are rejected.
+        Stored status is not a public verification or hosted-trust assertion.
+        Existing candidate and execution-list contracts remain unchanged.
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Bounded authoritative matrix page, including unstarted entries.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateMatrixPage"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "410":
+          $ref: "#/components/responses/PrivateProblem"
+        default:
+          $ref: "#/components/responses/PrivateProblem"
   /v1/release-candidates/{candidateId}/executions:
     parameters:
       - $ref: "#/components/parameters/CandidateId"
@@ -7736,6 +7786,125 @@ components:
         page:
           $ref: "#/components/schemas/PageInfo"
       x-provenance-max-json-bytes: 262144
+    CandidateMatrixPage:
+      type: object
+      additionalProperties: false
+      required: [candidateId, currentGeneration, items, page]
+      properties:
+        candidateId:
+          type: string
+          format: uuid
+        currentGeneration:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/CandidateMatrixEntry"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      x-provenance-max-json-bytes: 1048576
+    CandidateMatrixEntry:
+      type: object
+      additionalProperties: false
+      allOf:
+        - if:
+            properties:
+              attemptCount: { const: 0 }
+          then:
+            properties:
+              latestExecutionId: { type: "null" }
+          else:
+            properties:
+              latestExecutionId: { type: string, format: uuid }
+      required:
+        - id
+        - generation
+        - environment
+        - requirement
+        - state
+        - attemptCount
+        - latestExecutionId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        generation:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        environment:
+          $ref: "#/components/schemas/CandidateMatrixEnvironment"
+        requirement:
+          type: string
+          enum: [required, informational]
+        state:
+          type: string
+          enum:
+            [
+              pending,
+              queued,
+              running,
+              passed,
+              failed,
+              infrastructure-error,
+              cancelled,
+            ]
+          description: Stored matrix state, not inferred from logs or attempt ordering.
+        attemptCount:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: Number of recorded executions for this matrix entry.
+        latestExecutionId:
+          type: [string, "null"]
+          format: uuid
+          description: Highest recorded execution attempt, or null before scheduling. Does not imply success or acceptance.
+        createdAt:
+          $ref: "#/components/schemas/LogTimestamp"
+        updatedAt:
+          $ref: "#/components/schemas/LogTimestamp"
+    CandidateMatrixEnvironment:
+      type: object
+      additionalProperties: false
+      description: Exact stored requested environment identity, not measured runtime or an independent trust verdict.
+      required:
+        [
+          provider,
+          providerVersion,
+          serverBuild,
+          javaVersion,
+          runnerImageDigest,
+          sha256,
+        ]
+      properties:
+        provider:
+          type: string
+          minLength: 1
+          maxLength: 128
+        providerVersion:
+          type: string
+          minLength: 1
+          maxLength: 128
+        serverBuild:
+          type: string
+          minLength: 1
+          maxLength: 128
+        javaVersion:
+          type: string
+          minLength: 1
+          maxLength: 128
+        runnerImageDigest:
+          type: string
+          minLength: 1
+          maxLength: 512
+        sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
     ExecutionLogDescriptor:
       type: object
       additionalProperties: false

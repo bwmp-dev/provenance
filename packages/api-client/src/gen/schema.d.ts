@@ -978,6 +978,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/release-candidates/{candidateId}/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the authoritative private candidate matrix
+         * @description Lists stored matrix entries, including entries with no execution yet, across retained retry generations, ordered by immutable matrix entry ID. Each entry identifies its generation; currentGeneration is the candidate generation observed for this page, not a snapshot promise across pages. Requires private-result viewing capability in the candidate organization and project. Missing and hidden candidates both return 404. Authentication and resource authorization precede query validation. Actions submission grants are not accepted. Pagination is bounded and does not promise a snapshot across pages. Cursors are opaque, authenticated, expiring and bound to organization, project and candidate; wrong-resource cursors return 404 before expiry validation. Unknown or repeated query parameters are rejected. Stored status is not a public verification or hosted-trust assertion. Existing candidate and execution-list contracts remain unchanged.
+         */
+        get: operations["listReleaseCandidateMatrix"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/release-candidates/{candidateId}/executions": {
         parameters: {
             query?: never;
@@ -2417,6 +2439,44 @@ export interface components {
         ExecutionLogDescriptorPage: {
             items: components["schemas"]["ExecutionLogDescriptor"][];
             page: components["schemas"]["PageInfo"];
+        };
+        CandidateMatrixPage: {
+            /** Format: uuid */
+            candidateId: string;
+            currentGeneration: number;
+            items: components["schemas"]["CandidateMatrixEntry"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        CandidateMatrixEntry: {
+            /** Format: uuid */
+            id: string;
+            generation: number;
+            environment: components["schemas"]["CandidateMatrixEnvironment"];
+            /** @enum {string} */
+            requirement: "required" | "informational";
+            /**
+             * @description Stored matrix state, not inferred from logs or attempt ordering.
+             * @enum {string}
+             */
+            state: "pending" | "queued" | "running" | "passed" | "failed" | "infrastructure-error" | "cancelled";
+            /** @description Number of recorded executions for this matrix entry. */
+            attemptCount: number;
+            /**
+             * Format: uuid
+             * @description Highest recorded execution attempt, or null before scheduling. Does not imply success or acceptance.
+             */
+            latestExecutionId: string | null;
+            createdAt: components["schemas"]["LogTimestamp"];
+            updatedAt: components["schemas"]["LogTimestamp"];
+        } & unknown;
+        /** @description Exact stored requested environment identity, not measured runtime or an independent trust verdict. */
+        CandidateMatrixEnvironment: {
+            provider: string;
+            providerVersion: string;
+            serverBuild: string;
+            javaVersion: string;
+            runnerImageDigest: string;
+            sha256: string;
         };
         ExecutionLogDescriptor: {
             candidateId: components["schemas"]["BoundedStableId"];
@@ -6525,6 +6585,40 @@ export interface operations {
                 };
             };
             default: components["responses"]["Problem"];
+        };
+    };
+    listReleaseCandidateMatrix: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded authoritative matrix page, including unstarted entries. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateMatrixPage"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            410: components["responses"]["PrivateProblem"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     listReleaseCandidateExecutions: {

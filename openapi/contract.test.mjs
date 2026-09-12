@@ -14,6 +14,7 @@ import test from "node:test";
 import "./device-login.test.mjs";
 import "./actions-grant.test.mjs";
 import "./publication-result.test.mjs";
+import "./candidate-matrix.test.mjs";
 
 import { parse } from "yaml";
 
@@ -730,7 +731,8 @@ test("every operation exposes structured failure responses", () => {
       operation.responses.default?.$ref,
       operation.operationId.includes("Alpha")
         ? "#/components/responses/AlphaProblem503"
-        : privateLogOperationIds.has(operation.operationId)
+        : privateLogOperationIds.has(operation.operationId) ||
+            operation.operationId === "listReleaseCandidateMatrix"
           ? "#/components/responses/PrivateProblem"
           : githubAuthOperations.has(operation.operationId)
             ? "#/components/responses/GitHubAuthProblem"
