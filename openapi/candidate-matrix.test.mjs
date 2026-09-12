@@ -23,6 +23,15 @@ const valid = (value) =>
 const id = "11111111-1111-4111-8111-111111111111";
 test("matrix addition preserves the entire released alpha24 contract", () => {
   const legacy = structuredClone(doc);
+  delete legacy.paths["/v1/release-candidates/{candidateId}/inputs"];
+  for (const name of [
+    "CandidateInputs",
+    "CandidateInputArtifact",
+    "CandidateInputConfiguration",
+    "CandidateDependencyResolution",
+    "CandidateResolvedDependency",
+  ])
+    delete legacy.components.schemas[name];
   delete legacy.paths["/v1/release-candidates/{candidateId}/matrix"];
   for (const name of [
     "CandidateMatrixPage",
