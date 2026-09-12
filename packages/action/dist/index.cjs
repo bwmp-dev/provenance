@@ -15632,6 +15632,21 @@ var schema_default = {
       additionalProperties: false,
       required: ["startup", "console"],
       properties: {
+        secrets: {
+          description: "Explicit immutable project test-secret versions, exposed only as job-private files. Values and credentials are never configuration inputs.",
+          type: "object",
+          maxProperties: 64,
+          propertyNames: {
+            type: "string",
+            maxLength: 63,
+            pattern: "^[a-z][a-z0-9]*([._-][a-z0-9]+)*$"
+          },
+          additionalProperties: {
+            type: "integer",
+            minimum: 1,
+            maximum: 9007199254740991
+          }
+        },
         startup: {
           type: "object",
           additionalProperties: false,
