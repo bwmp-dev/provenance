@@ -90,3 +90,39 @@ test("modern Paper config preserves 26.x matrix and API floor identities", async
   assert.equal(value.paper.recommendations.apiFloor, "26.1");
   assert.deepEqual(JSON.parse(normalizeConfiguration(value)), value);
 });
+
+test("test-secret selection pins versions and rejects unsafe names or values", async () => {
+  const original = JSON.parse(await read("valid/hosted.normalized.json"));
+  for (const secrets of [{}, { token: 1, "api.token": 9007199254740991 }]) {
+    const value = structuredClone(original);
+    value.tests.secrets = secrets;
+    assert.doesNotThrow(() => validateConfiguration(value));
+    assert.deepEqual(
+      JSON.parse(normalizeConfiguration(value)).tests.secrets,
+      secrets,
+    );
+    assert.notEqual(hashConfiguration(value), hashConfiguration(original));
+  }
+  for (const secrets of [
+    { token: "latest" },
+    { token: "private-value" },
+    { token: 0 },
+    { token: -1 },
+    { token: 1.5 },
+    { token: 9007199254740992 },
+    { "../token": 1 },
+    { TOKEN: 1 },
+    { "a/b": 1 },
+    { "a\\b": 1 },
+    { "a..b": 1 },
+    { "": 1 },
+    { ["a".repeat(64)]: 1 },
+    Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`token-${i}`, 1])),
+    null,
+    [],
+  ]) {
+    const value = structuredClone(original);
+    value.tests.secrets = secrets;
+    assert.throws(() => validateConfiguration(value), ConfigurationError);
+  }
+});

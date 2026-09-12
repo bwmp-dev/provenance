@@ -41,6 +41,7 @@ message RunnerMessage {
     JobFailed failed = 21;
     JobCancelled cancelled = 22;
     CredentialRotationAcknowledgement credential_rotation_acknowledgement = 30;
+    TestSecretsRequest test_secrets_request = 32;
   }
 
   reserved 3 to 9;
@@ -61,6 +62,7 @@ message GatewayMessage {
     ShutdownRunner shutdown = 16;
     RunnerEventAcknowledgement event_acknowledgement = 30;
     HeartbeatAcknowledgement heartbeat_acknowledgement = 31;
+    TestSecretsDelivery test_secrets_delivery = 32;
   }
 
   reserved 3 to 9;
@@ -130,6 +132,35 @@ message LeaseAccepted {
   google.protobuf.Timestamp accepted_at = 3;
 
   reserved 4 to 9;
+}
+
+// Ephemeral request, not a durable runner event. Only after the gateway has
+// committed LeaseAccepted for this exact identity, on the authenticated stream.
+// Reconnect requires a fresh request and fresh authorization, never a replayed
+// plaintext response. See test-secrets.md for required refusal conditions.
+message TestSecretsRequest {
+  LeaseIdentity lease = 1;
+  AttemptIdentity attempt = 2;
+}
+
+message TestSecretValue {
+  TestSecretReference reference = 1;
+  bytes value = 2;
+}
+
+// Ephemeral plaintext; NEVER serialize into journals, logs, receipts, Temporal,
+// evidence or attestations. At most 64 values and 65536 aggregate value bytes.
+// Only this negotiated GatewayMessage variant may be up to 98304 encoded bytes;
+// other message limits are unchanged. Delivery is complete or refused, never
+// partial. It must match every offered reference exactly, in name order.
+message TestSecretsDelivery {
+  string request_message_id = 1;
+  LeaseIdentity lease = 2;
+  AttemptIdentity attempt = 3;
+  repeated TestSecretValue secrets = 4;
+  // Earliest selected-version expiry or current lease expiry. Runner must not
+  // launch with an expired delivery; lease expiry/cancellation destroys inputs.
+  google.protobuf.Timestamp expires_at = 5;
 }
 
 enum LeaseRejectionReason {

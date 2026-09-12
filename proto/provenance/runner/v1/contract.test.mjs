@@ -34,6 +34,7 @@ const protocolFeature = Object.freeze({
   objectUploadIdentity: 5,
   terminalEvidenceV1: 6,
   terminalEvidenceV2: 7,
+  testSecretsV1: 8,
 });
 
 function validProtocolFeatures(features) {
