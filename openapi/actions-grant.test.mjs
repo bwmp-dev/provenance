@@ -92,6 +92,8 @@ test("IFC022 is additive to every alpha17 path and component", () => {
         !alphaPaths.includes(p) &&
         ![
           "/v1/release-candidates/{candidateId}/executions/{executionId}/details",
+          "/v1/release-candidates/{candidateId}/reject",
+          "/v1/release-candidates/{candidateId}/rejection",
           "/v1/admin/runner-updates",
           "/v1/admin/hosted-runners",
           "/v1/admin/hosted-runners/install-profile",

@@ -1,5 +1,17 @@
 [
   {
+    "method": "post",
+    "operationId": "rejectReleaseCandidate",
+    "path": "/v1/release-candidates/{candidateId}/reject",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "get",
+    "operationId": "getReleaseCandidateRejection",
+    "path": "/v1/release-candidates/{candidateId}/rejection",
+    "tag": "release-candidates"
+  },
+  {
     "method": "get",
     "operationId": "getReleaseCandidateExecutionDetails",
     "path": "/v1/release-candidates/{candidateId}/executions/{executionId}/details",

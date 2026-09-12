@@ -123,6 +123,14 @@ export const legacyContractBundles = [
       },
       { source: "openapi/redocly.yaml", destination: "redocly.yaml" },
       {
+        source: "openapi/release-rejection-semantics.md",
+        destination: "release-rejection-semantics.md",
+      },
+      {
+        source: "openapi/release-rejection-vectors.json",
+        destination: "release-rejection-vectors.json",
+      },
+      {
         source: "openapi/execution-evidence-v1.json",
         destination: "execution-evidence-v1.json",
       },

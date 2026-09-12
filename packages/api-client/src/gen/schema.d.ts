@@ -921,6 +921,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/release-candidates/{candidateId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an authorized immutable rejection of a release candidate
+         * @description IFC-029; release-rejection-semantics.md is normative. Requires current release approval capability in the exact candidate organization/project. Authentication and resource authorization precede query/body/idempotency validation and replay. Actions submission grants are refused. Accept no query parameters, exactly one Idempotency-Key and at most 32768 UTF-8 JSON request bytes. An awaiting_approval candidate transitions atomically to the compatible coarse failed state with an immutable rejection, audit, legacy failed event and outbox rejection update. This is not cancellation or plugin/infrastructure failure. Existing matrix, input and terminal evidence identities are unchanged. Only identical successful key/request replay returns the original rejection. Changed-request key reuse or another decision against a terminal candidate returns a conflict. A rejection cannot authorize retry, issuance or publication. Audit reasons never enter the response or workflow history. All responses are private/no-store closed shapes.
+         */
+        post: operations["rejectReleaseCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/release-candidates/{candidateId}/rejection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a private immutable release rejection
+         * @description IFC-029; release-rejection-semantics.md is normative. Requires private-result capability in the exact candidate organization/project. Authentication and resource authorization precede query validation; no query fields are accepted. Actions submission grants are refused. Missing or hidden candidates and an authorized candidate with no rejection return the same private 404 shape. A missing rejection is not approval or eligibility. Corrupt or inconsistent retained decisions are unavailable, never absent. This explicit rejection distinguishes human disposition from coarse legacy failed candidate/event states without changing any released enum. Raw audit reasons, actor details, logs and credentials are excluded. No successful execution, independent trust, retry, issuance or publication claim is made. All responses are private/no-store.
+         */
+        get: operations["getReleaseCandidateRejection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/release-candidates/{candidateId}/cancel": {
         parameters: {
             query?: never;
@@ -2484,6 +2528,18 @@ export interface components {
         ExecutionLogDescriptorPage: {
             items: components["schemas"]["ExecutionLogDescriptor"][];
             page: components["schemas"]["PageInfo"];
+        };
+        ReleaseCandidateRejection: {
+            /** Format: uuid */
+            decisionId: string;
+            /** Format: uuid */
+            candidateId: string;
+            /** Format: uuid */
+            projectId: string;
+            generation: number;
+            /** @enum {string} */
+            decision: "rejected";
+            rejectedAt: components["schemas"]["LogTimestamp"];
         };
         CandidateInputs: {
             /** Format: uuid */
@@ -4604,6 +4660,16 @@ export interface components {
             };
             content: {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description Idempotency request conflict or candidate decision state conflict. */
+        ReleaseCandidateRejectionConflict: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["PrivateProblemDetails"];
             };
         };
         /** @description Private request failed without a more specific response. */
@@ -6976,6 +7042,66 @@ export interface operations {
             };
             409: components["responses"]["IdempotencyConflict"];
             default: components["responses"]["Problem"];
+        };
+    };
+    rejectReleaseCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["CandidateDecision"];
+        responses: {
+            /** @description Original immutable rejection, at most 4096 UTF-8 JSON bytes. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseCandidateRejection"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            409: components["responses"]["ReleaseCandidateRejectionConflict"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    getReleaseCandidateRejection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Original immutable rejection, at most 4096 UTF-8 JSON bytes. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseCandidateRejection"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     cancelReleaseCandidate: {

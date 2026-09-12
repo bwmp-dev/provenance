@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { verifyRejectionConsumer } from "./release-rejection-consumer.mjs";
 import {
   mkdir,
   mkdtemp,
@@ -1298,6 +1299,7 @@ func TestReleasedVerifier(t *testing.T) {
 }
 
 async function verifyConsumers(bundleRoots, version) {
+  let hasReleasedRejection = false;
   const rootFor = (bundle) => {
     const root = bundleRoots.get(bundle);
     invariant(root, `verified consumer bundle is missing: ${bundle}`);
@@ -1850,6 +1852,17 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
       specification,
       "released OpenAPI JSON differs from YAML",
     );
+    if (specification.paths?.["/v1/release-candidates/{candidateId}/reject"]) {
+      verifyRejectionConsumer(
+        specification,
+        await readFile(resolve(root, "release-rejection-semantics.md"), "utf8"),
+        await readJson(
+          resolve(root, "release-rejection-vectors.json"),
+          "released rejection vectors",
+        ),
+      );
+      hasReleasedRejection = true;
+    }
     if (
       specification.paths?.[
         "/v1/release-candidates/{candidateId}/executions/{executionId}/details"
@@ -1966,6 +1979,18 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
         "declare const publication: Publication;",
         'const knowledge: "not_observed" | "uncertain" | "known" | "confirmed" | "conflict" | undefined = publication.composition?.targets[0]?.remoteKnowledge;',
         "void knowledge;",
+        ...(hasReleasedRejection
+          ? [
+              'void client.POST("/v1/release-candidates/{candidateId}/reject", { params: { path: { candidateId: "11111111-1111-4111-8111-111111111111" }, header: { "Idempotency-Key": "fixture-reject-key" } }, body: { reason: "Synthetic decision" } });',
+              'void client.GET("/v1/release-candidates/{candidateId}/rejection", { params: { path: { candidateId: "11111111-1111-4111-8111-111111111111" } } });',
+              'type Rejection = paths["/v1/release-candidates/{candidateId}/rejection"]["get"]["responses"][200]["content"]["application/json"];',
+              "declare const rejection: Rejection;",
+              'const rejected: "rejected" = rejection.decision;',
+              "void rejected;",
+              "// @ts-expect-error private audit reasons are excluded",
+              "void rejection.reason;",
+            ]
+          : []),
         "// @ts-expect-error provider credentials are never exposed",
         "void publication.composition?.targets[0]?.credentialId;",
         'void client.POST("/v1/auth/github/authorizations", { params: { header: { "Idempotency-Key": "fixture-start-key" } }, body: { redirectUri: "https://bff.example/callback", codeChallenge: "A".repeat(43), codeChallengeMethod: "S256" } });',

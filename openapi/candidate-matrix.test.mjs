@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforeReleaseRejection } from "./release-rejection-compat.mjs";
 
 const doc = parse(
   await readFile(new URL("provenance.v1.yaml", import.meta.url), "utf8"),
@@ -22,7 +23,7 @@ const valid = (value) =>
   );
 const id = "11111111-1111-4111-8111-111111111111";
 test("matrix addition preserves the entire released alpha24 contract", () => {
-  const legacy = structuredClone(doc);
+  const legacy = beforeReleaseRejection(doc);
   delete legacy.paths[
     "/v1/release-candidates/{candidateId}/executions/{executionId}/details"
   ];
