@@ -14,6 +14,7 @@ group = "dev.provenance"
 version = "0.1.0-alpha.1"
 
 def safeFixtures = [
+    ":fixture-test-secret-delivery",
 	":fixture-matrix-compatibility",
     ":fixture-success",
     ":fixture-on-load-failure",
@@ -105,7 +106,7 @@ project(":fixture-fork-pid-bomb") {
     }
 }
 
-project(":fixture-matrix-compatibility") {
+configure([project(":fixture-matrix-compatibility"), project(":fixture-test-secret-delivery")]) {
     dependencies {
         testImplementation platform("org.junit:junit-bom:6.0.3")
         testImplementation "org.junit.jupiter:junit-jupiter"
@@ -307,6 +308,7 @@ tasks.register("resolveAndLockAll") {
 
 tasks.named("check") {
     dependsOn(
+        ":fixture-test-secret-delivery:test",
         ":fixture-matrix-compatibility:test",
         ":fixture-fork-pid-bomb:test",
         ":paper-probe:check",

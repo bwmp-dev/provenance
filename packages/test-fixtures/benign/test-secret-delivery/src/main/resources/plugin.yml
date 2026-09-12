@@ -1,0 +1,7 @@
+name: ProvenanceTestSecretDelivery
+version: 1.0.0
+main: dev.provenance.fixtures.TestSecretDeliveryPlugin
+api-version: "1.20"
+commands:
+  provenance-test-secret:
+    description: Emits only an explicitly synthetic injected fixture value
