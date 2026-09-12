@@ -1735,10 +1735,10 @@ test("IFC025 preserves legacy descriptors and bounds opt-in classification", () 
     $ref: "failure-classification#/components/schemas/ExecutionLogDescriptor",
   });
   const legacy = {
-    candidateId: "candidate-1",
-    matrixEntryId: "matrix-1",
-    executionId: "execution-1",
-    attemptId: "attempt-1",
+    candidateId: "10000000-0000-4000-8000-000000000001",
+    matrixEntryId: "20000000-0000-4000-8000-000000000001",
+    executionId: "30000000-0000-4000-8000-000000000001",
+    attemptId: "40000000-0000-4000-8000-000000000001",
     attemptNumber: 1,
     state: "failed",
     liveState: "terminal",
