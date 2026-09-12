@@ -1,8 +1,8 @@
 # Paper test fixtures
 
 `pnpm check` invokes the default Gradle check, which builds and hash-verifies all
-15 benign and hostile fixture JARs and runs the focused `fork-pid-bomb` and
-`matrix-compatibility` unit suites:
+16 benign and hostile fixture JARs and runs the focused `fork-pid-bomb`,
+`matrix-compatibility` and `test-secret-delivery` unit suites:
 
 ```text
 node scripts/run-gradle.mjs :check
@@ -74,3 +74,24 @@ raw probe/log files remain local to the owner-only evidence directory.
 This proves producer behavior, not gVisor isolation, component restarts, remote
 storage, or the Plan 05/06 hosted exit gate. Release bundles add this fixture
 without replacing or changing the existing success fixture.
+
+## Synthetic test-secret delivery fixture
+
+`test-secret-delivery` is built and unit-tested by default, but is not added to
+the real-Paper behavioral harness's execution allowlist. Explicitly select its
+JAR and the project secret `fixture-token` for a controlled acceptance job.
+The value must be `provenance-synthetic-alpha-` followed by 32–128 lowercase
+hexadecimal characters. Never provision a real credential for this fixture.
+
+Startup requires the fixed job-private file to be regular, non-symlink and
+read-only. The `provenance-test-secret` console command reads it again and emits
+`PROVENANCE_SECRET_FIXTURE_VALUE=<synthetic value>` followed by
+`PROVENANCE_SECRET_FIXTURE_OK`. The acceptance driver must independently verify
+that the actual secret is replaced by `[REDACTED]` in live and complete logs;
+the OK marker alone does not prove redaction. Refusals contain no value or path.
+Input is bounded to 256 bytes; no host path, environment override or network
+access is accepted. Byte-buffer clearing does not claim complete JVM heap erasure.
+
+Focused tests use temporary synthetic files, not a server or hosted secret.
+They do not prove end-to-end delivery, revocation, rotation, restart or cleanup;
+those require the deployed platform/gateway/runner acceptance record.
