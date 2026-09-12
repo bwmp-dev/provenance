@@ -1044,6 +1044,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/release-candidates/{candidateId}/executions/{executionId}/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+                executionId: components["parameters"]["ExecutionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read private execution timing, failure and retained terminal evidence
+         * @description Read-only exact stored execution identity and timing, structured failure codes and retained versioned terminal observations. Authorize the candidate and execution organization/project before validating query parameters; this operation accepts none and refuses Actions submission grants. Hidden and nonexistent resources return the same private 404. Earlier attempts remain readable and must not be substituted by the latest attempt. Duration is the nonnegative whole milliseconds between stored startedAt and completedAt, or null when either is missing; never derive it from updatedAt or a client clock. Failure is null when not applicable or not recorded; missing failure fields remain null rather than inferred from logs. Terminal evidence is null only when no retained evidence exists. Retained evidence must be revalidated against its canonical digest, immutable dispatched job and accepted lease/message binding, including candidate and execution identities. Corrupt or inconsistent retained records fail closed, never become empty or successful evidence. Partial observations remain partial. Runtime fields are runner-reported facts, not independently measured hosted trust. Raw logs, commands, assertion patterns, configuration, provider metadata, failure summaries, credentials and storage locations are excluded. No publication, aggregate matrix success or compatibility claim is made.
+         */
+        get: operations["getReleaseCandidateExecutionDetails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/release-candidates/{candidateId}/executions/{executionId}/logs": {
         parameters: {
             query?: never;
@@ -2554,6 +2577,41 @@ export interface components {
             runnerImageDigest: string;
             sha256: string;
         };
+        CandidateExecutionDetails: {
+            /** Format: uuid */
+            candidateId: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            matrixEntryId: string;
+            /** Format: uuid */
+            executionId: string;
+            attemptNumber: number;
+            state: components["schemas"]["ExecutionState"];
+            timing: components["schemas"]["CandidateExecutionTiming"];
+            failure: null | components["schemas"]["CandidateExecutionFailure"];
+            terminalEvidence: null | components["schemas"]["CandidateExecutionTerminalEvidence"];
+        };
+        CandidateExecutionTiming: {
+            startedAt: components["schemas"]["LogTimestamp"] | null;
+            completedAt: components["schemas"]["LogTimestamp"] | null;
+            /** @description Floor of stored completion minus start in milliseconds; null if either timestamp is absent. */
+            durationMs: number | null;
+        };
+        CandidateExecutionFailure: {
+            /** @enum {string|null} */
+            category: "plugin" | "infrastructure" | "policy" | null;
+            /** @enum {string|null} */
+            stage: "lease" | "preparation" | "startup" | "execution" | "cleanup" | "result-upload" | null;
+            code: string | null;
+            retryable: boolean | null;
+        };
+        CandidateExecutionTerminalEvidence: {
+            sha256: string;
+            recordedAt: components["schemas"]["LogTimestamp"];
+            /** @description Exact validated retained v1 or v2 observation document; runtime fields remain reported, not independently measured. */
+            document: components["schemas"]["execution-evidence-v1"] | components["schemas"]["execution-evidence-v2"];
+        };
         ExecutionLogDescriptor: {
             candidateId: components["schemas"]["BoundedStableId"];
             matrixEntryId: components["schemas"]["BoundedStableId"];
@@ -3151,6 +3209,349 @@ export interface components {
             status: 503;
             /** @enum {string} */
             code: "updater_unavailable";
+        };
+        id: string;
+        hash: string;
+        binding: {
+            runnerId: components["schemas"]["id"];
+            jobId: components["schemas"]["id"];
+            executionId: components["schemas"]["id"];
+            leaseId: components["schemas"]["id"];
+            attemptId: components["schemas"]["id"];
+            candidateId: components["schemas"]["id"];
+            matrixEntryId: components["schemas"]["id"];
+            attemptNumber: number;
+        };
+        runtime: {
+            runnerVersion: string;
+            runnerExecutableSha256: components["schemas"]["hash"];
+            /** @constant */
+            sandboxKind: "gvisor";
+            sandboxVersion: string;
+            sandboxExecutableSha256: components["schemas"]["hash"];
+            /** @enum {unknown} */
+            networkMode: "none" | "restricted" | "allowlist";
+            rootfs: {
+                /** @constant */
+                format: "squashfs-image-sha256/v1";
+                sha256: components["schemas"]["hash"];
+            };
+        };
+        /** @enum {unknown} */
+        outcome: "passed" | "failed" | "skipped";
+        "execution-evidence-v1": {
+            /** @constant */
+            schemaVersion: "provenance.execution-evidence/v1";
+            binding: components["schemas"]["binding"];
+            requested: {
+                artifactSha256: components["schemas"]["hash"];
+                configurationSha256: components["schemas"]["hash"];
+                environmentSha256: components["schemas"]["hash"];
+                policySha256: components["schemas"]["hash"];
+                dependencies: {
+                    id: components["schemas"]["id"];
+                    sha256: components["schemas"]["hash"];
+                }[];
+            };
+            runtime: null | components["schemas"]["runtime"];
+            assertions: ({
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "startup-ready";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "startup-ready";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        serverLoaded: boolean;
+                        stabilizationCompleted: boolean;
+                        serverReady: boolean;
+                        requirementsSatisfied: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "plugin-enabled";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "plugin-enabled";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        targetId: components["schemas"]["id"];
+                        loaded: boolean;
+                        enabled: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "dependency-present";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "dependency-present";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        dependencyId: components["schemas"]["id"];
+                        dependencySha256: components["schemas"]["hash"];
+                        loaded: boolean;
+                        enabled: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "console-regex";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "console-regex";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        testId: components["schemas"]["id"];
+                        assertionId: components["schemas"]["id"];
+                        registered: boolean;
+                        executionCompleted: boolean;
+                        evaluated: boolean;
+                        passed: boolean;
+                        outputTruncated: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "clean-shutdown";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "clean-shutdown";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        shutdownRequested: boolean;
+                        serverStopped: boolean;
+                        reportedShutdownRequested: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            })[];
+            /** @enum {unknown} */
+            completeness: "complete" | "partial";
+            $defs: {
+                id: string;
+                hash: string;
+                binding: {
+                    runnerId: components["schemas"]["id"];
+                    jobId: components["schemas"]["id"];
+                    executionId: components["schemas"]["id"];
+                    leaseId: components["schemas"]["id"];
+                    attemptId: components["schemas"]["id"];
+                    candidateId: components["schemas"]["id"];
+                    matrixEntryId: components["schemas"]["id"];
+                    attemptNumber: number;
+                };
+                /** @enum {unknown} */
+                outcome: "passed" | "failed" | "skipped";
+                runtime: {
+                    runnerVersion: string;
+                    runnerExecutableSha256: components["schemas"]["hash"];
+                    /** @constant */
+                    sandboxKind: "gvisor";
+                    sandboxVersion: string;
+                    sandboxExecutableSha256: components["schemas"]["hash"];
+                    /** @enum {unknown} */
+                    networkMode: "none" | "restricted" | "allowlist";
+                    rootfs: {
+                        /** @constant */
+                        format: "squashfs-image-sha256/v1";
+                        sha256: components["schemas"]["hash"];
+                    };
+                };
+            };
+        };
+        "execution-evidence-v2": {
+            /** @constant */
+            schemaVersion: "provenance.execution-evidence/v2";
+            binding: components["schemas"]["binding"];
+            requested: {
+                artifactSha256: components["schemas"]["hash"];
+                configurationSha256: components["schemas"]["hash"];
+                environmentSha256: components["schemas"]["hash"];
+                policySha256: components["schemas"]["hash"];
+                dependencies: {
+                    id: components["schemas"]["id"];
+                    sha256: components["schemas"]["hash"];
+                }[];
+            };
+            runtime: null | components["schemas"]["runtime"];
+            assertions: ({
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "startup-ready";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "startup-ready";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        serverLoaded: boolean;
+                        stabilizationCompleted: boolean;
+                        serverReady: boolean;
+                        requirementsSatisfied: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "plugin-enabled";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "plugin-enabled";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        targetId: components["schemas"]["id"];
+                        loaded: boolean;
+                        enabled: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "dependency-present";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "dependency-present";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        dependencyId: components["schemas"]["id"];
+                        dependencySha256: components["schemas"]["hash"];
+                        loaded: boolean;
+                        enabled: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "console-regex";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "console-regex";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        testId: components["schemas"]["id"];
+                        assertionId: components["schemas"]["id"];
+                        registered: boolean;
+                        executionCompleted: boolean;
+                        evaluated: boolean;
+                        passed: boolean;
+                        outputTruncated: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "clean-shutdown";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "clean-shutdown";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        shutdownRequested: boolean;
+                        serverStopped: boolean;
+                        reportedShutdownRequested: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            } | {
+                id: components["schemas"]["id"];
+                /** @constant */
+                type: "console-contains";
+                outcome: components["schemas"]["outcome"];
+                evidence: {
+                    binding: components["schemas"]["binding"];
+                    id: components["schemas"]["id"];
+                    /** @constant */
+                    type: "console-contains";
+                    outcome: components["schemas"]["outcome"];
+                    observation: {
+                        testId: components["schemas"]["id"];
+                        assertionId: components["schemas"]["id"];
+                        registered: boolean;
+                        executionCompleted: boolean;
+                        evaluated: boolean;
+                        passed: boolean;
+                        outputTruncated: boolean;
+                    };
+                };
+                evidenceSha256: components["schemas"]["hash"];
+            })[];
+            /** @enum {unknown} */
+            completeness: "complete" | "partial";
+            $defs: {
+                id: string;
+                hash: string;
+                binding: {
+                    runnerId: components["schemas"]["id"];
+                    jobId: components["schemas"]["id"];
+                    executionId: components["schemas"]["id"];
+                    leaseId: components["schemas"]["id"];
+                    attemptId: components["schemas"]["id"];
+                    candidateId: components["schemas"]["id"];
+                    matrixEntryId: components["schemas"]["id"];
+                    attemptNumber: number;
+                };
+                /** @enum {unknown} */
+                outcome: "passed" | "failed" | "skipped";
+                runtime: {
+                    runnerVersion: string;
+                    runnerExecutableSha256: components["schemas"]["hash"];
+                    /** @constant */
+                    sandboxKind: "gvisor";
+                    sandboxVersion: string;
+                    sandboxExecutableSha256: components["schemas"]["hash"];
+                    /** @enum {unknown} */
+                    networkMode: "none" | "restricted" | "allowlist";
+                    rootfs: {
+                        /** @constant */
+                        format: "squashfs-image-sha256/v1";
+                        sha256: components["schemas"]["hash"];
+                    };
+                };
+            };
         };
         sha256: string;
         version: string;
@@ -6754,6 +7155,35 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationRequired"];
+            404: components["responses"]["PrivateLogNotFound"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    getReleaseCandidateExecutionDetails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+                executionId: components["parameters"]["ExecutionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Complete private projection bounded to 128 KiB JSON. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateExecutionDetails"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
             404: components["responses"]["PrivateLogNotFound"];
             default: components["responses"]["PrivateProblem"];
         };

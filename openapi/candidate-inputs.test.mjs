@@ -66,6 +66,16 @@ const inputs = {
 };
 test("input addition preserves the entire released alpha25 contract", () => {
   const legacy = structuredClone(doc);
+  delete legacy.paths[
+    "/v1/release-candidates/{candidateId}/executions/{executionId}/details"
+  ];
+  for (const name of [
+    "CandidateExecutionDetails",
+    "CandidateExecutionTiming",
+    "CandidateExecutionFailure",
+    "CandidateExecutionTerminalEvidence",
+  ])
+    delete legacy.components.schemas[name];
   delete legacy.paths[route];
   for (const name of schemas) delete legacy.components.schemas[name];
   assert.equal(

@@ -1,6 +1,12 @@
 [
   {
     "method": "get",
+    "operationId": "getReleaseCandidateExecutionDetails",
+    "path": "/v1/release-candidates/{candidateId}/executions/{executionId}/details",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "get",
     "operationId": "getReleaseCandidateInputs",
     "path": "/v1/release-candidates/{candidateId}/inputs",
     "tag": "release-candidates"
