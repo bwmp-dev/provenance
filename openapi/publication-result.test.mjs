@@ -1,4 +1,7 @@
-import { beforeAlphaAdmission } from "./alpha-compat.mjs";
+import {
+  beforeAlphaAdmission,
+  beforeFailureClassification,
+} from "./alpha-compat.mjs";
 const alphaPaths = [
   "/v1/admin/organizations",
   "/v1/account",
@@ -132,7 +135,17 @@ test("IFC021 leaves every alpha18 path/component and grant operation unchanged",
     );
   for (const [family, entries] of Object.entries(baseline.components))
     for (const [name, digest] of Object.entries(entries))
-      assert.equal(hash(doc.components[family][name]), digest, name);
+      assert.equal(
+        hash(
+          beforeFailureClassification(
+            family,
+            name,
+            doc.components[family][name],
+          ),
+        ),
+        digest,
+        name,
+      );
   assert.deepEqual(
     Object.keys(doc.paths).filter(
       (p) =>

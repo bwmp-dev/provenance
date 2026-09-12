@@ -2249,6 +2249,18 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/PageSize"
+        - name: includeFailureClassification
+          in: query
+          required: false
+          description: >-
+            IFC-025: only when true, each descriptor includes stored failureCategory
+            or null when unavailable/not applicable, never inferred from log text
+            or relay state. Absent/false preserves the legacy descriptor shape.
+            Only canonical true or false is accepted once; repeated or other
+            values are invalid requests.
+          schema:
+            type: boolean
+            default: false
       responses:
         "200":
           description: Bounded execution log descriptor page.
@@ -7756,6 +7768,14 @@ components:
           maximum: 2147483647
         state:
           $ref: "#/components/schemas/ExecutionState"
+        failureCategory:
+          type: [string, "null"]
+          enum: [plugin, infrastructure, policy, null]
+          description: >-
+            IFC-025 opt-in field, present only when includeFailureClassification=true.
+            Stored classification for this exact failed execution, or null if
+            unavailable or not applicable. Plugin failure does not prove failure
+            on untested environments. No raw diagnostic or secret is included.
         liveState:
           $ref: "#/components/schemas/LiveLogState"
         completeLog:

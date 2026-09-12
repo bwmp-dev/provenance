@@ -1,4 +1,7 @@
-import { beforeAlphaAdmission } from "./alpha-compat.mjs";
+import {
+  beforeAlphaAdmission,
+  beforeFailureClassification,
+} from "./alpha-compat.mjs";
 const alphaPaths = [
   "/v1/admin/organizations",
   "/v1/account",
@@ -72,7 +75,13 @@ test("IFC022 is additive to every alpha17 path and component", () => {
   for (const [family, names] of Object.entries(baseline.components))
     for (const [name, digest] of Object.entries(names))
       assert.equal(
-        hash(doc.components[family][name]),
+        hash(
+          beforeFailureClassification(
+            family,
+            name,
+            doc.components[family][name],
+          ),
+        ),
         digest,
         `${family}/${name}`,
       );

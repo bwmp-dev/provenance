@@ -2426,6 +2426,11 @@ export interface components {
             attemptId: components["schemas"]["BoundedStableId"] | null;
             attemptNumber: number;
             state: components["schemas"]["ExecutionState"];
+            /**
+             * @description IFC-025 opt-in field, present only when includeFailureClassification=true. Stored classification for this exact failed execution, or null if unavailable or not applicable. Plugin failure does not prove failure on untested environments. No raw diagnostic or secret is included.
+             * @enum {string|null}
+             */
+            failureCategory?: "plugin" | "infrastructure" | "policy" | null;
             liveState: components["schemas"]["LiveLogState"];
             completeLog: components["schemas"]["CompleteLogState"];
             createdAt: components["schemas"]["LogTimestamp"];
@@ -6529,6 +6534,8 @@ export interface operations {
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Maximum number of resources to return. */
                 limit?: components["parameters"]["PageSize"];
+                /** @description IFC-025: only when true, each descriptor includes stored failureCategory or null when unavailable/not applicable, never inferred from log text or relay state. Absent/false preserves the legacy descriptor shape. Only canonical true or false is accepted once; repeated or other values are invalid requests. */
+                includeFailureClassification?: boolean;
             };
             header?: never;
             path: {
