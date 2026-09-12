@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "6a0ec7d21d094122217ad81dc60c7bd50519dfa1b7ddaf6c77fc35000ca5f3d3",
+  "descriptorSha256": "9e91a91d03c0294dc90028a446aaee7bac981e649f2d8d7c1ec7ba0ef0043365",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -22,7 +22,8 @@
     "20": "completed",
     "21": "failed",
     "22": "cancelled",
-    "30": "credential_rotation_acknowledgement"
+    "30": "credential_rotation_acknowledgement",
+    "32": "test_secrets_request"
   },
   "gatewayPayload": {
     "10": "authenticated",
@@ -33,7 +34,8 @@
     "15": "credential_rotation",
     "16": "shutdown",
     "30": "event_acknowledgement",
-    "31": "heartbeat_acknowledgement"
+    "31": "heartbeat_acknowledgement",
+    "32": "test_secrets_delivery"
   },
   "messageNames": [
     "AssertionResult",
@@ -88,7 +90,11 @@
     "ShutdownRunner",
     "StructuredResult",
     "UsageReport",
-    "ExecutionEvidence"
+    "ExecutionEvidence",
+    "TestSecretReference",
+    "TestSecretValue",
+    "TestSecretsRequest",
+    "TestSecretsDelivery"
   ],
   "enumNames": [
     "Architecture",
@@ -120,7 +126,8 @@
       "4": "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
       "5": "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
       "6": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1",
-      "7": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2"
+      "7": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2",
+      "8": "PROTOCOL_FEATURE_TEST_SECRETS_V1"
     },
     "RunnerMessageDisposition": {
       "0": "RUNNER_MESSAGE_DISPOSITION_UNSPECIFIED",
@@ -200,7 +207,28 @@
       "9": "normalized_configuration_json",
       "10": "complete_log_upload",
       "20": "target_plugin_name",
-      "21": "job_correlation"
+      "21": "job_correlation",
+      "22": "test_secrets"
+    },
+    "TestSecretReference": {
+      "1": "secret_id",
+      "2": "name",
+      "3": "version"
+    },
+    "TestSecretValue": {
+      "1": "reference",
+      "2": "value"
+    },
+    "TestSecretsRequest": {
+      "1": "lease",
+      "2": "attempt"
+    },
+    "TestSecretsDelivery": {
+      "1": "request_message_id",
+      "2": "lease",
+      "3": "attempt",
+      "4": "secrets",
+      "5": "expires_at"
     },
     "LeaseReconciliation": {
       "1": "lease",

@@ -12,6 +12,40 @@ import (
 	"testing"
 )
 
+func TestPinnedTestSecretSelections(t *testing.T) {
+	raw, err := os.ReadFile("../../../../schemas/fixtures/config/valid/hosted.normalized.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		selection string
+		valid     bool
+	}{
+		{`{}`, true}, {`{"token":1,"api.token":9007199254740991}`, true},
+		{`{"token":0}`, false}, {`{"token":"latest"}`, false},
+		{`{"token":9007199254740992}`, false}, {`{"../token":1}`, false},
+		{`{"TOKEN":1}`, false}, {`{"token":1.5}`, false}, {`null`, false},
+	} {
+		var doc map[string]any
+		if json.Unmarshal(raw, &doc) != nil {
+			t.Fatal("fixture invalid")
+		}
+		var selection any
+		if json.Unmarshal([]byte(tc.selection), &selection) != nil {
+			t.Fatal("case invalid")
+		}
+		doc["tests"].(map[string]any)["secrets"] = selection
+		input, err := json.Marshal(doc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = Normalize(input)
+		if (err == nil) != tc.valid {
+			t.Fatalf("selection validity differs: %s", tc.selection)
+		}
+	}
+}
+
 func TestAuthoritativeSchemaAndGoldenParity(t *testing.T) {
 	root := "../../../.."
 	raw, e := os.ReadFile(filepath.Join(root, "schemas/config/v1/schema.json"))

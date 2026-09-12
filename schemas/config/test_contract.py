@@ -87,6 +87,17 @@ def main() -> None:
 
     hosted_yaml = load_document(FIXTURES / "valid/hosted.yml")
     hosted_json = load_document(FIXTURES / "valid/hosted.normalized.json")
+    for selection in [{}, {"token": 1, "api.token": 9007199254740991}]:
+        selected = copy.deepcopy(hosted_json)
+        selected["tests"]["secrets"] = selection
+        assert validator.is_valid(selected), selection
+    for selection in [{"token": 0}, {"token": "latest"}, {"token": 1.5},
+                      {"token": 9007199254740992}, {"../token": 1},
+                      {"TOKEN": 1}, {"a" * 64: 1},
+                      {f"token-{i}": 1 for i in range(65)}, None, []]:
+        selected = copy.deepcopy(hosted_json)
+        selected["tests"]["secrets"] = selection
+        assert not validator.is_valid(selected), selection
     if hosted_yaml != hosted_json:
         raise AssertionError("hosted.yml does not equal its normalized JSON fixture")
 

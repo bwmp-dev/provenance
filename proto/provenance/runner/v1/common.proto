@@ -294,6 +294,18 @@ message JobSpecification {
 
   string target_plugin_name = 20;
   JobCorrelation job_correlation = 21;
+  // Metadata only, sorted by name; see test-secrets.md. Secret-bearing jobs
+  // require TEST_SECRETS_V1. Never silently drop these on an older runner.
+  repeated TestSecretReference test_secrets = 22;
+}
+
+// Canonical nonzero UUID; lowercase safe name (1..63 bytes); version 1..2^53-1.
+// References are immutable within a job and remain scoped by its candidate.
+// No plaintext, unkeyed value digest, host path or environment variable name.
+message TestSecretReference {
+  string secret_id = 1;
+  string name = 2;
+  uint64 version = 3;
 }
 
 enum JobPhase {
@@ -437,6 +449,9 @@ enum ProtocolFeature {
   // Independently negotiated v2 literal-console coverage. V1 admission alone
   // never authorizes v2. Preserve exact queued version/bytes on downgrade.
   PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2 = 7;
+  // Explicitly negotiated ephemeral delivery; see test-secrets.md. Capability
+  // advertisement requires the complete injection/redaction/cleanup consumer.
+  PROTOCOL_FEATURE_TEST_SECRETS_V1 = 8;
 }
 
 // Optional, negotiated observation proof, not an attestation or public claim.

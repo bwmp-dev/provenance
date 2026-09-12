@@ -227,6 +227,7 @@ type RunnerMessage struct {
 	//	*RunnerMessage_Failed
 	//	*RunnerMessage_Cancelled
 	//	*RunnerMessage_CredentialRotationAcknowledgement
+	//	*RunnerMessage_TestSecretsRequest
 	Payload       isRunnerMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -409,6 +410,15 @@ func (x *RunnerMessage) GetCredentialRotationAcknowledgement() *CredentialRotati
 	return nil
 }
 
+func (x *RunnerMessage) GetTestSecretsRequest() *TestSecretsRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RunnerMessage_TestSecretsRequest); ok {
+			return x.TestSecretsRequest
+		}
+	}
+	return nil
+}
+
 type isRunnerMessage_Payload interface {
 	isRunnerMessage_Payload()
 }
@@ -469,6 +479,10 @@ type RunnerMessage_CredentialRotationAcknowledgement struct {
 	CredentialRotationAcknowledgement *CredentialRotationAcknowledgement `protobuf:"bytes,30,opt,name=credential_rotation_acknowledgement,json=credentialRotationAcknowledgement,proto3,oneof"`
 }
 
+type RunnerMessage_TestSecretsRequest struct {
+	TestSecretsRequest *TestSecretsRequest `protobuf:"bytes,32,opt,name=test_secrets_request,json=testSecretsRequest,proto3,oneof"`
+}
+
 func (*RunnerMessage_Authenticate) isRunnerMessage_Payload() {}
 
 func (*RunnerMessage_Capabilities) isRunnerMessage_Payload() {}
@@ -497,6 +511,8 @@ func (*RunnerMessage_Cancelled) isRunnerMessage_Payload() {}
 
 func (*RunnerMessage_CredentialRotationAcknowledgement) isRunnerMessage_Payload() {}
 
+func (*RunnerMessage_TestSecretsRequest) isRunnerMessage_Payload() {}
+
 type GatewayMessage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	MessageId string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
@@ -512,6 +528,7 @@ type GatewayMessage struct {
 	//	*GatewayMessage_Shutdown
 	//	*GatewayMessage_EventAcknowledgement
 	//	*GatewayMessage_HeartbeatAcknowledgement
+	//	*GatewayMessage_TestSecretsDelivery
 	Payload       isGatewayMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -649,6 +666,15 @@ func (x *GatewayMessage) GetHeartbeatAcknowledgement() *HeartbeatAcknowledgement
 	return nil
 }
 
+func (x *GatewayMessage) GetTestSecretsDelivery() *TestSecretsDelivery {
+	if x != nil {
+		if x, ok := x.Payload.(*GatewayMessage_TestSecretsDelivery); ok {
+			return x.TestSecretsDelivery
+		}
+	}
+	return nil
+}
+
 type isGatewayMessage_Payload interface {
 	isGatewayMessage_Payload()
 }
@@ -689,6 +715,10 @@ type GatewayMessage_HeartbeatAcknowledgement struct {
 	HeartbeatAcknowledgement *HeartbeatAcknowledgement `protobuf:"bytes,31,opt,name=heartbeat_acknowledgement,json=heartbeatAcknowledgement,proto3,oneof"`
 }
 
+type GatewayMessage_TestSecretsDelivery struct {
+	TestSecretsDelivery *TestSecretsDelivery `protobuf:"bytes,32,opt,name=test_secrets_delivery,json=testSecretsDelivery,proto3,oneof"`
+}
+
 func (*GatewayMessage_Authenticated) isGatewayMessage_Payload() {}
 
 func (*GatewayMessage_Offer) isGatewayMessage_Payload() {}
@@ -706,6 +736,8 @@ func (*GatewayMessage_Shutdown) isGatewayMessage_Payload() {}
 func (*GatewayMessage_EventAcknowledgement) isGatewayMessage_Payload() {}
 
 func (*GatewayMessage_HeartbeatAcknowledgement) isGatewayMessage_Payload() {}
+
+func (*GatewayMessage_TestSecretsDelivery) isGatewayMessage_Payload() {}
 
 type Authenticate struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
@@ -1125,6 +1157,197 @@ func (x *LeaseAccepted) GetAcceptedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// Ephemeral request, not a durable runner event. Only after the gateway has
+// committed LeaseAccepted for this exact identity, on the authenticated stream.
+// Reconnect requires a fresh request and fresh authorization, never a replayed
+// plaintext response. See test-secrets.md for required refusal conditions.
+type TestSecretsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Lease         *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
+	Attempt       *AttemptIdentity       `protobuf:"bytes,2,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestSecretsRequest) Reset() {
+	*x = TestSecretsRequest{}
+	mi := &file_runner_gateway_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSecretsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSecretsRequest) ProtoMessage() {}
+
+func (x *TestSecretsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_runner_gateway_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSecretsRequest.ProtoReflect.Descriptor instead.
+func (*TestSecretsRequest) Descriptor() ([]byte, []int) {
+	return file_runner_gateway_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *TestSecretsRequest) GetLease() *LeaseIdentity {
+	if x != nil {
+		return x.Lease
+	}
+	return nil
+}
+
+func (x *TestSecretsRequest) GetAttempt() *AttemptIdentity {
+	if x != nil {
+		return x.Attempt
+	}
+	return nil
+}
+
+type TestSecretValue struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reference     *TestSecretReference   `protobuf:"bytes,1,opt,name=reference,proto3" json:"reference,omitempty"`
+	Value         []byte                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestSecretValue) Reset() {
+	*x = TestSecretValue{}
+	mi := &file_runner_gateway_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSecretValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSecretValue) ProtoMessage() {}
+
+func (x *TestSecretValue) ProtoReflect() protoreflect.Message {
+	mi := &file_runner_gateway_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSecretValue.ProtoReflect.Descriptor instead.
+func (*TestSecretValue) Descriptor() ([]byte, []int) {
+	return file_runner_gateway_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *TestSecretValue) GetReference() *TestSecretReference {
+	if x != nil {
+		return x.Reference
+	}
+	return nil
+}
+
+func (x *TestSecretValue) GetValue() []byte {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+// Ephemeral plaintext; NEVER serialize into journals, logs, receipts, Temporal,
+// evidence or attestations. At most 64 values and 65536 aggregate value bytes.
+// Only this negotiated GatewayMessage variant may be up to 98304 encoded bytes;
+// other message limits are unchanged. Delivery is complete or refused, never
+// partial. It must match every offered reference exactly, in name order.
+type TestSecretsDelivery struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RequestMessageId string                 `protobuf:"bytes,1,opt,name=request_message_id,json=requestMessageId,proto3" json:"request_message_id,omitempty"`
+	Lease            *LeaseIdentity         `protobuf:"bytes,2,opt,name=lease,proto3" json:"lease,omitempty"`
+	Attempt          *AttemptIdentity       `protobuf:"bytes,3,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	Secrets          []*TestSecretValue     `protobuf:"bytes,4,rep,name=secrets,proto3" json:"secrets,omitempty"`
+	// Earliest selected-version expiry or current lease expiry. Runner must not
+	// launch with an expired delivery; lease expiry/cancellation destroys inputs.
+	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestSecretsDelivery) Reset() {
+	*x = TestSecretsDelivery{}
+	mi := &file_runner_gateway_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSecretsDelivery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSecretsDelivery) ProtoMessage() {}
+
+func (x *TestSecretsDelivery) ProtoReflect() protoreflect.Message {
+	mi := &file_runner_gateway_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSecretsDelivery.ProtoReflect.Descriptor instead.
+func (*TestSecretsDelivery) Descriptor() ([]byte, []int) {
+	return file_runner_gateway_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *TestSecretsDelivery) GetRequestMessageId() string {
+	if x != nil {
+		return x.RequestMessageId
+	}
+	return ""
+}
+
+func (x *TestSecretsDelivery) GetLease() *LeaseIdentity {
+	if x != nil {
+		return x.Lease
+	}
+	return nil
+}
+
+func (x *TestSecretsDelivery) GetAttempt() *AttemptIdentity {
+	if x != nil {
+		return x.Attempt
+	}
+	return nil
+}
+
+func (x *TestSecretsDelivery) GetSecrets() []*TestSecretValue {
+	if x != nil {
+		return x.Secrets
+	}
+	return nil
+}
+
+func (x *TestSecretsDelivery) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
 type LeaseRejected struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Lease         *LeaseIdentity         `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
@@ -1137,7 +1360,7 @@ type LeaseRejected struct {
 
 func (x *LeaseRejected) Reset() {
 	*x = LeaseRejected{}
-	mi := &file_runner_gateway_proto_msgTypes[8]
+	mi := &file_runner_gateway_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1149,7 +1372,7 @@ func (x *LeaseRejected) String() string {
 func (*LeaseRejected) ProtoMessage() {}
 
 func (x *LeaseRejected) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[8]
+	mi := &file_runner_gateway_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1162,7 +1385,7 @@ func (x *LeaseRejected) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeaseRejected.ProtoReflect.Descriptor instead.
 func (*LeaseRejected) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{8}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *LeaseRejected) GetLease() *LeaseIdentity {
@@ -1205,7 +1428,7 @@ type LeaseRenewal struct {
 
 func (x *LeaseRenewal) Reset() {
 	*x = LeaseRenewal{}
-	mi := &file_runner_gateway_proto_msgTypes[9]
+	mi := &file_runner_gateway_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1217,7 +1440,7 @@ func (x *LeaseRenewal) String() string {
 func (*LeaseRenewal) ProtoMessage() {}
 
 func (x *LeaseRenewal) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[9]
+	mi := &file_runner_gateway_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1230,7 +1453,7 @@ func (x *LeaseRenewal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeaseRenewal.ProtoReflect.Descriptor instead.
 func (*LeaseRenewal) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{9}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *LeaseRenewal) GetLease() *LeaseIdentity {
@@ -1272,7 +1495,7 @@ type JobPreparing struct {
 
 func (x *JobPreparing) Reset() {
 	*x = JobPreparing{}
-	mi := &file_runner_gateway_proto_msgTypes[10]
+	mi := &file_runner_gateway_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1284,7 +1507,7 @@ func (x *JobPreparing) String() string {
 func (*JobPreparing) ProtoMessage() {}
 
 func (x *JobPreparing) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[10]
+	mi := &file_runner_gateway_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1297,7 +1520,7 @@ func (x *JobPreparing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobPreparing.ProtoReflect.Descriptor instead.
 func (*JobPreparing) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{10}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *JobPreparing) GetLease() *LeaseIdentity {
@@ -1332,7 +1555,7 @@ type JobStarted struct {
 
 func (x *JobStarted) Reset() {
 	*x = JobStarted{}
-	mi := &file_runner_gateway_proto_msgTypes[11]
+	mi := &file_runner_gateway_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1344,7 +1567,7 @@ func (x *JobStarted) String() string {
 func (*JobStarted) ProtoMessage() {}
 
 func (x *JobStarted) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[11]
+	mi := &file_runner_gateway_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1357,7 +1580,7 @@ func (x *JobStarted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobStarted.ProtoReflect.Descriptor instead.
 func (*JobStarted) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{11}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *JobStarted) GetLease() *LeaseIdentity {
@@ -1393,7 +1616,7 @@ type LogBatch struct {
 
 func (x *LogBatch) Reset() {
 	*x = LogBatch{}
-	mi := &file_runner_gateway_proto_msgTypes[12]
+	mi := &file_runner_gateway_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1405,7 +1628,7 @@ func (x *LogBatch) String() string {
 func (*LogBatch) ProtoMessage() {}
 
 func (x *LogBatch) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[12]
+	mi := &file_runner_gateway_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1418,7 +1641,7 @@ func (x *LogBatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogBatch.ProtoReflect.Descriptor instead.
 func (*LogBatch) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{12}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *LogBatch) GetLease() *LeaseIdentity {
@@ -1462,7 +1685,7 @@ type UsageReport struct {
 
 func (x *UsageReport) Reset() {
 	*x = UsageReport{}
-	mi := &file_runner_gateway_proto_msgTypes[13]
+	mi := &file_runner_gateway_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1474,7 +1697,7 @@ func (x *UsageReport) String() string {
 func (*UsageReport) ProtoMessage() {}
 
 func (x *UsageReport) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[13]
+	mi := &file_runner_gateway_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1487,7 +1710,7 @@ func (x *UsageReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageReport.ProtoReflect.Descriptor instead.
 func (*UsageReport) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{13}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UsageReport) GetLease() *LeaseIdentity {
@@ -1539,7 +1762,7 @@ type JobCompleted struct {
 
 func (x *JobCompleted) Reset() {
 	*x = JobCompleted{}
-	mi := &file_runner_gateway_proto_msgTypes[14]
+	mi := &file_runner_gateway_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1551,7 +1774,7 @@ func (x *JobCompleted) String() string {
 func (*JobCompleted) ProtoMessage() {}
 
 func (x *JobCompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[14]
+	mi := &file_runner_gateway_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1564,7 +1787,7 @@ func (x *JobCompleted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobCompleted.ProtoReflect.Descriptor instead.
 func (*JobCompleted) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{14}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *JobCompleted) GetLease() *LeaseIdentity {
@@ -1611,7 +1834,7 @@ type JobFailed struct {
 
 func (x *JobFailed) Reset() {
 	*x = JobFailed{}
-	mi := &file_runner_gateway_proto_msgTypes[15]
+	mi := &file_runner_gateway_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1623,7 +1846,7 @@ func (x *JobFailed) String() string {
 func (*JobFailed) ProtoMessage() {}
 
 func (x *JobFailed) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[15]
+	mi := &file_runner_gateway_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1636,7 +1859,7 @@ func (x *JobFailed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobFailed.ProtoReflect.Descriptor instead.
 func (*JobFailed) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{15}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *JobFailed) GetLease() *LeaseIdentity {
@@ -1702,7 +1925,7 @@ type JobCancelled struct {
 
 func (x *JobCancelled) Reset() {
 	*x = JobCancelled{}
-	mi := &file_runner_gateway_proto_msgTypes[16]
+	mi := &file_runner_gateway_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1714,7 +1937,7 @@ func (x *JobCancelled) String() string {
 func (*JobCancelled) ProtoMessage() {}
 
 func (x *JobCancelled) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[16]
+	mi := &file_runner_gateway_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1727,7 +1950,7 @@ func (x *JobCancelled) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobCancelled.ProtoReflect.Descriptor instead.
 func (*JobCancelled) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{16}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *JobCancelled) GetLease() *LeaseIdentity {
@@ -1786,7 +2009,7 @@ type CancelJob struct {
 
 func (x *CancelJob) Reset() {
 	*x = CancelJob{}
-	mi := &file_runner_gateway_proto_msgTypes[17]
+	mi := &file_runner_gateway_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1798,7 +2021,7 @@ func (x *CancelJob) String() string {
 func (*CancelJob) ProtoMessage() {}
 
 func (x *CancelJob) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[17]
+	mi := &file_runner_gateway_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1811,7 +2034,7 @@ func (x *CancelJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJob.ProtoReflect.Descriptor instead.
 func (*CancelJob) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{17}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CancelJob) GetLease() *LeaseIdentity {
@@ -1868,7 +2091,7 @@ type DrainRunner struct {
 
 func (x *DrainRunner) Reset() {
 	*x = DrainRunner{}
-	mi := &file_runner_gateway_proto_msgTypes[18]
+	mi := &file_runner_gateway_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1880,7 +2103,7 @@ func (x *DrainRunner) String() string {
 func (*DrainRunner) ProtoMessage() {}
 
 func (x *DrainRunner) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[18]
+	mi := &file_runner_gateway_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1893,7 +2116,7 @@ func (x *DrainRunner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainRunner.ProtoReflect.Descriptor instead.
 func (*DrainRunner) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{18}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DrainRunner) GetDrainId() string {
@@ -1936,7 +2159,7 @@ type PolicyUpdate struct {
 
 func (x *PolicyUpdate) Reset() {
 	*x = PolicyUpdate{}
-	mi := &file_runner_gateway_proto_msgTypes[19]
+	mi := &file_runner_gateway_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1948,7 +2171,7 @@ func (x *PolicyUpdate) String() string {
 func (*PolicyUpdate) ProtoMessage() {}
 
 func (x *PolicyUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[19]
+	mi := &file_runner_gateway_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1961,7 +2184,7 @@ func (x *PolicyUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PolicyUpdate.ProtoReflect.Descriptor instead.
 func (*PolicyUpdate) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{19}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PolicyUpdate) GetPolicyVersion() string {
@@ -2043,7 +2266,7 @@ type RotateCredential struct {
 
 func (x *RotateCredential) Reset() {
 	*x = RotateCredential{}
-	mi := &file_runner_gateway_proto_msgTypes[20]
+	mi := &file_runner_gateway_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2055,7 +2278,7 @@ func (x *RotateCredential) String() string {
 func (*RotateCredential) ProtoMessage() {}
 
 func (x *RotateCredential) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[20]
+	mi := &file_runner_gateway_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2068,7 +2291,7 @@ func (x *RotateCredential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RotateCredential.ProtoReflect.Descriptor instead.
 func (*RotateCredential) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{20}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RotateCredential) GetRotationId() string {
@@ -2130,7 +2353,7 @@ type CredentialRotationAcknowledgement struct {
 
 func (x *CredentialRotationAcknowledgement) Reset() {
 	*x = CredentialRotationAcknowledgement{}
-	mi := &file_runner_gateway_proto_msgTypes[21]
+	mi := &file_runner_gateway_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2142,7 +2365,7 @@ func (x *CredentialRotationAcknowledgement) String() string {
 func (*CredentialRotationAcknowledgement) ProtoMessage() {}
 
 func (x *CredentialRotationAcknowledgement) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[21]
+	mi := &file_runner_gateway_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2155,7 +2378,7 @@ func (x *CredentialRotationAcknowledgement) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CredentialRotationAcknowledgement.ProtoReflect.Descriptor instead.
 func (*CredentialRotationAcknowledgement) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{21}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CredentialRotationAcknowledgement) GetRotationId() string {
@@ -2191,7 +2414,7 @@ type ShutdownRunner struct {
 
 func (x *ShutdownRunner) Reset() {
 	*x = ShutdownRunner{}
-	mi := &file_runner_gateway_proto_msgTypes[22]
+	mi := &file_runner_gateway_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2203,7 +2426,7 @@ func (x *ShutdownRunner) String() string {
 func (*ShutdownRunner) ProtoMessage() {}
 
 func (x *ShutdownRunner) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[22]
+	mi := &file_runner_gateway_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2216,7 +2439,7 @@ func (x *ShutdownRunner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShutdownRunner.ProtoReflect.Descriptor instead.
 func (*ShutdownRunner) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{22}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ShutdownRunner) GetShutdownId() string {
@@ -2294,7 +2517,7 @@ type LeaseReconciliation struct {
 
 func (x *LeaseReconciliation) Reset() {
 	*x = LeaseReconciliation{}
-	mi := &file_runner_gateway_proto_msgTypes[23]
+	mi := &file_runner_gateway_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2306,7 +2529,7 @@ func (x *LeaseReconciliation) String() string {
 func (*LeaseReconciliation) ProtoMessage() {}
 
 func (x *LeaseReconciliation) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[23]
+	mi := &file_runner_gateway_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2319,7 +2542,7 @@ func (x *LeaseReconciliation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeaseReconciliation.ProtoReflect.Descriptor instead.
 func (*LeaseReconciliation) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{23}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *LeaseReconciliation) GetLease() *LeaseIdentity {
@@ -2392,7 +2615,7 @@ type RunnerEventAcknowledgement struct {
 
 func (x *RunnerEventAcknowledgement) Reset() {
 	*x = RunnerEventAcknowledgement{}
-	mi := &file_runner_gateway_proto_msgTypes[24]
+	mi := &file_runner_gateway_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2404,7 +2627,7 @@ func (x *RunnerEventAcknowledgement) String() string {
 func (*RunnerEventAcknowledgement) ProtoMessage() {}
 
 func (x *RunnerEventAcknowledgement) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[24]
+	mi := &file_runner_gateway_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2417,7 +2640,7 @@ func (x *RunnerEventAcknowledgement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunnerEventAcknowledgement.ProtoReflect.Descriptor instead.
 func (*RunnerEventAcknowledgement) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{24}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *RunnerEventAcknowledgement) GetRunnerMessageId() string {
@@ -2457,7 +2680,7 @@ type HeartbeatAcknowledgement struct {
 
 func (x *HeartbeatAcknowledgement) Reset() {
 	*x = HeartbeatAcknowledgement{}
-	mi := &file_runner_gateway_proto_msgTypes[25]
+	mi := &file_runner_gateway_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2469,7 +2692,7 @@ func (x *HeartbeatAcknowledgement) String() string {
 func (*HeartbeatAcknowledgement) ProtoMessage() {}
 
 func (x *HeartbeatAcknowledgement) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_gateway_proto_msgTypes[25]
+	mi := &file_runner_gateway_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2482,7 +2705,7 @@ func (x *HeartbeatAcknowledgement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatAcknowledgement.ProtoReflect.Descriptor instead.
 func (*HeartbeatAcknowledgement) Descriptor() ([]byte, []int) {
-	return file_runner_gateway_proto_rawDescGZIP(), []int{25}
+	return file_runner_gateway_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *HeartbeatAcknowledgement) GetRunnerMessageId() string {
@@ -2517,7 +2740,7 @@ var File_runner_gateway_proto protoreflect.FileDescriptor
 
 const file_runner_gateway_proto_rawDesc = "" +
 	"\n" +
-	"\x14runner_gateway.proto\x12\x14provenance.runner.v1\x1a\fcommon.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8f\t\n" +
+	"\x14runner_gateway.proto\x12\x14provenance.runner.v1\x1a\fcommon.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xed\t\n" +
 	"\rRunnerMessage\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x123\n" +
@@ -2537,9 +2760,10 @@ const file_runner_gateway_proto_rawDesc = "" +
 	"\tcompleted\x18\x14 \x01(\v2\".provenance.runner.v1.JobCompletedH\x00R\tcompleted\x129\n" +
 	"\x06failed\x18\x15 \x01(\v2\x1f.provenance.runner.v1.JobFailedH\x00R\x06failed\x12B\n" +
 	"\tcancelled\x18\x16 \x01(\v2\".provenance.runner.v1.JobCancelledH\x00R\tcancelled\x12\x89\x01\n" +
-	"#credential_rotation_acknowledgement\x18\x1e \x01(\v27.provenance.runner.v1.CredentialRotationAcknowledgementH\x00R!credentialRotationAcknowledgementB\t\n" +
+	"#credential_rotation_acknowledgement\x18\x1e \x01(\v27.provenance.runner.v1.CredentialRotationAcknowledgementH\x00R!credentialRotationAcknowledgement\x12\\\n" +
+	"\x14test_secrets_request\x18  \x01(\v2(.provenance.runner.v1.TestSecretsRequestH\x00R\x12testSecretsRequestB\t\n" +
 	"\apayloadJ\x04\b\x03\x10\n" +
-	"J\x04\b\x17\x10\x1e\"\xba\x06\n" +
+	"J\x04\b\x17\x10\x1e\"\x9b\a\n" +
 	"\x0eGatewayMessage\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x123\n" +
@@ -2553,7 +2777,8 @@ const file_runner_gateway_proto_rawDesc = "" +
 	"\x13credential_rotation\x18\x0f \x01(\v2&.provenance.runner.v1.RotateCredentialH\x00R\x12credentialRotation\x12B\n" +
 	"\bshutdown\x18\x10 \x01(\v2$.provenance.runner.v1.ShutdownRunnerH\x00R\bshutdown\x12g\n" +
 	"\x15event_acknowledgement\x18\x1e \x01(\v20.provenance.runner.v1.RunnerEventAcknowledgementH\x00R\x14eventAcknowledgement\x12m\n" +
-	"\x19heartbeat_acknowledgement\x18\x1f \x01(\v2..provenance.runner.v1.HeartbeatAcknowledgementH\x00R\x18heartbeatAcknowledgementB\t\n" +
+	"\x19heartbeat_acknowledgement\x18\x1f \x01(\v2..provenance.runner.v1.HeartbeatAcknowledgementH\x00R\x18heartbeatAcknowledgement\x12_\n" +
+	"\x15test_secrets_delivery\x18  \x01(\v2).provenance.runner.v1.TestSecretsDeliveryH\x00R\x13testSecretsDeliveryB\t\n" +
 	"\apayloadJ\x04\b\x03\x10\n" +
 	"J\x04\b\x11\x10\x1e\"\xc6\x01\n" +
 	"\fAuthenticate\x12\x1b\n" +
@@ -2595,7 +2820,20 @@ const file_runner_gateway_proto_rawDesc = "" +
 	"\aattempt\x18\x02 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\x12;\n" +
 	"\vaccepted_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"acceptedAtJ\x04\b\x04\x10\n" +
-	"\"\xef\x01\n" +
+	"\"\x90\x01\n" +
+	"\x12TestSecretsRequest\x129\n" +
+	"\x05lease\x18\x01 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
+	"\aattempt\x18\x02 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\"p\n" +
+	"\x0fTestSecretValue\x12G\n" +
+	"\treference\x18\x01 \x01(\v2).provenance.runner.v1.TestSecretReferenceR\treference\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\fR\x05value\"\xbb\x02\n" +
+	"\x13TestSecretsDelivery\x12,\n" +
+	"\x12request_message_id\x18\x01 \x01(\tR\x10requestMessageId\x129\n" +
+	"\x05lease\x18\x02 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
+	"\aattempt\x18\x03 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\x12?\n" +
+	"\asecrets\x18\x04 \x03(\v2%.provenance.runner.v1.TestSecretValueR\asecrets\x129\n" +
+	"\n" +
+	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\xef\x01\n" +
 	"\rLeaseRejected\x129\n" +
 	"\x05lease\x18\x01 \x01(\v2#.provenance.runner.v1.LeaseIdentityR\x05lease\x12?\n" +
 	"\aattempt\x18\x02 \x01(\v2%.provenance.runner.v1.AttemptIdentityR\aattempt\x12B\n" +
@@ -2764,7 +3002,7 @@ func file_runner_gateway_proto_rawDescGZIP() []byte {
 }
 
 var file_runner_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_runner_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_runner_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_runner_gateway_proto_goTypes = []any{
 	(LeaseRejectionReason)(0),                 // 0: provenance.runner.v1.LeaseRejectionReason
 	(RunnerMessageDisposition)(0),             // 1: provenance.runner.v1.RunnerMessageDisposition
@@ -2777,149 +3015,162 @@ var file_runner_gateway_proto_goTypes = []any{
 	(*Heartbeat)(nil),                         // 8: provenance.runner.v1.Heartbeat
 	(*LeaseOffer)(nil),                        // 9: provenance.runner.v1.LeaseOffer
 	(*LeaseAccepted)(nil),                     // 10: provenance.runner.v1.LeaseAccepted
-	(*LeaseRejected)(nil),                     // 11: provenance.runner.v1.LeaseRejected
-	(*LeaseRenewal)(nil),                      // 12: provenance.runner.v1.LeaseRenewal
-	(*JobPreparing)(nil),                      // 13: provenance.runner.v1.JobPreparing
-	(*JobStarted)(nil),                        // 14: provenance.runner.v1.JobStarted
-	(*LogBatch)(nil),                          // 15: provenance.runner.v1.LogBatch
-	(*UsageReport)(nil),                       // 16: provenance.runner.v1.UsageReport
-	(*JobCompleted)(nil),                      // 17: provenance.runner.v1.JobCompleted
-	(*JobFailed)(nil),                         // 18: provenance.runner.v1.JobFailed
-	(*JobCancelled)(nil),                      // 19: provenance.runner.v1.JobCancelled
-	(*CancelJob)(nil),                         // 20: provenance.runner.v1.CancelJob
-	(*DrainRunner)(nil),                       // 21: provenance.runner.v1.DrainRunner
-	(*PolicyUpdate)(nil),                      // 22: provenance.runner.v1.PolicyUpdate
-	(*RotateCredential)(nil),                  // 23: provenance.runner.v1.RotateCredential
-	(*CredentialRotationAcknowledgement)(nil), // 24: provenance.runner.v1.CredentialRotationAcknowledgement
-	(*ShutdownRunner)(nil),                    // 25: provenance.runner.v1.ShutdownRunner
-	(*LeaseReconciliation)(nil),               // 26: provenance.runner.v1.LeaseReconciliation
-	(*RunnerEventAcknowledgement)(nil),        // 27: provenance.runner.v1.RunnerEventAcknowledgement
-	(*HeartbeatAcknowledgement)(nil),          // 28: provenance.runner.v1.HeartbeatAcknowledgement
-	(*timestamppb.Timestamp)(nil),             // 29: google.protobuf.Timestamp
-	(*Capabilities)(nil),                      // 30: provenance.runner.v1.Capabilities
-	(*OrganizationScope)(nil),                 // 31: provenance.runner.v1.OrganizationScope
-	(*durationpb.Duration)(nil),               // 32: google.protobuf.Duration
-	(*LeaseIdentity)(nil),                     // 33: provenance.runner.v1.LeaseIdentity
-	(*AttemptIdentity)(nil),                   // 34: provenance.runner.v1.AttemptIdentity
-	(JobPhase)(0),                             // 35: provenance.runner.v1.JobPhase
-	(*Capacity)(nil),                          // 36: provenance.runner.v1.Capacity
-	(*JobSpecification)(nil),                  // 37: provenance.runner.v1.JobSpecification
-	(*LogEntry)(nil),                          // 38: provenance.runner.v1.LogEntry
-	(*ResourceUsage)(nil),                     // 39: provenance.runner.v1.ResourceUsage
-	(*StructuredResult)(nil),                  // 40: provenance.runner.v1.StructuredResult
-	(*ExecutionEvidence)(nil),                 // 41: provenance.runner.v1.ExecutionEvidence
-	(*FailureDetail)(nil),                     // 42: provenance.runner.v1.FailureDetail
-	(*LogObject)(nil),                         // 43: provenance.runner.v1.LogObject
-	(*Digest)(nil),                            // 44: provenance.runner.v1.Digest
-	(*RunnerPolicy)(nil),                      // 45: provenance.runner.v1.RunnerPolicy
-	(*ObjectUpload)(nil),                      // 46: provenance.runner.v1.ObjectUpload
+	(*TestSecretsRequest)(nil),                // 11: provenance.runner.v1.TestSecretsRequest
+	(*TestSecretValue)(nil),                   // 12: provenance.runner.v1.TestSecretValue
+	(*TestSecretsDelivery)(nil),               // 13: provenance.runner.v1.TestSecretsDelivery
+	(*LeaseRejected)(nil),                     // 14: provenance.runner.v1.LeaseRejected
+	(*LeaseRenewal)(nil),                      // 15: provenance.runner.v1.LeaseRenewal
+	(*JobPreparing)(nil),                      // 16: provenance.runner.v1.JobPreparing
+	(*JobStarted)(nil),                        // 17: provenance.runner.v1.JobStarted
+	(*LogBatch)(nil),                          // 18: provenance.runner.v1.LogBatch
+	(*UsageReport)(nil),                       // 19: provenance.runner.v1.UsageReport
+	(*JobCompleted)(nil),                      // 20: provenance.runner.v1.JobCompleted
+	(*JobFailed)(nil),                         // 21: provenance.runner.v1.JobFailed
+	(*JobCancelled)(nil),                      // 22: provenance.runner.v1.JobCancelled
+	(*CancelJob)(nil),                         // 23: provenance.runner.v1.CancelJob
+	(*DrainRunner)(nil),                       // 24: provenance.runner.v1.DrainRunner
+	(*PolicyUpdate)(nil),                      // 25: provenance.runner.v1.PolicyUpdate
+	(*RotateCredential)(nil),                  // 26: provenance.runner.v1.RotateCredential
+	(*CredentialRotationAcknowledgement)(nil), // 27: provenance.runner.v1.CredentialRotationAcknowledgement
+	(*ShutdownRunner)(nil),                    // 28: provenance.runner.v1.ShutdownRunner
+	(*LeaseReconciliation)(nil),               // 29: provenance.runner.v1.LeaseReconciliation
+	(*RunnerEventAcknowledgement)(nil),        // 30: provenance.runner.v1.RunnerEventAcknowledgement
+	(*HeartbeatAcknowledgement)(nil),          // 31: provenance.runner.v1.HeartbeatAcknowledgement
+	(*timestamppb.Timestamp)(nil),             // 32: google.protobuf.Timestamp
+	(*Capabilities)(nil),                      // 33: provenance.runner.v1.Capabilities
+	(*OrganizationScope)(nil),                 // 34: provenance.runner.v1.OrganizationScope
+	(*durationpb.Duration)(nil),               // 35: google.protobuf.Duration
+	(*LeaseIdentity)(nil),                     // 36: provenance.runner.v1.LeaseIdentity
+	(*AttemptIdentity)(nil),                   // 37: provenance.runner.v1.AttemptIdentity
+	(JobPhase)(0),                             // 38: provenance.runner.v1.JobPhase
+	(*Capacity)(nil),                          // 39: provenance.runner.v1.Capacity
+	(*JobSpecification)(nil),                  // 40: provenance.runner.v1.JobSpecification
+	(*TestSecretReference)(nil),               // 41: provenance.runner.v1.TestSecretReference
+	(*LogEntry)(nil),                          // 42: provenance.runner.v1.LogEntry
+	(*ResourceUsage)(nil),                     // 43: provenance.runner.v1.ResourceUsage
+	(*StructuredResult)(nil),                  // 44: provenance.runner.v1.StructuredResult
+	(*ExecutionEvidence)(nil),                 // 45: provenance.runner.v1.ExecutionEvidence
+	(*FailureDetail)(nil),                     // 46: provenance.runner.v1.FailureDetail
+	(*LogObject)(nil),                         // 47: provenance.runner.v1.LogObject
+	(*Digest)(nil),                            // 48: provenance.runner.v1.Digest
+	(*RunnerPolicy)(nil),                      // 49: provenance.runner.v1.RunnerPolicy
+	(*ObjectUpload)(nil),                      // 50: provenance.runner.v1.ObjectUpload
 }
 var file_runner_gateway_proto_depIdxs = []int32{
-	29, // 0: provenance.runner.v1.RunnerMessage.sent_at:type_name -> google.protobuf.Timestamp
-	5,  // 1: provenance.runner.v1.RunnerMessage.authenticate:type_name -> provenance.runner.v1.Authenticate
-	30, // 2: provenance.runner.v1.RunnerMessage.capabilities:type_name -> provenance.runner.v1.Capabilities
-	8,  // 3: provenance.runner.v1.RunnerMessage.heartbeat:type_name -> provenance.runner.v1.Heartbeat
-	10, // 4: provenance.runner.v1.RunnerMessage.lease_accepted:type_name -> provenance.runner.v1.LeaseAccepted
-	11, // 5: provenance.runner.v1.RunnerMessage.lease_rejected:type_name -> provenance.runner.v1.LeaseRejected
-	12, // 6: provenance.runner.v1.RunnerMessage.lease_renewal:type_name -> provenance.runner.v1.LeaseRenewal
-	13, // 7: provenance.runner.v1.RunnerMessage.job_preparing:type_name -> provenance.runner.v1.JobPreparing
-	14, // 8: provenance.runner.v1.RunnerMessage.job_started:type_name -> provenance.runner.v1.JobStarted
-	15, // 9: provenance.runner.v1.RunnerMessage.log_batch:type_name -> provenance.runner.v1.LogBatch
-	16, // 10: provenance.runner.v1.RunnerMessage.usage:type_name -> provenance.runner.v1.UsageReport
-	17, // 11: provenance.runner.v1.RunnerMessage.completed:type_name -> provenance.runner.v1.JobCompleted
-	18, // 12: provenance.runner.v1.RunnerMessage.failed:type_name -> provenance.runner.v1.JobFailed
-	19, // 13: provenance.runner.v1.RunnerMessage.cancelled:type_name -> provenance.runner.v1.JobCancelled
-	24, // 14: provenance.runner.v1.RunnerMessage.credential_rotation_acknowledgement:type_name -> provenance.runner.v1.CredentialRotationAcknowledgement
-	29, // 15: provenance.runner.v1.GatewayMessage.sent_at:type_name -> google.protobuf.Timestamp
-	6,  // 16: provenance.runner.v1.GatewayMessage.authenticated:type_name -> provenance.runner.v1.Authenticated
-	9,  // 17: provenance.runner.v1.GatewayMessage.offer:type_name -> provenance.runner.v1.LeaseOffer
-	20, // 18: provenance.runner.v1.GatewayMessage.cancel:type_name -> provenance.runner.v1.CancelJob
-	21, // 19: provenance.runner.v1.GatewayMessage.drain:type_name -> provenance.runner.v1.DrainRunner
-	22, // 20: provenance.runner.v1.GatewayMessage.policy_update:type_name -> provenance.runner.v1.PolicyUpdate
-	23, // 21: provenance.runner.v1.GatewayMessage.credential_rotation:type_name -> provenance.runner.v1.RotateCredential
-	25, // 22: provenance.runner.v1.GatewayMessage.shutdown:type_name -> provenance.runner.v1.ShutdownRunner
-	27, // 23: provenance.runner.v1.GatewayMessage.event_acknowledgement:type_name -> provenance.runner.v1.RunnerEventAcknowledgement
-	28, // 24: provenance.runner.v1.GatewayMessage.heartbeat_acknowledgement:type_name -> provenance.runner.v1.HeartbeatAcknowledgement
-	31, // 25: provenance.runner.v1.Authenticated.organization_scope:type_name -> provenance.runner.v1.OrganizationScope
-	29, // 26: provenance.runner.v1.Authenticated.credential_expires_at:type_name -> google.protobuf.Timestamp
-	32, // 27: provenance.runner.v1.Authenticated.heartbeat_interval:type_name -> google.protobuf.Duration
-	32, // 28: provenance.runner.v1.Authenticated.lease_duration:type_name -> google.protobuf.Duration
-	29, // 29: provenance.runner.v1.Authenticated.server_time:type_name -> google.protobuf.Timestamp
-	33, // 30: provenance.runner.v1.HeartbeatLease.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 31: provenance.runner.v1.HeartbeatLease.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	35, // 32: provenance.runner.v1.HeartbeatLease.phase:type_name -> provenance.runner.v1.JobPhase
-	36, // 33: provenance.runner.v1.Heartbeat.capacity:type_name -> provenance.runner.v1.Capacity
-	7,  // 34: provenance.runner.v1.Heartbeat.active_leases:type_name -> provenance.runner.v1.HeartbeatLease
-	29, // 35: provenance.runner.v1.Heartbeat.observed_at:type_name -> google.protobuf.Timestamp
-	37, // 36: provenance.runner.v1.LeaseOffer.job:type_name -> provenance.runner.v1.JobSpecification
-	29, // 37: provenance.runner.v1.LeaseOffer.offer_expires_at:type_name -> google.protobuf.Timestamp
-	33, // 38: provenance.runner.v1.LeaseAccepted.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 39: provenance.runner.v1.LeaseAccepted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	29, // 40: provenance.runner.v1.LeaseAccepted.accepted_at:type_name -> google.protobuf.Timestamp
-	33, // 41: provenance.runner.v1.LeaseRejected.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 42: provenance.runner.v1.LeaseRejected.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	0,  // 43: provenance.runner.v1.LeaseRejected.reason:type_name -> provenance.runner.v1.LeaseRejectionReason
-	33, // 44: provenance.runner.v1.LeaseRenewal.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 45: provenance.runner.v1.LeaseRenewal.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	32, // 46: provenance.runner.v1.LeaseRenewal.requested_extension:type_name -> google.protobuf.Duration
-	29, // 47: provenance.runner.v1.LeaseRenewal.observed_at:type_name -> google.protobuf.Timestamp
-	33, // 48: provenance.runner.v1.JobPreparing.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 49: provenance.runner.v1.JobPreparing.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	29, // 50: provenance.runner.v1.JobPreparing.started_at:type_name -> google.protobuf.Timestamp
-	33, // 51: provenance.runner.v1.JobStarted.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 52: provenance.runner.v1.JobStarted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	29, // 53: provenance.runner.v1.JobStarted.started_at:type_name -> google.protobuf.Timestamp
-	33, // 54: provenance.runner.v1.LogBatch.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 55: provenance.runner.v1.LogBatch.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	38, // 56: provenance.runner.v1.LogBatch.entries:type_name -> provenance.runner.v1.LogEntry
-	33, // 57: provenance.runner.v1.UsageReport.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 58: provenance.runner.v1.UsageReport.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	29, // 59: provenance.runner.v1.UsageReport.observed_at:type_name -> google.protobuf.Timestamp
-	39, // 60: provenance.runner.v1.UsageReport.cumulative:type_name -> provenance.runner.v1.ResourceUsage
-	33, // 61: provenance.runner.v1.JobCompleted.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 62: provenance.runner.v1.JobCompleted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	40, // 63: provenance.runner.v1.JobCompleted.result:type_name -> provenance.runner.v1.StructuredResult
-	41, // 64: provenance.runner.v1.JobCompleted.execution_evidence:type_name -> provenance.runner.v1.ExecutionEvidence
-	33, // 65: provenance.runner.v1.JobFailed.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 66: provenance.runner.v1.JobFailed.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	42, // 67: provenance.runner.v1.JobFailed.failure:type_name -> provenance.runner.v1.FailureDetail
-	39, // 68: provenance.runner.v1.JobFailed.usage:type_name -> provenance.runner.v1.ResourceUsage
-	43, // 69: provenance.runner.v1.JobFailed.complete_log:type_name -> provenance.runner.v1.LogObject
-	29, // 70: provenance.runner.v1.JobFailed.failed_at:type_name -> google.protobuf.Timestamp
-	41, // 71: provenance.runner.v1.JobFailed.execution_evidence:type_name -> provenance.runner.v1.ExecutionEvidence
-	33, // 72: provenance.runner.v1.JobCancelled.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 73: provenance.runner.v1.JobCancelled.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	29, // 74: provenance.runner.v1.JobCancelled.cancelled_at:type_name -> google.protobuf.Timestamp
-	42, // 75: provenance.runner.v1.JobCancelled.cleanup_failure:type_name -> provenance.runner.v1.FailureDetail
-	33, // 76: provenance.runner.v1.CancelJob.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 77: provenance.runner.v1.CancelJob.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	29, // 78: provenance.runner.v1.CancelJob.deadline:type_name -> google.protobuf.Timestamp
-	29, // 79: provenance.runner.v1.DrainRunner.deadline:type_name -> google.protobuf.Timestamp
-	44, // 80: provenance.runner.v1.PolicyUpdate.policy_digest:type_name -> provenance.runner.v1.Digest
-	45, // 81: provenance.runner.v1.PolicyUpdate.policy:type_name -> provenance.runner.v1.RunnerPolicy
-	29, // 82: provenance.runner.v1.PolicyUpdate.effective_at:type_name -> google.protobuf.Timestamp
-	29, // 83: provenance.runner.v1.RotateCredential.expires_at:type_name -> google.protobuf.Timestamp
-	29, // 84: provenance.runner.v1.RotateCredential.reconnect_before:type_name -> google.protobuf.Timestamp
-	29, // 85: provenance.runner.v1.RotateCredential.issued_at:type_name -> google.protobuf.Timestamp
-	29, // 86: provenance.runner.v1.CredentialRotationAcknowledgement.persisted_at:type_name -> google.protobuf.Timestamp
-	29, // 87: provenance.runner.v1.ShutdownRunner.deadline:type_name -> google.protobuf.Timestamp
-	33, // 88: provenance.runner.v1.LeaseReconciliation.lease:type_name -> provenance.runner.v1.LeaseIdentity
-	34, // 89: provenance.runner.v1.LeaseReconciliation.attempt:type_name -> provenance.runner.v1.AttemptIdentity
-	1,  // 90: provenance.runner.v1.LeaseReconciliation.disposition:type_name -> provenance.runner.v1.RunnerMessageDisposition
-	2,  // 91: provenance.runner.v1.LeaseReconciliation.status:type_name -> provenance.runner.v1.LeaseStatus
-	35, // 92: provenance.runner.v1.LeaseReconciliation.phase:type_name -> provenance.runner.v1.JobPhase
-	46, // 93: provenance.runner.v1.LeaseReconciliation.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
-	26, // 94: provenance.runner.v1.RunnerEventAcknowledgement.reconciliation:type_name -> provenance.runner.v1.LeaseReconciliation
-	29, // 95: provenance.runner.v1.RunnerEventAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
-	26, // 96: provenance.runner.v1.HeartbeatAcknowledgement.reconciliations:type_name -> provenance.runner.v1.LeaseReconciliation
-	29, // 97: provenance.runner.v1.HeartbeatAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
-	3,  // 98: provenance.runner.v1.RunnerGateway.Connect:input_type -> provenance.runner.v1.RunnerMessage
-	4,  // 99: provenance.runner.v1.RunnerGateway.Connect:output_type -> provenance.runner.v1.GatewayMessage
-	99, // [99:100] is the sub-list for method output_type
-	98, // [98:99] is the sub-list for method input_type
-	98, // [98:98] is the sub-list for extension type_name
-	98, // [98:98] is the sub-list for extension extendee
-	0,  // [0:98] is the sub-list for field type_name
+	32,  // 0: provenance.runner.v1.RunnerMessage.sent_at:type_name -> google.protobuf.Timestamp
+	5,   // 1: provenance.runner.v1.RunnerMessage.authenticate:type_name -> provenance.runner.v1.Authenticate
+	33,  // 2: provenance.runner.v1.RunnerMessage.capabilities:type_name -> provenance.runner.v1.Capabilities
+	8,   // 3: provenance.runner.v1.RunnerMessage.heartbeat:type_name -> provenance.runner.v1.Heartbeat
+	10,  // 4: provenance.runner.v1.RunnerMessage.lease_accepted:type_name -> provenance.runner.v1.LeaseAccepted
+	14,  // 5: provenance.runner.v1.RunnerMessage.lease_rejected:type_name -> provenance.runner.v1.LeaseRejected
+	15,  // 6: provenance.runner.v1.RunnerMessage.lease_renewal:type_name -> provenance.runner.v1.LeaseRenewal
+	16,  // 7: provenance.runner.v1.RunnerMessage.job_preparing:type_name -> provenance.runner.v1.JobPreparing
+	17,  // 8: provenance.runner.v1.RunnerMessage.job_started:type_name -> provenance.runner.v1.JobStarted
+	18,  // 9: provenance.runner.v1.RunnerMessage.log_batch:type_name -> provenance.runner.v1.LogBatch
+	19,  // 10: provenance.runner.v1.RunnerMessage.usage:type_name -> provenance.runner.v1.UsageReport
+	20,  // 11: provenance.runner.v1.RunnerMessage.completed:type_name -> provenance.runner.v1.JobCompleted
+	21,  // 12: provenance.runner.v1.RunnerMessage.failed:type_name -> provenance.runner.v1.JobFailed
+	22,  // 13: provenance.runner.v1.RunnerMessage.cancelled:type_name -> provenance.runner.v1.JobCancelled
+	27,  // 14: provenance.runner.v1.RunnerMessage.credential_rotation_acknowledgement:type_name -> provenance.runner.v1.CredentialRotationAcknowledgement
+	11,  // 15: provenance.runner.v1.RunnerMessage.test_secrets_request:type_name -> provenance.runner.v1.TestSecretsRequest
+	32,  // 16: provenance.runner.v1.GatewayMessage.sent_at:type_name -> google.protobuf.Timestamp
+	6,   // 17: provenance.runner.v1.GatewayMessage.authenticated:type_name -> provenance.runner.v1.Authenticated
+	9,   // 18: provenance.runner.v1.GatewayMessage.offer:type_name -> provenance.runner.v1.LeaseOffer
+	23,  // 19: provenance.runner.v1.GatewayMessage.cancel:type_name -> provenance.runner.v1.CancelJob
+	24,  // 20: provenance.runner.v1.GatewayMessage.drain:type_name -> provenance.runner.v1.DrainRunner
+	25,  // 21: provenance.runner.v1.GatewayMessage.policy_update:type_name -> provenance.runner.v1.PolicyUpdate
+	26,  // 22: provenance.runner.v1.GatewayMessage.credential_rotation:type_name -> provenance.runner.v1.RotateCredential
+	28,  // 23: provenance.runner.v1.GatewayMessage.shutdown:type_name -> provenance.runner.v1.ShutdownRunner
+	30,  // 24: provenance.runner.v1.GatewayMessage.event_acknowledgement:type_name -> provenance.runner.v1.RunnerEventAcknowledgement
+	31,  // 25: provenance.runner.v1.GatewayMessage.heartbeat_acknowledgement:type_name -> provenance.runner.v1.HeartbeatAcknowledgement
+	13,  // 26: provenance.runner.v1.GatewayMessage.test_secrets_delivery:type_name -> provenance.runner.v1.TestSecretsDelivery
+	34,  // 27: provenance.runner.v1.Authenticated.organization_scope:type_name -> provenance.runner.v1.OrganizationScope
+	32,  // 28: provenance.runner.v1.Authenticated.credential_expires_at:type_name -> google.protobuf.Timestamp
+	35,  // 29: provenance.runner.v1.Authenticated.heartbeat_interval:type_name -> google.protobuf.Duration
+	35,  // 30: provenance.runner.v1.Authenticated.lease_duration:type_name -> google.protobuf.Duration
+	32,  // 31: provenance.runner.v1.Authenticated.server_time:type_name -> google.protobuf.Timestamp
+	36,  // 32: provenance.runner.v1.HeartbeatLease.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 33: provenance.runner.v1.HeartbeatLease.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	38,  // 34: provenance.runner.v1.HeartbeatLease.phase:type_name -> provenance.runner.v1.JobPhase
+	39,  // 35: provenance.runner.v1.Heartbeat.capacity:type_name -> provenance.runner.v1.Capacity
+	7,   // 36: provenance.runner.v1.Heartbeat.active_leases:type_name -> provenance.runner.v1.HeartbeatLease
+	32,  // 37: provenance.runner.v1.Heartbeat.observed_at:type_name -> google.protobuf.Timestamp
+	40,  // 38: provenance.runner.v1.LeaseOffer.job:type_name -> provenance.runner.v1.JobSpecification
+	32,  // 39: provenance.runner.v1.LeaseOffer.offer_expires_at:type_name -> google.protobuf.Timestamp
+	36,  // 40: provenance.runner.v1.LeaseAccepted.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 41: provenance.runner.v1.LeaseAccepted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	32,  // 42: provenance.runner.v1.LeaseAccepted.accepted_at:type_name -> google.protobuf.Timestamp
+	36,  // 43: provenance.runner.v1.TestSecretsRequest.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 44: provenance.runner.v1.TestSecretsRequest.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	41,  // 45: provenance.runner.v1.TestSecretValue.reference:type_name -> provenance.runner.v1.TestSecretReference
+	36,  // 46: provenance.runner.v1.TestSecretsDelivery.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 47: provenance.runner.v1.TestSecretsDelivery.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	12,  // 48: provenance.runner.v1.TestSecretsDelivery.secrets:type_name -> provenance.runner.v1.TestSecretValue
+	32,  // 49: provenance.runner.v1.TestSecretsDelivery.expires_at:type_name -> google.protobuf.Timestamp
+	36,  // 50: provenance.runner.v1.LeaseRejected.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 51: provenance.runner.v1.LeaseRejected.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	0,   // 52: provenance.runner.v1.LeaseRejected.reason:type_name -> provenance.runner.v1.LeaseRejectionReason
+	36,  // 53: provenance.runner.v1.LeaseRenewal.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 54: provenance.runner.v1.LeaseRenewal.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	35,  // 55: provenance.runner.v1.LeaseRenewal.requested_extension:type_name -> google.protobuf.Duration
+	32,  // 56: provenance.runner.v1.LeaseRenewal.observed_at:type_name -> google.protobuf.Timestamp
+	36,  // 57: provenance.runner.v1.JobPreparing.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 58: provenance.runner.v1.JobPreparing.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	32,  // 59: provenance.runner.v1.JobPreparing.started_at:type_name -> google.protobuf.Timestamp
+	36,  // 60: provenance.runner.v1.JobStarted.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 61: provenance.runner.v1.JobStarted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	32,  // 62: provenance.runner.v1.JobStarted.started_at:type_name -> google.protobuf.Timestamp
+	36,  // 63: provenance.runner.v1.LogBatch.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 64: provenance.runner.v1.LogBatch.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	42,  // 65: provenance.runner.v1.LogBatch.entries:type_name -> provenance.runner.v1.LogEntry
+	36,  // 66: provenance.runner.v1.UsageReport.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 67: provenance.runner.v1.UsageReport.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	32,  // 68: provenance.runner.v1.UsageReport.observed_at:type_name -> google.protobuf.Timestamp
+	43,  // 69: provenance.runner.v1.UsageReport.cumulative:type_name -> provenance.runner.v1.ResourceUsage
+	36,  // 70: provenance.runner.v1.JobCompleted.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 71: provenance.runner.v1.JobCompleted.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	44,  // 72: provenance.runner.v1.JobCompleted.result:type_name -> provenance.runner.v1.StructuredResult
+	45,  // 73: provenance.runner.v1.JobCompleted.execution_evidence:type_name -> provenance.runner.v1.ExecutionEvidence
+	36,  // 74: provenance.runner.v1.JobFailed.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 75: provenance.runner.v1.JobFailed.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	46,  // 76: provenance.runner.v1.JobFailed.failure:type_name -> provenance.runner.v1.FailureDetail
+	43,  // 77: provenance.runner.v1.JobFailed.usage:type_name -> provenance.runner.v1.ResourceUsage
+	47,  // 78: provenance.runner.v1.JobFailed.complete_log:type_name -> provenance.runner.v1.LogObject
+	32,  // 79: provenance.runner.v1.JobFailed.failed_at:type_name -> google.protobuf.Timestamp
+	45,  // 80: provenance.runner.v1.JobFailed.execution_evidence:type_name -> provenance.runner.v1.ExecutionEvidence
+	36,  // 81: provenance.runner.v1.JobCancelled.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 82: provenance.runner.v1.JobCancelled.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	32,  // 83: provenance.runner.v1.JobCancelled.cancelled_at:type_name -> google.protobuf.Timestamp
+	46,  // 84: provenance.runner.v1.JobCancelled.cleanup_failure:type_name -> provenance.runner.v1.FailureDetail
+	36,  // 85: provenance.runner.v1.CancelJob.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 86: provenance.runner.v1.CancelJob.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	32,  // 87: provenance.runner.v1.CancelJob.deadline:type_name -> google.protobuf.Timestamp
+	32,  // 88: provenance.runner.v1.DrainRunner.deadline:type_name -> google.protobuf.Timestamp
+	48,  // 89: provenance.runner.v1.PolicyUpdate.policy_digest:type_name -> provenance.runner.v1.Digest
+	49,  // 90: provenance.runner.v1.PolicyUpdate.policy:type_name -> provenance.runner.v1.RunnerPolicy
+	32,  // 91: provenance.runner.v1.PolicyUpdate.effective_at:type_name -> google.protobuf.Timestamp
+	32,  // 92: provenance.runner.v1.RotateCredential.expires_at:type_name -> google.protobuf.Timestamp
+	32,  // 93: provenance.runner.v1.RotateCredential.reconnect_before:type_name -> google.protobuf.Timestamp
+	32,  // 94: provenance.runner.v1.RotateCredential.issued_at:type_name -> google.protobuf.Timestamp
+	32,  // 95: provenance.runner.v1.CredentialRotationAcknowledgement.persisted_at:type_name -> google.protobuf.Timestamp
+	32,  // 96: provenance.runner.v1.ShutdownRunner.deadline:type_name -> google.protobuf.Timestamp
+	36,  // 97: provenance.runner.v1.LeaseReconciliation.lease:type_name -> provenance.runner.v1.LeaseIdentity
+	37,  // 98: provenance.runner.v1.LeaseReconciliation.attempt:type_name -> provenance.runner.v1.AttemptIdentity
+	1,   // 99: provenance.runner.v1.LeaseReconciliation.disposition:type_name -> provenance.runner.v1.RunnerMessageDisposition
+	2,   // 100: provenance.runner.v1.LeaseReconciliation.status:type_name -> provenance.runner.v1.LeaseStatus
+	38,  // 101: provenance.runner.v1.LeaseReconciliation.phase:type_name -> provenance.runner.v1.JobPhase
+	50,  // 102: provenance.runner.v1.LeaseReconciliation.complete_log_upload:type_name -> provenance.runner.v1.ObjectUpload
+	29,  // 103: provenance.runner.v1.RunnerEventAcknowledgement.reconciliation:type_name -> provenance.runner.v1.LeaseReconciliation
+	32,  // 104: provenance.runner.v1.RunnerEventAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
+	29,  // 105: provenance.runner.v1.HeartbeatAcknowledgement.reconciliations:type_name -> provenance.runner.v1.LeaseReconciliation
+	32,  // 106: provenance.runner.v1.HeartbeatAcknowledgement.committed_at:type_name -> google.protobuf.Timestamp
+	3,   // 107: provenance.runner.v1.RunnerGateway.Connect:input_type -> provenance.runner.v1.RunnerMessage
+	4,   // 108: provenance.runner.v1.RunnerGateway.Connect:output_type -> provenance.runner.v1.GatewayMessage
+	108, // [108:109] is the sub-list for method output_type
+	107, // [107:108] is the sub-list for method input_type
+	107, // [107:107] is the sub-list for extension type_name
+	107, // [107:107] is the sub-list for extension extendee
+	0,   // [0:107] is the sub-list for field type_name
 }
 
 func init() { file_runner_gateway_proto_init() }
@@ -2943,6 +3194,7 @@ func file_runner_gateway_proto_init() {
 		(*RunnerMessage_Failed)(nil),
 		(*RunnerMessage_Cancelled)(nil),
 		(*RunnerMessage_CredentialRotationAcknowledgement)(nil),
+		(*RunnerMessage_TestSecretsRequest)(nil),
 	}
 	file_runner_gateway_proto_msgTypes[1].OneofWrappers = []any{
 		(*GatewayMessage_Authenticated)(nil),
@@ -2954,6 +3206,7 @@ func file_runner_gateway_proto_init() {
 		(*GatewayMessage_Shutdown)(nil),
 		(*GatewayMessage_EventAcknowledgement)(nil),
 		(*GatewayMessage_HeartbeatAcknowledgement)(nil),
+		(*GatewayMessage_TestSecretsDelivery)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -2961,7 +3214,7 @@ func file_runner_gateway_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_runner_gateway_proto_rawDesc), len(file_runner_gateway_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   26,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
