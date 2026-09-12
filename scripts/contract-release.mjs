@@ -123,6 +123,14 @@ export const legacyContractBundles = [
       },
       { source: "openapi/redocly.yaml", destination: "redocly.yaml" },
       {
+        source: "openapi/execution-evidence-v1.json",
+        destination: "execution-evidence-v1.json",
+      },
+      {
+        source: "openapi/execution-evidence-v2.json",
+        destination: "execution-evidence-v2.json",
+      },
+      {
         source: "openapi/alpha-administration-semantics.md",
         destination: "alpha-administration-semantics.md",
       },

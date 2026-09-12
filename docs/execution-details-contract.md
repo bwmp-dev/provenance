@@ -4,6 +4,13 @@ This additive WP-08D slice follows the existing candidate-detail assignment in
 [program PR255](https://github.com/bwmp-dev/provenance-program/pull/255).
 It is a proposed contract, not released producer/consumer or alpha acceptance.
 
+The first alpha27 inspection verified signatures and generated clients but found
+that the OpenAPI archive omitted its two referenced evidence-schema mirrors.
+Do not accept that archive as a complete execution-detail consumer authority.
+The packaging follow-up includes both schemas and independently checks their
+presence and exact versioned references before consumer acceptance. Existing
+immutable alpha27 assets are not overwritten.
+
 `GET /v1/release-candidates/{candidateId}/executions/{executionId}/details`
 returns exact attempt identity, recorded state, stored timing, bounded technical
 failure fields and retained versioned terminal observations. The endpoint accepts

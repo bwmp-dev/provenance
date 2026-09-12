@@ -1850,6 +1850,49 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
       specification,
       "released OpenAPI JSON differs from YAML",
     );
+    if (
+      specification.paths?.[
+        "/v1/release-candidates/{candidateId}/executions/{executionId}/details"
+      ]
+    ) {
+      for (const version of [1, 2]) {
+        const evidence = await readJson(
+          resolve(root, `execution-evidence-v${version}.json`),
+          "released execution evidence schema",
+        );
+        const folder =
+          version === 1 ? "terminal-evidence" : "terminal-evidence-v2";
+        invariant(
+          (
+            await readFile(resolve(root, `execution-evidence-v${version}.json`))
+          ).equals(
+            await readFile(
+              resolve(
+                rootFor("runner-protocol"),
+                "proto",
+                folder,
+                "schema.json",
+              ),
+            ),
+          ),
+          "OpenAPI evidence mirror differs from independently archived runner authority",
+        );
+        invariant(
+          evidence.$id ===
+            `https://provenance.dev/schemas/execution-evidence/v${version}` &&
+            evidence.additionalProperties === false &&
+            evidence.properties?.schemaVersion?.const ===
+              `provenance.execution-evidence/v${version}`,
+          "released execution evidence schema missing or invalid",
+        );
+        exactObject(
+          specification.components.schemas.CandidateExecutionTerminalEvidence
+            .properties.document.oneOf[version - 1],
+          { $ref: `./execution-evidence-v${version}.json` },
+          "released execution evidence reference differs",
+        );
+      }
+    }
     const inventory = await readJson(
       resolve(root, "operation-inventory.json"),
       "released OpenAPI inventory",
