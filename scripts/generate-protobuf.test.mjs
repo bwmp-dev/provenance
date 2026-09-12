@@ -50,7 +50,7 @@ test("generation uses only local plugins with unchanged options and exact pins",
   );
   assert.equal(
     manifest.scripts.generate,
-    "node scripts/generate-protobuf.mjs && pnpm --filter @bwmp-dev/api-client generate",
+    "node scripts/sync-execution-evidence-openapi.mjs && node scripts/generate-protobuf.mjs && pnpm --filter @bwmp-dev/api-client generate",
   );
 });
 
