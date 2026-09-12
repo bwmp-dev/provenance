@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforeReleaseRejection } from "./release-rejection-compat.mjs";
 
 const doc = parse(
   await readFile(new URL("provenance.v1.yaml", import.meta.url), "utf8"),
@@ -82,7 +83,7 @@ const value = {
 };
 
 test("execution details preserve the entire released alpha26 OpenAPI", () => {
-  const legacy = structuredClone(doc);
+  const legacy = beforeReleaseRejection(doc);
   delete legacy.paths[route];
   for (const name of schemas) delete legacy.components.schemas[name];
   assert.equal(

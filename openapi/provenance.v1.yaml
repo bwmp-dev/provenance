@@ -2166,6 +2166,98 @@ paths:
           $ref: "#/components/responses/IdempotencyConflict"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/release-candidates/{candidateId}/reject:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    post:
+      operationId: rejectReleaseCandidate
+      summary: Record an authorized immutable rejection of a release candidate
+      description: >-
+        IFC-029; release-rejection-semantics.md is normative. Requires current release
+        approval capability in the exact candidate organization/project. Authentication
+        and resource authorization precede query/body/idempotency validation and replay.
+        Actions submission grants are refused. Accept no query parameters, exactly one
+        Idempotency-Key and at most 32768 UTF-8 JSON request bytes. An awaiting_approval
+        candidate transitions atomically to the compatible coarse failed state with
+        an immutable rejection, audit, legacy failed event and outbox rejection update.
+        This is not cancellation or plugin/infrastructure failure. Existing matrix,
+        input and terminal evidence identities are unchanged. Only identical successful
+        key/request replay returns the original rejection. Changed-request key reuse
+        or another decision against a terminal candidate returns a conflict. A rejection
+        cannot authorize retry, issuance or publication. Audit reasons never enter the
+        response or workflow history. All responses are private/no-store closed shapes.
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/CandidateDecision"
+      responses:
+        "200":
+          description: Original immutable rejection, at most 4096 UTF-8 JSON bytes.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseCandidateRejection"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "409":
+          $ref: "#/components/responses/ReleaseCandidateRejectionConflict"
+        default:
+          $ref: "#/components/responses/PrivateProblem"
+  /v1/release-candidates/{candidateId}/rejection:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    get:
+      operationId: getReleaseCandidateRejection
+      summary: Read a private immutable release rejection
+      description: >-
+        IFC-029; release-rejection-semantics.md is normative. Requires private-result
+        capability in the exact candidate organization/project. Authentication and
+        resource authorization precede query validation; no query fields are accepted.
+        Actions submission grants are refused. Missing or hidden candidates and an
+        authorized candidate with no rejection return the same private 404 shape.
+        A missing rejection is not approval or eligibility. Corrupt or inconsistent
+        retained decisions are unavailable, never absent. This explicit rejection
+        distinguishes human disposition from coarse legacy failed candidate/event
+        states without changing any released enum. Raw audit reasons, actor details,
+        logs and credentials are excluded. No successful execution, independent trust,
+        retry, issuance or publication claim is made. All responses are private/no-store.
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Original immutable rejection, at most 4096 UTF-8 JSON bytes.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseCandidateRejection"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        default:
+          $ref: "#/components/responses/PrivateProblem"
   /v1/release-candidates/{candidateId}/cancel:
     parameters:
       - $ref: "#/components/parameters/CandidateId"
@@ -4495,6 +4587,15 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
+    ReleaseCandidateRejectionConflict:
+      description: Idempotency request conflict or candidate decision state conflict.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/PrivateNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/PrivateProblemDetails"
     PrivateProblem:
       description: Private request failed without a more specific response.
       headers:
@@ -7883,6 +7984,20 @@ components:
         page:
           $ref: "#/components/schemas/PageInfo"
       x-provenance-max-json-bytes: 262144
+    ReleaseCandidateRejection:
+      type: object
+      additionalProperties: false
+      required:
+        [decisionId, candidateId, projectId, generation, decision, rejectedAt]
+      properties:
+        decisionId: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        generation: { type: integer, minimum: 0, maximum: 9007199254740991 }
+        decision: { type: string, enum: [rejected] }
+        rejectedAt:
+          $ref: "#/components/schemas/LogTimestamp"
+      x-provenance-max-json-bytes: 4096
     CandidateInputs:
       type: object
       additionalProperties: false

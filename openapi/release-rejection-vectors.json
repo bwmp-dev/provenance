@@ -1,0 +1,57 @@
+{
+  "contract": "IFC-029",
+  "runtimeEvidence": false,
+  "rejection": {
+    "decisionId": "10000000-0000-4000-8000-000000000001",
+    "candidateId": "20000000-0000-4000-8000-000000000001",
+    "projectId": "30000000-0000-4000-8000-000000000001",
+    "generation": 0,
+    "decision": "rejected",
+    "rejectedAt": "2026-09-12T00:00:00.123456Z"
+  },
+  "cases": [
+    { "id": "initial-awaiting-approval", "status": 200, "writes": 1 },
+    { "id": "identical-key-request-replay", "status": 200, "writes": 0 },
+    {
+      "id": "changed-key-request",
+      "status": 409,
+      "code": "idempotency_key_conflict"
+    },
+    {
+      "id": "new-key-already-rejected",
+      "status": 409,
+      "code": "release_candidate_state_conflict"
+    },
+    {
+      "id": "new-key-plugin-failed",
+      "status": 409,
+      "code": "release_candidate_state_conflict"
+    },
+    {
+      "id": "approval-won-race",
+      "status": 409,
+      "code": "release_candidate_state_conflict"
+    },
+    {
+      "id": "hidden-candidate",
+      "status": 404,
+      "code": "private_log_not_found"
+    },
+    {
+      "id": "missing-candidate",
+      "status": 404,
+      "code": "private_log_not_found"
+    },
+    {
+      "id": "read-without-rejection",
+      "status": 404,
+      "code": "private_log_not_found"
+    },
+    { "id": "revoked-session-replay", "status": 401 },
+    { "id": "missing-approval-capability", "status": 403 },
+    { "id": "duplicate-query", "status": 400 },
+    { "id": "duplicate-json-field", "status": 400 },
+    { "id": "oversized-body", "status": 413 },
+    { "id": "inconsistent-retained-rejection", "status": 503 }
+  ]
+}

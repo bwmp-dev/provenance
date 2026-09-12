@@ -17,6 +17,7 @@ import "./publication-result.test.mjs";
 import "./candidate-matrix.test.mjs";
 import "./candidate-inputs.test.mjs";
 import "./execution-details.test.mjs";
+import "./release-rejection.test.mjs";
 
 import { parse } from "yaml";
 
@@ -738,6 +739,8 @@ test("every operation exposes structured failure responses", () => {
               "listReleaseCandidateMatrix",
               "getReleaseCandidateInputs",
               "getReleaseCandidateExecutionDetails",
+              "rejectReleaseCandidate",
+              "getReleaseCandidateRejection",
             ].includes(operation.operationId)
           ? "#/components/responses/PrivateProblem"
           : githubAuthOperations.has(operation.operationId)
@@ -810,6 +813,7 @@ test("every mutation has deterministic idempotency semantics", () => {
     if (
       deviceOperations.has(operation.operationId) ||
       operation.operationId === "createGitHubActionsGrant" ||
+      operation.operationId === "rejectReleaseCandidate" ||
       operation.operationId.includes("Alpha")
     ) {
       assert.equal(parameter.required, true);
