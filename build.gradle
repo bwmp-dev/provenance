@@ -133,7 +133,7 @@ project(":paper-probe") {
     configurations.compileClasspath.attributes.attribute(
         org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 21)
 
-    def paperApiVersion = "1.20.6-R0.1-SNAPSHOT"
+    def paperApiVersion = "26.2.build.121-stable"
     def paperApiArtifact = configurations.create("paperApiArtifact") {
         canBeConsumed = false
         transitive = false
