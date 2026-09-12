@@ -2373,6 +2373,57 @@ paths:
           $ref: "#/components/responses/PrivateLogNotFound"
         default:
           $ref: "#/components/responses/PrivateProblem"
+  /v1/release-candidates/{candidateId}/executions/{executionId}/details:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+      - $ref: "#/components/parameters/ExecutionId"
+    get:
+      operationId: getReleaseCandidateExecutionDetails
+      summary: Read private execution timing, failure and retained terminal evidence
+      description: >-
+        Read-only exact stored execution identity and timing, structured failure
+        codes and retained versioned terminal observations. Authorize the candidate
+        and execution organization/project before validating query parameters; this
+        operation accepts none and refuses Actions submission grants. Hidden and
+        nonexistent resources return the same private 404. Earlier attempts remain
+        readable and must not be substituted by the latest attempt. Duration is the
+        nonnegative whole milliseconds between stored startedAt and completedAt,
+        or null when either is missing; never derive it from updatedAt or a client
+        clock. Failure is null when not applicable or not recorded; missing failure
+        fields remain null rather than inferred from logs. Terminal evidence is
+        null only when no retained evidence exists. Retained evidence must be
+        revalidated against its canonical digest, immutable dispatched job and
+        accepted lease/message binding, including candidate and execution identities.
+        Corrupt or inconsistent retained records fail closed, never become empty or
+        successful evidence. Partial observations remain partial. Runtime fields
+        are runner-reported facts, not independently measured hosted trust.
+        Raw logs, commands, assertion patterns, configuration, provider metadata,
+        failure summaries, credentials and storage locations are excluded.
+        No publication, aggregate matrix success or compatibility claim is made.
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Complete private projection bounded to 128 KiB JSON.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateExecutionDetails"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        default:
+          $ref: "#/components/responses/PrivateProblem"
   /v1/release-candidates/{candidateId}/executions/{executionId}/logs:
     parameters:
       - $ref: "#/components/parameters/CandidateId"
@@ -8055,6 +8106,96 @@ components:
         sha256:
           type: string
           pattern: "^[a-f0-9]{64}$"
+    CandidateExecutionDetails:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          candidateId,
+          projectId,
+          matrixEntryId,
+          executionId,
+          attemptNumber,
+          state,
+          timing,
+          failure,
+          terminalEvidence,
+        ]
+      properties:
+        candidateId: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        matrixEntryId: { type: string, format: uuid }
+        executionId: { type: string, format: uuid }
+        attemptNumber: { type: integer, minimum: 1, maximum: 2147483647 }
+        state:
+          $ref: "#/components/schemas/ExecutionState"
+        timing:
+          $ref: "#/components/schemas/CandidateExecutionTiming"
+        failure:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/CandidateExecutionFailure"
+        terminalEvidence:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/CandidateExecutionTerminalEvidence"
+    CandidateExecutionTiming:
+      type: object
+      additionalProperties: false
+      required: [startedAt, completedAt, durationMs]
+      properties:
+        startedAt:
+          anyOf:
+            - $ref: "#/components/schemas/LogTimestamp"
+            - type: "null"
+        completedAt:
+          anyOf:
+            - $ref: "#/components/schemas/LogTimestamp"
+            - type: "null"
+        durationMs:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 9007199254740991
+          description: Floor of stored completion minus start in milliseconds; null if either timestamp is absent.
+    CandidateExecutionFailure:
+      type: object
+      additionalProperties: false
+      required: [category, stage, code, retryable]
+      properties:
+        category:
+          type: [string, "null"]
+          enum: [plugin, infrastructure, policy, null]
+        stage:
+          type: [string, "null"]
+          enum:
+            [
+              lease,
+              preparation,
+              startup,
+              execution,
+              cleanup,
+              result-upload,
+              null,
+            ]
+        code:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 64
+          pattern: '^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
+        retryable: { type: [boolean, "null"] }
+    CandidateExecutionTerminalEvidence:
+      type: object
+      additionalProperties: false
+      required: [sha256, recordedAt, document]
+      properties:
+        sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+        recordedAt:
+          $ref: "#/components/schemas/LogTimestamp"
+        document:
+          description: Exact validated retained v1 or v2 observation document; runtime fields remain reported, not independently measured.
+          oneOf:
+            - $ref: "./execution-evidence-v1.json"
+            - $ref: "./execution-evidence-v2.json"
     ExecutionLogDescriptor:
       type: object
       additionalProperties: false

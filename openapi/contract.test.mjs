@@ -16,6 +16,7 @@ import "./actions-grant.test.mjs";
 import "./publication-result.test.mjs";
 import "./candidate-matrix.test.mjs";
 import "./candidate-inputs.test.mjs";
+import "./execution-details.test.mjs";
 
 import { parse } from "yaml";
 
@@ -736,6 +737,7 @@ test("every operation exposes structured failure responses", () => {
             [
               "listReleaseCandidateMatrix",
               "getReleaseCandidateInputs",
+              "getReleaseCandidateExecutionDetails",
             ].includes(operation.operationId)
           ? "#/components/responses/PrivateProblem"
           : githubAuthOperations.has(operation.operationId)
