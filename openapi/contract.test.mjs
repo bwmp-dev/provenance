@@ -1,7 +1,10 @@
 import "./hosted-runner-updates.test.mjs";
 import "./hosted-catalog-reconciliation.test.mjs";
 import "./automatic-paper-runtime.test.mjs";
-import { beforeAlphaAdmission } from "./alpha-compat.mjs";
+import {
+  beforeAlphaAdmission,
+  beforeFailureClassification,
+} from "./alpha-compat.mjs";
 import "./alpha-administration.test.mjs";
 import assert from "node:assert/strict";
 import { createHash, createPublicKey, verify } from "node:crypto";
@@ -137,7 +140,13 @@ test("IFC018 leaves every released alpha14 path and component unchanged", async 
   for (const [kind, entries] of Object.entries(baseline.components)) {
     for (const [name, digest] of Object.entries(entries))
       assert.equal(
-        hash(document.components[kind][name]),
+        hash(
+          beforeFailureClassification(
+            kind,
+            name,
+            document.components[kind][name],
+          ),
+        ),
         digest,
         `${kind}/${name}`,
       );
@@ -1600,14 +1609,24 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
               ...operationById.get(name),
               operation: deviceInitiationBaseline.post,
             }
-          : name === "createSession" || name === "createProject"
+          : name === "listReleaseCandidateExecutions"
             ? {
                 ...operationById.get(name),
                 operation: beforeAlphaAdmission(operationById.get(name).path, {
-                  post: operationById.get(name).operation,
-                }).post,
+                  get: operationById.get(name).operation,
+                }).get,
               }
-            : operationById.get(name),
+            : name === "createSession" || name === "createProject"
+              ? {
+                  ...operationById.get(name),
+                  operation: beforeAlphaAdmission(
+                    operationById.get(name).path,
+                    {
+                      post: operationById.get(name).operation,
+                    },
+                  ).post,
+                }
+              : operationById.get(name),
       ]),
     ),
     alpha5Compatibility.operations.sha256,
@@ -1619,7 +1638,11 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
       compatibilityHash(
         snapshot.names.map((name) => [
           name,
-          document.components[category][name],
+          beforeFailureClassification(
+            category,
+            name,
+            document.components[category][name],
+          ),
         ]),
       ),
       snapshot.sha256,
@@ -1701,6 +1724,50 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
   );
 });
 
+test("IFC025 preserves legacy descriptors and bounds opt-in classification", () => {
+  const ajv = new Ajv2020({ strict: false });
+  addFormats(ajv);
+  ajv.addSchema({
+    $id: "failure-classification",
+    components: document.components,
+  });
+  const validate = ajv.compile({
+    $ref: "failure-classification#/components/schemas/ExecutionLogDescriptor",
+  });
+  const legacy = {
+    candidateId: "10000000-0000-4000-8000-000000000001",
+    matrixEntryId: "20000000-0000-4000-8000-000000000001",
+    executionId: "30000000-0000-4000-8000-000000000001",
+    attemptId: "40000000-0000-4000-8000-000000000001",
+    attemptNumber: 1,
+    state: "failed",
+    liveState: "terminal",
+    completeLog: { state: "pending", retryAfterSeconds: 5 },
+    createdAt: "2026-09-12T00:00:00Z",
+    updatedAt: "2026-09-12T00:00:01Z",
+  };
+  assert.equal(validate(legacy), true, JSON.stringify(validate.errors));
+  for (const failureCategory of ["plugin", "infrastructure", "policy", null]) {
+    assert.equal(validate({ ...legacy, failureCategory }), true);
+  }
+  for (const failureCategory of [
+    "",
+    "unknown",
+    "succeeded",
+    1,
+    {},
+    ["plugin"],
+  ]) {
+    assert.equal(validate({ ...legacy, failureCategory }), false);
+  }
+  for (const key of ["failureSummary", "failureCode", "details", "secret"]) {
+    assert.equal(
+      validate({ ...legacy, failureCategory: "plugin", [key]: "private" }),
+      false,
+    );
+  }
+});
+
 test("IFC-010 exposes only bounded candidate execution log operations", () => {
   const executionList = operation("listReleaseCandidateExecutions");
   const liveLogs = operation("readExecutionLogs");
@@ -1726,8 +1793,14 @@ test("IFC-010 exposes only bounded candidate execution log operations", () => {
   assert.match(executionList.description, /same HTTP 404 response/i);
   assert.deepEqual(
     executionList.parameters.map(resolveParameter).map(({ name }) => name),
-    ["cursor", "limit"],
+    ["cursor", "limit", "includeFailureClassification"],
   );
+  const flag = executionList.parameters
+    .map(resolveParameter)
+    .find(({ name }) => name === "includeFailureClassification");
+  assert.equal(flag.required, false);
+  assert.deepEqual(flag.schema, { type: "boolean", default: false });
+  assert.match(flag.description, /Absent\/false preserves the legacy/);
   assert.equal(
     executionList.responses["200"].content["application/json"].schema.$ref,
     "#/components/schemas/ExecutionLogDescriptorPage",
@@ -1735,6 +1808,13 @@ test("IFC-010 exposes only bounded candidate execution log operations", () => {
 
   const descriptor = document.components.schemas.ExecutionLogDescriptor;
   assert.equal(descriptor.additionalProperties, false);
+  assert.deepEqual(descriptor.properties.failureCategory.enum, [
+    "plugin",
+    "infrastructure",
+    "policy",
+    null,
+  ]);
+  assert.equal(descriptor.required.includes("failureCategory"), false);
   assert.deepEqual(descriptor.required, [
     "candidateId",
     "matrixEntryId",
