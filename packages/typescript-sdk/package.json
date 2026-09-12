@@ -23,7 +23,7 @@
     "@bwmp-dev/verification": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=24.19.0 <25"
