@@ -1,6 +1,18 @@
 [
   {
     "method": "post",
+    "operationId": "createProjectConfigSnapshotV2",
+    "path": "/v2/projects/{projectId}/config-snapshots",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "getReleaseCandidateInputsV2",
+    "path": "/v2/release-candidates/{candidateId}/inputs",
+    "tag": "release-candidates"
+  },
+  {
+    "method": "post",
     "operationId": "rejectReleaseCandidate",
     "path": "/v1/release-candidates/{candidateId}/reject",
     "tag": "release-candidates"
