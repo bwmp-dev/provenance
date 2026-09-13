@@ -27,6 +27,25 @@ final class TestSecretDeliveryPluginTest {
     assertEquals(List.of(SYNTHETIC), output);
   }
 
+  @Test void commandCaptureDoesNotReplaceActualLogEmission() throws Exception {
+    List<String> command = new ArrayList<>();
+    List<String> logs = new ArrayList<>();
+    TestSecretDeliveryPlugin.emit(value(SYNTHETIC), command::add, logs::add);
+    List<String> expected = List.of("PROVENANCE_SECRET_FIXTURE_VALUE=" + SYNTHETIC,
+        "PROVENANCE_SECRET_FIXTURE_OK");
+    assertEquals(expected, command);
+    assertEquals(expected, logs);
+  }
+
+  @Test void rejectedInputReachesNeitherCarrier() throws Exception {
+    List<String> command = new ArrayList<>();
+    List<String> logs = new ArrayList<>();
+    assertThrows(IllegalStateException.class,
+        () -> TestSecretDeliveryPlugin.emit(value("not-synthetic"), command::add, logs::add));
+    assertTrue(command.isEmpty());
+    assertTrue(logs.isEmpty());
+  }
+
   @Test void refusesMissingDirectoryAndSymlinkWithoutOutput() throws Exception {
     Path link = directory.resolve("link");
     Files.createSymbolicLink(link, value(SYNTHETIC));

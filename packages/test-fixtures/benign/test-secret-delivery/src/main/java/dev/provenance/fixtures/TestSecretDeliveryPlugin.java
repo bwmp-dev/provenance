@@ -26,11 +26,19 @@ public final class TestSecretDeliveryPlugin extends JavaPlugin {
 
   @Override
   public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-    inspect(SECRET, value -> {
-      sender.sendMessage("PROVENANCE_SECRET_FIXTURE_VALUE=" + value);
-      sender.sendMessage("PROVENANCE_SECRET_FIXTURE_OK");
-    });
+    emit(SECRET, sender::sendMessage, getLogger()::info);
     return true;
+  }
+
+  static void emit(Path path, Consumer<String> commandOutput, Consumer<String> logOutput) {
+    inspect(path, value -> {
+      commandOutput.accept("PROVENANCE_SECRET_FIXTURE_VALUE=" + value);
+      commandOutput.accept("PROVENANCE_SECRET_FIXTURE_OK");
+      // Paper's probe captures command senders without forwarding their text
+      // to stdout/stderr. Exercise actual log redaction independently too.
+      logOutput.accept("PROVENANCE_SECRET_FIXTURE_VALUE=" + value);
+      logOutput.accept("PROVENANCE_SECRET_FIXTURE_OK");
+    });
   }
 
   static void inspect(Path path, Consumer<String> output) {
