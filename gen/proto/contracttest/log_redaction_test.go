@@ -2,6 +2,7 @@ package contracttest
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 
 	runnerv1 "github.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1"
@@ -29,7 +30,8 @@ func TestCompleteLogRedactionMetadataIsAdditive(t *testing.T) {
 		t.Fatal("terminal redaction fact lost in wire roundtrip")
 	}
 	raw, err := protojson.Marshal(&decoded)
-	if err != nil || !bytes.Contains(raw, []byte(`"redacted":true`)) {
+	var document map[string]any
+	if err != nil || json.Unmarshal(raw, &document) != nil || document["redacted"] != true {
 		t.Fatal("durable JSON carrier lost redaction fact")
 	}
 	for number := protoreflect.FieldNumber(5); number <= 9; number++ {
