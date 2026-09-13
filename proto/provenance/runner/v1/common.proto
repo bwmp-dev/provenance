@@ -442,6 +442,11 @@ message LogObject {
   string content_type = 4;
 
   reserved 5 to 9;
+
+  // True only when the trusted collector actually redacted retained log bytes.
+  // A literal customer-supplied marker is not evidence of redaction. Legacy
+  // producers omit this metadata; false does not prove secret-free output.
+  bool redacted = 10;
 }
 
 message StructuredResult {

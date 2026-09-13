@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "3be3d991f887564ac85239a0fcde8d530a920fc44b1c12e58ad1faed482d5f2e",
+  "descriptorSha256": "c1946178e5d760b424c2b69c1108bcbaa05a8352dd6d53360ec61cd3ed94fc72",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
