@@ -1618,6 +1618,59 @@ paths:
           $ref: "#/components/responses/IdempotencyConflict"
         default:
           $ref: "#/components/responses/Problem"
+  /v2/projects/{projectId}/config-snapshots:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    post:
+      operationId: createProjectConfigSnapshotV2
+      summary: Validate and persist an explicit configuration-v2 snapshot
+      description: >-
+        See network-config-v2-semantics.md. Uses the same scoped configuration-write
+        capability as the v1 operation. Authenticate and authorize the exact project,
+        source and caller before validation or replay. No ambient cookie authority.
+        The explicit version, raw YAML, canonical normalized JSON and hash must agree.
+        Idempotent replay preserves the immutable snapshot; changed content conflicts.
+        Creation may be disabled independently; schema validity does not grant network
+        access, activate runner dispatch or substitute authenticated policy sources.
+        Existing v1 snapshots and response schemas remain unchanged. Raw configuration,
+        credentials, authority inputs and storage locations are excluded from responses.
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectConfigSnapshotRequestV2"
+      responses:
+        "201":
+          description: Immutable configuration-v2 snapshot created or identically replayed.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectConfigSnapshotV2"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "409":
+          $ref: "#/components/responses/ConfigSnapshotV2Conflict"
+        "422":
+          $ref: "#/components/responses/PrivateProblem"
+        "503":
+          $ref: "#/components/responses/PrivateProblem"
+        default:
+          $ref: "#/components/responses/PrivateProblem"
   /v1/projects/{projectId}/config-snapshots:
     parameters:
       - $ref: "#/components/parameters/ProjectId"
@@ -2323,6 +2376,50 @@ paths:
                 type: string
         default:
           $ref: "#/components/responses/Problem"
+  /v2/release-candidates/{candidateId}/inputs:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    get:
+      operationId: getReleaseCandidateInputsV2
+      summary: Read immutable private candidate input identities with explicit configuration versions
+      description: >-
+        See network-config-v2-semantics.md. Same immutable bounded private input
+        projection and private-result capability as v1, with configuration version
+        1 or 2 explicitly preserved. Authentication and exact organization/project
+        visibility precede version or query validation; this operation accepts no
+        query parameters. Missing and hidden resources share the private 404.
+        Actions submission grants are refused. Never relabel a v2 snapshot as v1,
+        substitute candidate and snapshot source identities, re-resolve dependencies,
+        or infer execution/publication success. Null dependency resolution means
+        unavailable, not an empty resolved set. Malformed, inconsistent or oversized
+        records fail closed. Raw configuration, logs, changelogs, provider metadata,
+        credentials, object keys and storage URLs are excluded. The v1 route remains
+        version-1-only; unsupported v2 input reads there return private 404 after
+        authorization, never a downgraded descriptor.
+      tags: [release-candidates]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Complete private identity projection bounded to 128 KiB JSON.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateInputsV2"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        default:
+          $ref: "#/components/responses/PrivateProblem"
   /v1/release-candidates/{candidateId}/inputs:
     parameters:
       - $ref: "#/components/parameters/CandidateId"
@@ -4587,6 +4684,15 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
+    ConfigSnapshotV2Conflict:
+      description: Idempotency key or immutable configuration source identity conflicts with retained content.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/PrivateNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/PrivateProblemDetails"
     ReleaseCandidateRejectionConflict:
       description: Idempotency request conflict or candidate decision state conflict.
       headers:
@@ -7621,6 +7727,138 @@ components:
             $ref: "#/components/schemas/Project"
         page:
           $ref: "#/components/schemas/PageInfo"
+    CreateProjectConfigSnapshotRequestV2:
+      type: object
+      additionalProperties: false
+      required:
+        - sourceCommit
+        - rawYaml
+        - normalizedJson
+        - schemaVersion
+        - configurationHash
+      properties:
+        sourceCommit:
+          type: string
+          pattern: ^(?:[a-f0-9]{40}|[a-f0-9]{64})$
+        sourceRef:
+          type: string
+          minLength: 1
+          maxLength: 512
+          pattern: ^[^\r\n\x00]+$
+        rawYaml:
+          type: string
+          minLength: 1
+          maxLength: 1048576
+        normalizedJson:
+          type: string
+          minLength: 2
+          maxLength: 1048576
+          contentMediaType: application/json
+          description: Compact canonical UTF-8 JSON text whose SHA-256 is configurationHash.
+        schemaVersion:
+          type: integer
+          const: 2
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+      description: Explicit configuration v2. Raw YAML, normalized JSON, provenance.dev/v2 and configurationHash must agree under the offline authoritative v2 validator.
+    ProjectConfigSnapshotV2:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - projectId
+        - sourceCommit
+        - schemaVersion
+        - configurationHash
+        - createdAt
+      properties:
+        id:
+          $ref: "#/components/schemas/StableId"
+        projectId:
+          $ref: "#/components/schemas/StableId"
+        sourceCommit:
+          type: string
+          pattern: ^(?:[a-f0-9]{40}|[a-f0-9]{64})$
+        sourceRef:
+          type: string
+          minLength: 1
+          maxLength: 512
+        schemaVersion:
+          type: integer
+          const: 2
+        configurationHash:
+          $ref: "#/components/schemas/Sha256Digest"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+    CandidateInputsV2:
+      type: object
+      additionalProperties: false
+      required:
+        - candidateId
+        - projectId
+        - sourceCommit
+        - sourceRef
+        - artifact
+        - configuration
+        - dependencyResolution
+      properties:
+        candidateId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        sourceCommit:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Exact stored source identity; not a claim of a verified GitHub commit.
+        sourceRef:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 512
+        artifact:
+          $ref: "#/components/schemas/CandidateInputArtifact"
+        configuration:
+          $ref: "#/components/schemas/CandidateInputConfigurationV2"
+        dependencyResolution:
+          oneOf:
+            - $ref: "#/components/schemas/CandidateDependencyResolution"
+            - type: "null"
+      x-provenance-max-json-bytes: 131072
+    CandidateInputConfigurationV2:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sha256
+        - schemaVersion
+        - sourceCommit
+        - sourceRef
+      properties:
+        id:
+          type: string
+          format: uuid
+        sha256:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        schemaVersion:
+          type: integer
+          enum:
+            - 1
+            - 2
+        sourceCommit:
+          type: string
+          minLength: 1
+          maxLength: 128
+        sourceRef:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 512
     CreateProjectConfigSnapshotRequest:
       type: object
       additionalProperties: false

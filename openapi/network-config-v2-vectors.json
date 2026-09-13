@@ -1,0 +1,41 @@
+{
+  "contract": "IFC-030-http",
+  "runtimeEvidence": false,
+  "request": {
+    "sourceCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceRef": "refs/heads/main",
+    "rawYaml": "{\"apiVersion\":\"provenance.dev/v2\",\"artifact\":{\"id\":\"example-plugin\",\"path\":\"build/libs/example-plugin.jar\",\"version\":\"1.4.0-rc.1\"},\"dependencies\":[{\"id\":\"luckperms\",\"projectId\":\"Vebnzrzj\",\"provider\":\"modrinth\",\"required\":true,\"sha256\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"versionId\":\"7deKzE7F\"},{\"artifactId\":\"shared-library\",\"id\":\"shared-library\",\"provider\":\"organization-upload\",\"required\":false,\"sha256\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"version\":\"2.3.1\"}],\"network\":{\"maximumBytesPerSecond\":65536,\"maximumConnections\":8,\"mode\":\"allowlist\",\"permissions\":[{\"hostname\":\"a.example\",\"port\":443,\"transport\":\"tcp\"},{\"hostname\":\"b.example\",\"port\":8443,\"transport\":\"udp\"}]},\"paper\":{\"gatePolicy\":{\"informationalFailure\":\"report\",\"infrastructureFailure\":\"retry\",\"maxInfrastructureRetries\":2,\"requiredFailure\":\"block\"},\"matrix\":[{\"id\":\"paper-1.20.6\",\"javaVersion\":21,\"minecraftVersion\":\"1.20.6\",\"paperBuild\":151,\"policy\":\"required\"},{\"id\":\"paper-1.21.4\",\"javaVersion\":21,\"minecraftVersion\":\"1.21.4\",\"paperBuild\":232,\"policy\":\"informational\"}],\"recommendations\":{\"apiFloor\":\"1.20.6\",\"enabled\":true,\"newVersions\":\"informational\"}},\"project\":{\"id\":\"example-plugin\",\"name\":\"Example Plugin\"},\"release\":{\"mode\":\"manual\",\"targets\":[\"modrinth-production\"]},\"resources\":{\"cpuCores\":2,\"diskMiB\":4096,\"logBytes\":10485760,\"memoryMiB\":2048,\"processes\":256,\"wallTimeoutSeconds\":900},\"tests\":{\"console\":[{\"assertions\":[{\"match\":\"present\",\"minimumOccurrences\":1,\"operator\":\"contains\",\"pattern\":\"ExamplePlugin 1.4.0-rc.1\",\"stream\":\"combined\"},{\"match\":\"absent\",\"operator\":\"regex\",\"pattern\":\"Exception|ERROR\",\"stream\":\"stderr\"}],\"command\":\"example version\",\"id\":\"version-command\",\"timeoutSeconds\":10}],\"startup\":{\"requireCleanShutdown\":true,\"requirePluginEnabled\":true,\"shutdownTimeoutSeconds\":30,\"stabilizationSeconds\":10,\"timeoutSeconds\":120}}}",
+    "normalizedJson": "{\"apiVersion\":\"provenance.dev/v2\",\"artifact\":{\"id\":\"example-plugin\",\"path\":\"build/libs/example-plugin.jar\",\"version\":\"1.4.0-rc.1\"},\"dependencies\":[{\"id\":\"luckperms\",\"projectId\":\"Vebnzrzj\",\"provider\":\"modrinth\",\"required\":true,\"sha256\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"versionId\":\"7deKzE7F\"},{\"artifactId\":\"shared-library\",\"id\":\"shared-library\",\"provider\":\"organization-upload\",\"required\":false,\"sha256\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"version\":\"2.3.1\"}],\"network\":{\"maximumBytesPerSecond\":65536,\"maximumConnections\":8,\"mode\":\"allowlist\",\"permissions\":[{\"hostname\":\"a.example\",\"port\":443,\"transport\":\"tcp\"},{\"hostname\":\"b.example\",\"port\":8443,\"transport\":\"udp\"}]},\"paper\":{\"gatePolicy\":{\"informationalFailure\":\"report\",\"infrastructureFailure\":\"retry\",\"maxInfrastructureRetries\":2,\"requiredFailure\":\"block\"},\"matrix\":[{\"id\":\"paper-1.20.6\",\"javaVersion\":21,\"minecraftVersion\":\"1.20.6\",\"paperBuild\":151,\"policy\":\"required\"},{\"id\":\"paper-1.21.4\",\"javaVersion\":21,\"minecraftVersion\":\"1.21.4\",\"paperBuild\":232,\"policy\":\"informational\"}],\"recommendations\":{\"apiFloor\":\"1.20.6\",\"enabled\":true,\"newVersions\":\"informational\"}},\"project\":{\"id\":\"example-plugin\",\"name\":\"Example Plugin\"},\"release\":{\"mode\":\"manual\",\"targets\":[\"modrinth-production\"]},\"resources\":{\"cpuCores\":2,\"diskMiB\":4096,\"logBytes\":10485760,\"memoryMiB\":2048,\"processes\":256,\"wallTimeoutSeconds\":900},\"tests\":{\"console\":[{\"assertions\":[{\"match\":\"present\",\"minimumOccurrences\":1,\"operator\":\"contains\",\"pattern\":\"ExamplePlugin 1.4.0-rc.1\",\"stream\":\"combined\"},{\"match\":\"absent\",\"operator\":\"regex\",\"pattern\":\"Exception|ERROR\",\"stream\":\"stderr\"}],\"command\":\"example version\",\"id\":\"version-command\",\"timeoutSeconds\":10}],\"startup\":{\"requireCleanShutdown\":true,\"requirePluginEnabled\":true,\"shutdownTimeoutSeconds\":30,\"stabilizationSeconds\":10,\"timeoutSeconds\":120}}}",
+    "schemaVersion": 2,
+    "configurationHash": "c6ee2ea56d077aa6de4188a4cc1b0275c2ee1d04cee4e0771b7406eb3771fec6"
+  },
+  "snapshot": {
+    "id": "00000000-0000-4000-8000-000000000004",
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "sourceCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceRef": "refs/heads/main",
+    "schemaVersion": 2,
+    "configurationHash": "c6ee2ea56d077aa6de4188a4cc1b0275c2ee1d04cee4e0771b7406eb3771fec6",
+    "createdAt": "2026-09-13T07:00:00Z"
+  },
+  "inputs": {
+    "candidateId": "00000000-0000-4000-8000-000000000001",
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "sourceCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceRef": "refs/heads/main",
+    "artifact": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "fileName": "plugin.jar",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sizeBytes": 12
+    },
+    "configuration": {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "sha256": "c6ee2ea56d077aa6de4188a4cc1b0275c2ee1d04cee4e0771b7406eb3771fec6",
+      "schemaVersion": 2,
+      "sourceCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceRef": "refs/heads/main"
+    },
+    "dependencyResolution": null
+  }
+}

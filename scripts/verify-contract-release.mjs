@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { verifyRejectionConsumer } from "./release-rejection-consumer.mjs";
+import { verifyNetworkConfigV2Consumer } from "./release-network-config-consumer.mjs";
 import {
   mkdir,
   mkdtemp,
@@ -1356,6 +1357,7 @@ func TestReleasedVerifier(t *testing.T) {
 
 async function verifyConsumers(bundleRoots, version) {
   let hasReleasedRejection = false;
+  let hasReleasedNetworkConfigV2 = false;
   const rootFor = (bundle) => {
     const root = bundleRoots.get(bundle);
     invariant(root, `verified consumer bundle is missing: ${bundle}`);
@@ -1979,6 +1981,23 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
       );
       hasReleasedRejection = true;
     }
+    if (specification.paths?.["/v2/projects/{projectId}/config-snapshots"]) {
+      const configuration = await import(
+        pathToFileURL(
+          resolve(rootFor("config-schema"), "package/dist/index.js"),
+        )
+      );
+      verifyNetworkConfigV2Consumer(
+        specification,
+        await readFile(resolve(root, "network-config-v2-semantics.md"), "utf8"),
+        await readJson(
+          resolve(root, "network-config-v2-vectors.json"),
+          "released network configuration v2 vectors",
+        ),
+        configuration,
+      );
+      hasReleasedNetworkConfigV2 = true;
+    }
     if (
       specification.paths?.[
         "/v1/release-candidates/{candidateId}/executions/{executionId}/details"
@@ -2095,6 +2114,25 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
         "declare const publication: Publication;",
         'const knowledge: "not_observed" | "uncertain" | "known" | "confirmed" | "conflict" | undefined = publication.composition?.targets[0]?.remoteKnowledge;',
         "void knowledge;",
+        ...(hasReleasedNetworkConfigV2
+          ? [
+              'type SnapshotV2 = paths["/v2/projects/{projectId}/config-snapshots"]["post"]["requestBody"]["content"]["application/json"];',
+              "declare const snapshotV2: SnapshotV2;",
+              "const configurationVersion: 2 = snapshotV2.schemaVersion;",
+              "void configurationVersion;",
+              "// @ts-expect-error version-2 submission cannot be relabelled as 1",
+              "const legacyVersion: 1 = snapshotV2.schemaVersion;",
+              "void legacyVersion;",
+              'void client.POST("/v2/projects/{projectId}/config-snapshots", { params: { path: { projectId: "11111111-1111-4111-8111-111111111111" }, header: { "Idempotency-Key": "fixture-v2-snapshot" } }, body: snapshotV2 });',
+              'void client.GET("/v2/release-candidates/{candidateId}/inputs", { params: { path: { candidateId: "11111111-1111-4111-8111-111111111111" } } });',
+              'type InputsV2 = paths["/v2/release-candidates/{candidateId}/inputs"]["get"]["responses"][200]["content"]["application/json"];',
+              "declare const inputsV2: InputsV2;",
+              "const descriptorVersion: 1 | 2 = inputsV2.configuration.schemaVersion;",
+              "void descriptorVersion;",
+              "// @ts-expect-error raw configuration is excluded from the private input projection",
+              "void inputsV2.configuration.rawYaml;",
+            ]
+          : []),
         ...(hasReleasedRejection
           ? [
               'void client.POST("/v1/release-candidates/{candidateId}/reject", { params: { path: { candidateId: "11111111-1111-4111-8111-111111111111" }, header: { "Idempotency-Key": "fixture-reject-key" } }, body: { reason: "Synthetic decision" } });',

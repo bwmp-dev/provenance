@@ -18,6 +18,7 @@ import "./candidate-matrix.test.mjs";
 import "./candidate-inputs.test.mjs";
 import "./execution-details.test.mjs";
 import "./release-rejection.test.mjs";
+import "./network-config-v2.test.mjs";
 
 import { parse } from "yaml";
 
@@ -681,6 +682,12 @@ test("operation and path inventory matches the public v1 skeleton", () => {
     actual.every(
       ({ path, method, operationId }) =>
         path.startsWith("/v1/") ||
+        (path === "/v2/projects/{projectId}/config-snapshots" &&
+          method === "post" &&
+          operationId === "createProjectConfigSnapshotV2") ||
+        (path === "/v2/release-candidates/{candidateId}/inputs" &&
+          method === "get" &&
+          operationId === "getReleaseCandidateInputsV2") ||
         (path === "/.well-known/provenance-keys.json" &&
           method === "get" &&
           operationId === "getProvenanceKeys"),
@@ -741,6 +748,8 @@ test("every operation exposes structured failure responses", () => {
               "getReleaseCandidateExecutionDetails",
               "rejectReleaseCandidate",
               "getReleaseCandidateRejection",
+              "createProjectConfigSnapshotV2",
+              "getReleaseCandidateInputsV2",
             ].includes(operation.operationId)
           ? "#/components/responses/PrivateProblem"
           : githubAuthOperations.has(operation.operationId)
@@ -814,6 +823,7 @@ test("every mutation has deterministic idempotency semantics", () => {
       deviceOperations.has(operation.operationId) ||
       operation.operationId === "createGitHubActionsGrant" ||
       operation.operationId === "rejectReleaseCandidate" ||
+      operation.operationId === "createProjectConfigSnapshotV2" ||
       operation.operationId.includes("Alpha")
     ) {
       assert.equal(parameter.required, true);

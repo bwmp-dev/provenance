@@ -617,6 +617,28 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
+    "/v2/projects/{projectId}/config-snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate and persist an explicit configuration-v2 snapshot
+         * @description See network-config-v2-semantics.md. Uses the same scoped configuration-write capability as the v1 operation. Authenticate and authorize the exact project, source and caller before validation or replay. No ambient cookie authority. The explicit version, raw YAML, canonical normalized JSON and hash must agree. Idempotent replay preserves the immutable snapshot; changed content conflicts. Creation may be disabled independently; schema validity does not grant network access, activate runner dispatch or substitute authenticated policy sources. Existing v1 snapshots and response schemas remain unchanged. Raw configuration, credentials, authority inputs and storage locations are excluded from responses.
+         */
+        post: operations["createProjectConfigSnapshotV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectId}/config-snapshots": {
         parameters: {
             query?: never;
@@ -1014,6 +1036,28 @@ export interface paths {
         };
         /** Read release events using an opaque reconnect cursor */
         get: operations["listReleaseCandidateEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/release-candidates/{candidateId}/inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read immutable private candidate input identities with explicit configuration versions
+         * @description See network-config-v2-semantics.md. Same immutable bounded private input projection and private-result capability as v1, with configuration version 1 or 2 explicitly preserved. Authentication and exact organization/project visibility precede version or query validation; this operation accepts no query parameters. Missing and hidden resources share the private 404. Actions submission grants are refused. Never relabel a v2 snapshot as v1, substitute candidate and snapshot source identities, re-resolve dependencies, or infer execution/publication success. Null dependency resolution means unavailable, not an empty resolved set. Malformed, inconsistent or oversized records fail closed. Raw configuration, logs, changelogs, provider metadata, credentials, object keys and storage URLs are excluded. The v1 route remains version-1-only; unsupported v2 input reads there return private 404 after authorization, never a downgraded descriptor.
+         */
+        get: operations["getReleaseCandidateInputsV2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2400,6 +2444,48 @@ export interface components {
         ProjectPage: {
             items: components["schemas"]["Project"][];
             page: components["schemas"]["PageInfo"];
+        };
+        /** @description Explicit configuration v2. Raw YAML, normalized JSON, provenance.dev/v2 and configurationHash must agree under the offline authoritative v2 validator. */
+        CreateProjectConfigSnapshotRequestV2: {
+            sourceCommit: string;
+            sourceRef?: string;
+            rawYaml: string;
+            /** @description Compact canonical UTF-8 JSON text whose SHA-256 is configurationHash. */
+            normalizedJson: string;
+            /** @constant */
+            schemaVersion: 2;
+            configurationHash: components["schemas"]["Sha256Digest"];
+        };
+        ProjectConfigSnapshotV2: {
+            id: components["schemas"]["StableId"];
+            projectId: components["schemas"]["StableId"];
+            sourceCommit: string;
+            sourceRef?: string;
+            /** @constant */
+            schemaVersion: 2;
+            configurationHash: components["schemas"]["Sha256Digest"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        CandidateInputsV2: {
+            /** Format: uuid */
+            candidateId: string;
+            /** Format: uuid */
+            projectId: string;
+            /** @description Exact stored source identity; not a claim of a verified GitHub commit. */
+            sourceCommit: string;
+            sourceRef: string | null;
+            artifact: components["schemas"]["CandidateInputArtifact"];
+            configuration: components["schemas"]["CandidateInputConfigurationV2"];
+            dependencyResolution: components["schemas"]["CandidateDependencyResolution"] | null;
+        };
+        CandidateInputConfigurationV2: {
+            /** Format: uuid */
+            id: string;
+            sha256: string;
+            /** @enum {integer} */
+            schemaVersion: 1 | 2;
+            sourceCommit: string;
+            sourceRef: string | null;
         };
         CreateProjectConfigSnapshotRequest: {
             sourceCommit: string;
@@ -4662,6 +4748,16 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description Idempotency key or immutable configuration source identity conflicts with retained content. */
+        ConfigSnapshotV2Conflict: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["PrivateProblemDetails"];
+            };
+        };
         /** @description Idempotency request conflict or candidate decision state conflict. */
         ReleaseCandidateRejectionConflict: {
             headers: {
@@ -6569,6 +6665,44 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    createProjectConfigSnapshotV2: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectConfigSnapshotRequestV2"];
+            };
+        };
+        responses: {
+            /** @description Immutable configuration-v2 snapshot created or identically replayed. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectConfigSnapshotV2"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            409: components["responses"]["ConfigSnapshotV2Conflict"];
+            422: components["responses"]["PrivateProblem"];
+            503: components["responses"]["PrivateProblem"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
     createProjectConfigSnapshot: {
         parameters: {
             query?: never;
@@ -7188,6 +7322,34 @@ export interface operations {
                 };
             };
             default: components["responses"]["Problem"];
+        };
+    };
+    getReleaseCandidateInputsV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Complete private identity projection bounded to 128 KiB JSON. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateInputsV2"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     getReleaseCandidateInputs: {
