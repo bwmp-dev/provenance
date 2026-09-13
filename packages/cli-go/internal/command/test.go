@@ -30,7 +30,7 @@ func (a App) test(ctx context.Context, api *api, o options) error {
 	if e != nil {
 		return e
 	}
-	if o.snapshot != "" && !idRE.MatchString(o.snapshot) {
+	if (o.snapshot != "" && !idRE.MatchString(o.snapshot)) || (o.artifact != "" && !idRE.MatchString(o.artifact)) {
 		return ErrInput
 	}
 	if o.snapshot == "" && (o.auth != "project-token" || !commitRE.MatchString(o.commit) || !strings.HasPrefix(o.ref, "refs/")) {
@@ -58,6 +58,15 @@ func (a App) test(ctx context.Context, api *api, o options) error {
 		return e
 	}
 	project := "/v1/projects/" + url.PathEscape(o.project)
+	artifact := o.artifact
+	if artifact != "" {
+		// Reuse is explicit, never inferred from an upload conflict. Authorize
+		// the existing object and bind all local file metadata before mutation.
+		r, err := api.call(ctx, "GET", "/v1/artifacts/"+url.PathEscape(artifact), nil, false)
+		if err != nil || r.status != 200 || text(r.body, "id") != artifact || text(r.body, "projectId") != o.project || text(r.body, "state") != "ready" || text(r.body, "sha256") != sum || integer(r.body, "sizeBytes") != n || text(r.body, "fileName") != filepath.Base(o.jar) || !retainedArtifactMatches(file, before, sum) {
+			return ErrFailed
+		}
+	}
 	snapshot := o.snapshot
 	if snapshot == "" {
 		r, e := api.call(ctx, "POST", project+"/config-snapshots", map[string]any{"sourceCommit": o.commit, "sourceRef": o.ref, "rawYaml": cfg.Raw, "normalizedJson": cfg.Normalized, "schemaVersion": 1, "configurationHash": cfg.Hash}, true)
@@ -69,85 +78,100 @@ func (a App) test(ctx context.Context, api *api, o options) error {
 			return ErrFailed
 		}
 	}
-	r, e := api.call(ctx, "POST", project+"/artifacts/uploads", map[string]any{"fileName": filepath.Base(o.jar), "sizeBytes": n, "sha256": sum}, true)
-	if e != nil || r.status != 201 {
-		return ErrFailed
-	}
-	artifact, upload := text(r.body, "artifactId"), text(r.body, "uploadUrl")
-	expiry, e := deadline(r.body)
-	u, ue := url.Parse(upload)
-	if e != nil || ue != nil || !idRE.MatchString(artifact) || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Fragment != "" || !expiry.After(time.Now()) {
-		return ErrFailed
-	}
-	// Same retained descriptor is hashed a second time while those exact bytes
-	// go to the upload. No reopen-by-path, cookie jar, Authorization or redirects.
-	h := sha256.New()
-	uploadCtx, done := context.WithDeadline(ctx, expiry)
-	defer done()
-	request, e := http.NewRequestWithContext(uploadCtx, "PUT", upload, io.TeeReader(io.LimitReader(file, n), h))
-	if e != nil {
-		return ErrFailed
-	}
-	request.ContentLength = n
-	request.Header.Set("Content-Type", "application/java-archive")
-	if headers, exists := r.body["requiredHeaders"]; exists {
-		m, ok := headers.(map[string]any)
-		if !ok || len(m) > 64 {
+	if artifact == "" {
+		r, e := api.call(ctx, "POST", project+"/artifacts/uploads", map[string]any{"fileName": filepath.Base(o.jar), "sizeBytes": n, "sha256": sum}, true)
+		if e != nil || r.status != 201 {
 			return ErrFailed
 		}
-		for name, value := range m {
-			v, ok := value.(string)
-			lower := strings.ToLower(name)
-			// Preserve the object store's create-only precondition. Do not
-			// generalize this to arbitrary conditional or credential headers.
-			createOnly := lower == "if-none-match" && v == "*"
-			if !ok || len(v) > 4096 || strings.ContainsAny(v, "\r\n") || (lower != "content-type" && !strings.HasPrefix(lower, "x-amz-") && !createOnly) {
+		artifact = text(r.body, "artifactId")
+		upload := text(r.body, "uploadUrl")
+		expiry, e := deadline(r.body)
+		u, ue := url.Parse(upload)
+		if e != nil || ue != nil || !idRE.MatchString(artifact) || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Fragment != "" || !expiry.After(time.Now()) {
+			return ErrFailed
+		}
+		// Same retained descriptor is hashed a second time while those exact bytes
+		// go to the upload. No reopen-by-path, cookie jar, Authorization or redirects.
+		h := sha256.New()
+		uploadCtx, done := context.WithDeadline(ctx, expiry)
+		defer done()
+		request, e := http.NewRequestWithContext(uploadCtx, "PUT", upload, io.TeeReader(io.LimitReader(file, n), h))
+		if e != nil {
+			return ErrFailed
+		}
+		request.ContentLength = n
+		request.Header.Set("Content-Type", "application/java-archive")
+		if headers, exists := r.body["requiredHeaders"]; exists {
+			m, ok := headers.(map[string]any)
+			if !ok || len(m) > 64 {
 				return ErrFailed
 			}
-			request.Header.Set(name, v)
+			for name, value := range m {
+				v, ok := value.(string)
+				lower := strings.ToLower(name)
+				// Preserve the object store's create-only precondition. Do not
+				// generalize this to arbitrary conditional or credential headers.
+				createOnly := lower == "if-none-match" && v == "*"
+				if !ok || len(v) > 4096 || strings.ContainsAny(v, "\r\n") || (lower != "content-type" && !strings.HasPrefix(lower, "x-amz-") && !createOnly) {
+					return ErrFailed
+				}
+				request.Header.Set(name, v)
+			}
 		}
-	}
-	uploaded, e := client(a.Transport).Do(request)
-	if e != nil {
-		return ErrFailed
-	}
-	_, _ = io.Copy(io.Discard, io.LimitReader(uploaded.Body, 4096))
-	_ = uploaded.Body.Close()
-	if uploaded.StatusCode < 200 || uploaded.StatusCode >= 300 {
-		return ErrFailed
-	}
-	after, e := file.Stat()
-	var extra [1]byte
-	extraN, extraErr := file.Read(extra[:])
-	if e != nil || !os.SameFile(before, after) || before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) || extraN != 0 || extraErr != io.EOF || hex.EncodeToString(h.Sum(nil)) != sum {
-		return ErrFailed
-	}
-	completed, e := api.call(ctx, "POST", "/v1/artifacts/"+url.PathEscape(artifact)+"/complete", map[string]any{"sizeBytes": n, "sha256": sum}, true)
-	if e != nil || completed.status != 202 {
-		return ErrFailed
-	}
-	for {
-		if text(completed.body, "id") != artifact || text(completed.body, "projectId") != o.project || text(completed.body, "sha256") != sum || integer(completed.body, "sizeBytes") != n {
+		uploaded, e := client(a.Transport).Do(request)
+		if e != nil {
 			return ErrFailed
 		}
-		state := text(completed.body, "state")
-		if state == "ready" {
-			break
-		}
-		if state != "uploaded" && state != "verifying" && state != "pending" {
+		_, _ = io.Copy(io.Discard, io.LimitReader(uploaded.Body, 4096))
+		_ = uploaded.Body.Close()
+		if uploaded.StatusCode < 200 || uploaded.StatusCode >= 300 {
 			return ErrFailed
 		}
-		if wait(ctx, time.Second) != nil {
+		after, e := file.Stat()
+		var extra [1]byte
+		extraN, extraErr := file.Read(extra[:])
+		if e != nil || !os.SameFile(before, after) || before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) || extraN != 0 || extraErr != io.EOF || hex.EncodeToString(h.Sum(nil)) != sum {
 			return ErrFailed
 		}
-		completed, e = api.call(ctx, "GET", "/v1/artifacts/"+url.PathEscape(artifact), nil, false)
-		if e != nil || completed.status != 200 {
+		completed, e := api.call(ctx, "POST", "/v1/artifacts/"+url.PathEscape(artifact)+"/complete", map[string]any{"sizeBytes": n, "sha256": sum}, true)
+		if e != nil || completed.status != 202 {
 			return ErrFailed
 		}
+		for {
+			if text(completed.body, "id") != artifact || text(completed.body, "projectId") != o.project || text(completed.body, "sha256") != sum || integer(completed.body, "sizeBytes") != n {
+				return ErrFailed
+			}
+			state := text(completed.body, "state")
+			if state == "ready" {
+				break
+			}
+			if state != "uploaded" && state != "verifying" && state != "pending" {
+				return ErrFailed
+			}
+			if wait(ctx, time.Second) != nil {
+				return ErrFailed
+			}
+			completed, e = api.call(ctx, "GET", "/v1/artifacts/"+url.PathEscape(artifact), nil, false)
+			if e != nil || completed.status != 200 {
+				return ErrFailed
+			}
+		}
+	} else if !retainedArtifactMatches(file, before, sum) {
+		return ErrFailed
 	}
 	candidate, e := api.call(ctx, "POST", project+"/release-candidates", map[string]any{"artifactId": artifact, "configurationSnapshotId": snapshot, "configurationHash": cfg.Hash, "version": o.version}, true)
 	if e != nil || candidate.status != 201 || text(candidate.body, "artifactId") != artifact || text(candidate.body, "configurationHash") != cfg.Hash || text(candidate.body, "projectId") != o.project || !idRE.MatchString(text(candidate.body, "id")) {
 		return ErrFailed
 	}
 	return json.NewEncoder(a.Out).Encode(map[string]string{"candidateId": text(candidate.body, "id"), "projectId": o.project, "artifactId": artifact, "configurationSnapshotId": snapshot, "configurationHash": cfg.Hash})
+}
+
+func retainedArtifactMatches(file *os.File, before os.FileInfo, expected string) bool {
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return false
+	}
+	hash := sha256.New()
+	n, err := io.Copy(hash, io.LimitReader(file, before.Size()+1))
+	after, statErr := file.Stat()
+	return err == nil && statErr == nil && n == before.Size() && os.SameFile(before, after) && after.Size() == before.Size() && after.ModTime().Equal(before.ModTime()) && hex.EncodeToString(hash.Sum(nil)) == expected
 }

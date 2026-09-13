@@ -76,6 +76,14 @@ snapshot mismatch stops before candidate success. Artifact readiness polling
 is bounded by the explicit command timeout. No mutation is automatically retried
 after a lost response, and no resume or publication mode is implied.
 
+To test the same uploaded JAR with another configuration, add
+`--artifact existing-artifact-id` while still providing `--jar plugin.jar`.
+The CLI reads that artifact through the authenticated API and requires it to be
+ready in the selected project with the same filename, size and SHA-256. It
+rehashes the retained local file before candidate creation and skips upload and
+completion requests. No artifact is guessed from a duplicate-upload conflict,
+and this option does not retry an earlier partially acknowledged submission.
+
 ## Status and verification
 
 ```sh

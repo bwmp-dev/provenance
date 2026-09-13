@@ -25,9 +25,9 @@ type App struct {
 	Transport http.RoundTripper
 }
 type options struct {
-	origin, auth, project, candidate, jar, configuration, snapshot, version, commit, ref, attestation, key, keyID string
-	tokenStdin                                                                                                    bool
-	timeout                                                                                                       time.Duration
+	origin, auth, project, candidate, artifact, jar, configuration, snapshot, version, commit, ref, attestation, key, keyID string
+	tokenStdin                                                                                                              bool
+	timeout                                                                                                                 time.Duration
 }
 
 var idRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
@@ -65,7 +65,7 @@ func (a App) run(ctx context.Context, args []string) error {
 	for _, v := range []struct {
 		p *string
 		n string
-	}{{&o.project, "project"}, {&o.candidate, "candidate"}, {&o.jar, "jar"}, {&o.configuration, "config"}, {&o.snapshot, "snapshot"}, {&o.version, "version"}, {&o.commit, "source-commit"}, {&o.ref, "source-ref"}, {&o.attestation, "attestation"}, {&o.key, "public-key"}, {&o.keyID, "key-id"}} {
+	}{{&o.project, "project"}, {&o.candidate, "candidate"}, {&o.artifact, "artifact"}, {&o.jar, "jar"}, {&o.configuration, "config"}, {&o.snapshot, "snapshot"}, {&o.version, "version"}, {&o.commit, "source-commit"}, {&o.ref, "source-ref"}, {&o.attestation, "attestation"}, {&o.key, "public-key"}, {&o.keyID, "key-id"}} {
 		f.StringVar(v.p, v.n, "", "")
 	}
 	if f.Parse(args) != nil || f.NArg() != 0 {
