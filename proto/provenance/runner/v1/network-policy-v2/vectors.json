@@ -1,0 +1,19 @@
+{
+  "none": {
+    "mode": 1,
+    "permissions": [],
+    "maximumConnections": 0,
+    "maximumBytesPerSecond": 0
+  },
+  "enabled": {
+    "mode": 3,
+    "permissions": [
+      { "hostname": "a.example", "port": 443, "transport": 1 },
+      { "hostname": "b.example", "port": 8443, "transport": 2 }
+    ],
+    "maximumConnections": 8,
+    "maximumBytesPerSecond": 65536
+  },
+  "legacyNoneEffectiveHex": "12020801",
+  "enabledPolicyHex": "080312100a09612e6578616d706c6510bb03180112100a09622e6578616d706c6510fb411802180820808004"
+}

@@ -1,0 +1,37 @@
+package terminalevidence_test
+
+import (
+ "bytes"
+ "encoding/hex"
+ "encoding/json"
+ "os"
+ "testing"
+ p "github.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1"
+ "google.golang.org/protobuf/encoding/protojson"
+ "google.golang.org/protobuf/proto"
+)
+
+func TestReleasedNetworkPolicyV2(t *testing.T) {
+ raw,err:=os.ReadFile("../proto/network-policy-v2/vectors.json");if err!=nil {t.Fatal(err)}
+ var v struct {Enabled json.RawMessage; EnabledPolicyHex,LegacyNoneEffectiveHex string}
+ if err=json.Unmarshal(raw,&v);err!=nil {t.Fatal(err)}
+ var policy p.NetworkPolicyV2
+ if err=protojson.Unmarshal(v.Enabled,&policy);err!=nil {t.Fatal(err)}
+ encoded,err:=proto.MarshalOptions{Deterministic:true}.Marshal(&policy)
+ if err!=nil||hex.EncodeToString(encoded)!=v.EnabledPolicyHex {t.Fatal("cross-language policy bytes changed")}
+ if p.ProtocolFeature_PROTOCOL_FEATURE_NETWORK_POLICY_V2!=9 {t.Fatal("feature changed")}
+ for _,message:=range []proto.Message{&p.EffectivePolicy{NetworkV2:&policy},&p.RunnerPolicy{MaximumNetworkV2:&policy}} {
+  encoded,err:=proto.MarshalOptions{Deterministic:true}.Marshal(message);if err!=nil {t.Fatal(err)}
+  decoded:=message.ProtoReflect().New().Interface();if err=proto.Unmarshal(encoded,decoded);err!=nil {t.Fatal(err)}
+  if !proto.Equal(message,decoded) {t.Fatal("policy changed in transit")}
+  replay,err:=proto.MarshalOptions{Deterministic:true}.Marshal(decoded)
+  if err!=nil||!bytes.Equal(encoded,replay) {t.Fatal("replay changed")}
+ }
+ legacy:=&p.EffectivePolicy{Network:&p.NetworkPolicy{Mode:p.NetworkMode_NETWORK_MODE_NONE}}
+ encoded,err=proto.Marshal(legacy)
+ if err!=nil||hex.EncodeToString(encoded)!=v.LegacyNoneEffectiveHex {t.Fatal("legacy none bytes changed")}
+ var restored p.EffectivePolicy
+ if err=proto.Unmarshal(encoded,&restored);err!=nil||restored.NetworkV2!=nil {t.Fatal("legacy synthesized v2")}
+ if (&p.EffectivePolicy{}).ProtoReflect().Descriptor().Fields().ByName("network_v2").Number()!=16 {t.Fatal("effective field changed")}
+ if (&p.RunnerPolicy{}).ProtoReflect().Descriptor().Fields().ByName("maximum_network_v2").Number()!=10 {t.Fatal("maximum field changed")}
+}
