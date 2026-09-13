@@ -36,3 +36,9 @@ until the complete authenticated enforcement and versioned evidence gates pass.
 Schema support alone must not bypass those gates. An old validator refuses v2;
 rollback retains snapshots and fences pending v2 jobs from old consumers. Do not
 strip v2 fields, downgrade a job to none or reset traffic budgets to resume it.
+
+At this release, the HTTP snapshot contract still specifies `schemaVersion: 1`.
+CLI and Action submissions therefore refuse v2 locally before authentication or
+upload, including when an existing snapshot ID is supplied. Local validation and
+hashing support v2; submission needs the separately accepted HTTP boundary and
+server rollout. Never send v2 bytes labelled as schema version 1.

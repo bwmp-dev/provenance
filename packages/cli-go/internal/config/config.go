@@ -72,6 +72,12 @@ func Parse(raw []byte) (Document, error) {
 	if json.Unmarshal([]byte(d.Normalized), &v) != nil {
 		return Document{}, ErrInvalid
 	}
+	// Normalize supports the explicit v2 contract; submission stays v1 until
+	// the separately versioned HTTP snapshot boundary is accepted and consumed.
+	// Never label a v2 document schemaVersion 1, even with a preselected snapshot.
+	if v["apiVersion"] != "provenance.dev/v1" {
+		return Document{}, ErrInvalid
+	}
 	release, ok := v["release"].(map[string]any)
 	if !ok || release["mode"] != "test-only" {
 		return Document{}, ErrInvalid

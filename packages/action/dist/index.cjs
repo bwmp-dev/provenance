@@ -16485,6 +16485,8 @@ async function runAction(input2, runtime) {
     } catch {
       fail("invalid_configuration");
     }
+    if (parsed.apiVersion !== "provenance.dev/v1")
+      fail("invalid_configuration");
     const normalizedJson = runtime.normalizeConfiguration(parsed);
     const configurationHash = runtime.hashConfiguration(parsed);
     await source.check();

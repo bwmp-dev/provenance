@@ -62,6 +62,18 @@ async function scenario(t, opts = {}) {
     resolve(dir, "provenance.yml"),
     opts.invalidConfig ? `${yaml}\nunknownRoot: true\n` : yaml,
   );
+  if (opts.configV2) {
+    const vector = JSON.parse(
+      await readFile(
+        new URL(
+          "../../../schemas/fixtures/config/v2/vectors.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await writeFile(resolve(dir, "provenance.yml"), vector.canonical);
+  }
   const calls = [],
     masks = [],
     reports = [];
@@ -350,6 +362,11 @@ test("compiled distribution submits real normalized configuration and exact byte
   assert.ok(s.masks.includes(assertion));
   assert.ok(s.masks.includes(grantToken));
   assert.ok(!JSON.stringify(s.result).includes("private"));
+});
+test("compiled Action refuses valid v2 before OIDC or v1 snapshot submission", async (t) => {
+  const s = await scenario(t, { configV2: true });
+  assert.equal(s.result.reason, "invalid_configuration");
+  assert.deepEqual(s.calls, []);
 });
 for (const name of ["If-None-Match", "if-none-match", "IF-NONE-MATCH"]) {
   test(`immutable storage condition reaches PUT: ${name}`, async (t) => {
