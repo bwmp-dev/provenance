@@ -196,7 +196,7 @@ func configFile(t *testing.T, dir string) string {
 func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 	const artifactID = "11111111-1111-4111-8111-111111111111"
 	const snapshotID = "22222222-2222-4222-8222-222222222222"
-	for _, mode := range []string{"session-snapshot", "project-token", "mutated", "redirect", "wrong-digest", "wrong-snapshot", "manual"} {
+	for _, mode := range []string{"session-snapshot", "project-token", "mutated", "redirect", "wrong-digest", "wrong-snapshot", "manual", "wrong-precondition", "injected-precondition", "credential-header"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
 			cfg := configFile(t, dir)
@@ -211,6 +211,12 @@ func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls++
 				if r.URL.Path == "/upload" {
+					if mode == "wrong-precondition" || mode == "injected-precondition" || mode == "credential-header" {
+						t.Error("unsafe required header reached upload")
+					}
+					if r.Header.Get("If-None-Match") != "*" {
+						t.Error("create-only upload precondition was not preserved")
+					}
 					if r.Header.Get("Authorization") != "" || r.Header.Get("Cookie") != "" {
 						t.Error("platform credential sent to upload")
 					}
@@ -248,7 +254,17 @@ func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 					if mode == "mutated" {
 						_ = os.WriteFile(jar, []byte("changed-after-original-hash"), 0600)
 					}
-					reply(w, 201, map[string]any{"artifactId": artifactID, "uploadUrl": server.URL + "/upload", "expiresAt": time.Now().Add(time.Minute).UTC().Format(time.RFC3339), "requiredHeaders": map[string]string{"Content-Type": "application/java-archive"}})
+					headers := map[string]string{"Content-Type": "application/java-archive", "If-None-Match": "*"}
+					if mode == "wrong-precondition" {
+						headers["If-None-Match"] = `"previous-object"`
+					}
+					if mode == "injected-precondition" {
+						headers["If-None-Match"] = "*\r\nAuthorization: injected"
+					}
+					if mode == "credential-header" {
+						headers["Authorization"] = "Bearer remote-value"
+					}
+					reply(w, 201, map[string]any{"artifactId": artifactID, "uploadUrl": server.URL + "/upload", "expiresAt": time.Now().Add(time.Minute).UTC().Format(time.RFC3339), "requiredHeaders": headers})
 				case "/v1/artifacts/" + artifactID + "/complete":
 					var body map[string]any
 					_ = json.NewDecoder(r.Body).Decode(&body)

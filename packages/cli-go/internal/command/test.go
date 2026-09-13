@@ -98,7 +98,10 @@ func (a App) test(ctx context.Context, api *api, o options) error {
 		for name, value := range m {
 			v, ok := value.(string)
 			lower := strings.ToLower(name)
-			if !ok || len(v) > 4096 || strings.ContainsAny(v, "\r\n") || (lower != "content-type" && !strings.HasPrefix(lower, "x-amz-")) {
+			// Preserve the object store's create-only precondition. Do not
+			// generalize this to arbitrary conditional or credential headers.
+			createOnly := lower == "if-none-match" && v == "*"
+			if !ok || len(v) > 4096 || strings.ContainsAny(v, "\r\n") || (lower != "content-type" && !strings.HasPrefix(lower, "x-amz-") && !createOnly) {
 				return ErrFailed
 			}
 			request.Header.Set(name, v)
