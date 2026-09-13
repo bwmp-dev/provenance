@@ -1099,6 +1099,21 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       runnerRoot,
     );
     for (const [name, omitted, changed] of [
+      [
+        "missing-network-v2-vector",
+        "proto/network-policy-v2/vectors.json",
+        null,
+      ],
+      [
+        "missing-network-v2-semantics",
+        "proto/network-policy-v2/semantics.md",
+        null,
+      ],
+      [
+        "tampered-network-v2-vector",
+        null,
+        "proto/network-policy-v2/vectors.json",
+      ],
       ["missing-terminal-schema", "proto/terminal-evidence/schema.json", null],
       ["missing-terminal-vector", "proto/terminal-evidence/vectors.json", null],
       [

@@ -604,6 +604,22 @@ async function verifyArchive({
       filesystemPath(extractedRoot, "proto/common.proto"),
       "utf8",
     );
+    if (/PROTOCOL_FEATURE_NETWORK_POLICY_V2\s*=\s*9\s*;/.test(common)) {
+      for (const name of [
+        "semantics.md",
+        "reference.mjs",
+        "vectors.json",
+        "contract.test.mjs",
+        "go-consumer.go.txt",
+      ]) {
+        invariant(
+          embeddedManifest.files.some(
+            (file) => file.path === `proto/network-policy-v2/${name}`,
+          ),
+          `released network policy v2 file missing: ${name}`,
+        );
+      }
+    }
     if (/PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2\s*=\s*7\s*;/.test(common)) {
       for (const name of [
         "schema.json",
@@ -1771,6 +1787,21 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
         resolve(root, "go/terminal_evidence_v2_test.go"),
         await readFile(
           resolve(root, "proto/terminal-evidence-v2/go-consumer.go.txt"),
+        ),
+      );
+    }
+    if (protocol.ProtocolFeature.NETWORK_POLICY_V2 === 9) {
+      run(
+        process.execPath,
+        ["--test", resolve(root, "proto/network-policy-v2/contract.test.mjs")],
+        root,
+        "released network policy v2 vectors and generated wire",
+        { NETWORK_POLICY_PROTOCOL_DIR: resolve(root, "typescript") },
+      );
+      await writeFile(
+        resolve(root, "go/network_policy_v2_test.go"),
+        await readFile(
+          resolve(root, "proto/network-policy-v2/go-consumer.go.txt"),
         ),
       );
     }

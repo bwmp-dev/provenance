@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import "./terminal-evidence/contract.test.mjs";
+import "./network-policy-v2/contract.test.mjs";
 import { fileURLToPath } from "node:url";
 
 const contractDirectory = dirname(fileURLToPath(import.meta.url));
@@ -35,6 +36,7 @@ const protocolFeature = Object.freeze({
   terminalEvidenceV1: 6,
   terminalEvidenceV2: 7,
   testSecretsV1: 8,
+  networkPolicyV2: 9,
 });
 
 function validProtocolFeatures(features) {

@@ -139,6 +139,36 @@ enum NetworkMode {
   NETWORK_MODE_UNRESTRICTED = 4;
 }
 
+// An indivisible grant, not independent host/port/transport sets. See
+// network-policy-v2/semantics.md for canonicalization and mandatory denials.
+message NetworkPermissionV2 {
+  string hostname = 1;
+  uint32 port = 2;
+  NetworkTransportV2 transport = 3;
+
+  reserved 4 to 9;
+}
+
+enum NetworkTransportV2 {
+  NETWORK_TRANSPORT_V2_UNSPECIFIED = 0;
+  NETWORK_TRANSPORT_V2_TCP = 1;
+  NETWORK_TRANSPORT_V2_UDP = 2;
+}
+
+// Explicitly negotiated NETWORK_POLICY_V2. None has no permissions or caps;
+// restricted/allowlist require 1..128 sorted unique whole permissions and
+// positive finite caps. Unspecified and unrestricted are never valid.
+// This is an authenticated resolved policy, NOT user configuration or proof
+// of enforcement. DNS, routing and deny inventory remain trusted runner input.
+message NetworkPolicyV2 {
+  NetworkMode mode = 1;
+  repeated NetworkPermissionV2 permissions = 2;
+  uint32 maximum_connections = 3;
+  uint32 maximum_bytes_per_second = 4;
+
+  reserved 5 to 9;
+}
+
 message EffectivePolicy {
   SandboxKind sandbox = 1;
   NetworkPolicy network = 2;
@@ -149,6 +179,10 @@ message EffectivePolicy {
   EnvironmentRequirement requirement = 7;
 
   reserved 8 to 15;
+
+  // Requires NETWORK_POLICY_V2 on this stream. Exactly one of network and
+  // network_v2 is present; never populate a legacy none fallback alongside v2.
+  NetworkPolicyV2 network_v2 = 16;
 }
 
 enum EnvironmentRequirement {
@@ -174,6 +208,10 @@ message RunnerPolicy {
   uint32 maximum_concurrent_jobs = 4;
 
   reserved 5 to 9;
+
+  // Trusted maximum, not authority supplied by a job. Exactly one maximum
+  // representation is present; v2 requires NETWORK_POLICY_V2 negotiation.
+  NetworkPolicyV2 maximum_network_v2 = 10;
 }
 
 message Capabilities {
@@ -452,6 +490,9 @@ enum ProtocolFeature {
   // Explicitly negotiated ephemeral delivery; see test-secrets.md. Capability
   // advertisement requires the complete injection/redaction/cleanup consumer.
   PROTOCOL_FEATURE_TEST_SECRETS_V1 = 8;
+  // Separate admission; see network-policy-v2/semantics.md. Do not advertise
+  // until authenticated policy, DNS, caps and lifecycle enforcement are ready.
+  PROTOCOL_FEATURE_NETWORK_POLICY_V2 = 9;
 }
 
 // Optional, negotiated observation proof, not an attestation or public claim.
