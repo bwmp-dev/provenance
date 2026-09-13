@@ -37,6 +37,7 @@ export const legacyContractBundles = [
         destination: "package/dist",
       },
       { source: "schemas/config/v1", destination: "schema" },
+      { source: "schemas/config/v2", destination: "schema-v2" },
       { source: "schemas/fixtures/config", destination: "fixtures" },
     ],
   },

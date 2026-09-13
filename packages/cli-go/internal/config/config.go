@@ -1,4 +1,4 @@
-// Package config consumes the unchanged v1 schema and normalization contract.
+// Package config consumes the public v1/v2 schemas and normalization contract.
 package config
 
 import (
@@ -28,6 +28,9 @@ var ErrInvalid = errors.New("invalid test-only configuration")
 
 //go:embed schema.json
 var schema []byte
+
+//go:embed schema-v2.json
+var schemaV2 []byte
 
 //go:embed regexpp/regexpp.cjs
 var regexppSource string
@@ -67,6 +70,12 @@ func Parse(raw []byte) (Document, error) {
 	}
 	var v map[string]any
 	if json.Unmarshal([]byte(d.Normalized), &v) != nil {
+		return Document{}, ErrInvalid
+	}
+	// Normalize supports the explicit v2 contract; submission stays v1 until
+	// the separately versioned HTTP snapshot boundary is accepted and consumed.
+	// Never label a v2 document schemaVersion 1, even with a preselected snapshot.
+	if v["apiVersion"] != "provenance.dev/v1" {
 		return Document{}, ErrInvalid
 	}
 	release, ok := v["release"].(map[string]any)
@@ -112,10 +121,18 @@ func Normalize(raw []byte) (Document, error) {
 		}
 		return regex{p}, nil
 	})
-	if c.AddResource("https://cli.invalid/config", s) != nil {
+	if c.AddResource("https://schemas.provenance.dev/config/v1/schema.json", s) != nil {
 		return Document{}, ErrInvalid
 	}
-	compiled, e := c.Compile("https://cli.invalid/config")
+	selected := "https://schemas.provenance.dev/config/v1/schema.json"
+	if document, ok := v.(map[string]any); ok && document["apiVersion"] == "provenance.dev/v2" {
+		var s2 any
+		if json.Unmarshal(schemaV2, &s2) != nil || c.AddResource("https://schemas.provenance.dev/config/v2/schema.json", s2) != nil {
+			return Document{}, ErrInvalid
+		}
+		selected = "https://schemas.provenance.dev/config/v2/schema.json"
+	}
+	compiled, e := c.Compile(selected)
 	if e != nil || compiled.Validate(v) != nil {
 		return Document{}, ErrInvalid
 	}

@@ -221,6 +221,10 @@ export async function runAction(input, runtime) {
     } catch {
       fail("invalid_configuration");
     }
+    // The released HTTP snapshot boundary still requires schemaVersion 1.
+    // Local schema support is not authority to mislabel a v2 submission.
+    if (parsed.apiVersion !== "provenance.dev/v1")
+      fail("invalid_configuration");
     const normalizedJson = runtime.normalizeConfiguration(parsed);
     const configurationHash = runtime.hashConfiguration(parsed);
     await source.check();

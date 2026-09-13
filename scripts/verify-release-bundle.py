@@ -174,7 +174,13 @@ def read_archive(directory, artifact, version, source_sha, inventory=BUNDLES):
             sdk_paths.update(f"package/vendor/{name}/dist/{file}" for file in files)
         if b"schema-v2.json" in file_contents.get(f"{root}/package/vendor/verification/dist/index.js", b""):
             sdk_paths.add("package/vendor/verification/dist/schema-v2.json")
+        if b"schema-v2.json" in file_contents.get(f"{root}/package/vendor/config-schema/dist/index.js", b""):
+            sdk_paths.add("package/vendor/config-schema/dist/schema-v2.json")
         require({record.get("path") for record in declared_files} == sdk_paths, "SDK exact file inventory differs")
+    if bundle == "config-schema" and b"schema-v2.json" in file_contents.get(f"{root}/package/dist/index.js", b""):
+        for path in ("schema-v2/schema.json", "schema-v2/normalized-json.md", "fixtures/v2/vectors.json", "package/dist/schema-v2.json"):
+            require(f"{root}/{path}" in file_contents, f"released v2 configuration file missing: {path}")
+        require(file_contents[f"{root}/package/dist/schema-v2.json"] == file_contents[f"{root}/schema-v2/schema.json"], "released v2 configuration embedded schema differs")
     if bundle == "attestation-schema" and b"//go:embed schema-v2.json" in file_contents.get(f"{root}/go/verification.go", b""):
         required_v2 = ("schema-v2/schema.json", "schema-v2/canonicalization.md", "go/schema-v2.json", "package/dist/schema-v2.json", "fixtures/interop/small-artifact-v2.json")
         for path in required_v2:

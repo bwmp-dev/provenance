@@ -1242,6 +1242,56 @@ test("contract release is reproducible and its consumers compile", async (t) => 
       ({ bundle }) => bundle === "config-schema",
     );
     const unsafeRoot = unsafeArtifact.filename.slice(0, -".tar.gz".length);
+    const configExtracted = resolve(mutationsDirectory, "config-v2-extracted");
+    await mkdir(configExtracted);
+    await extractTar({
+      file: resolve(firstDirectory, unsafeArtifact.filename),
+      cwd: configExtracted,
+    });
+    const configEntries = await archiveEntries(
+      resolve(firstDirectory, unsafeArtifact.filename),
+      unsafeRoot,
+    );
+    for (const [name, omitted, changed] of [
+      ["missing-config-v2-authority", "schema-v2/schema.json", null],
+      ["missing-config-v2-migration", "schema-v2/normalized-json.md", null],
+      ["missing-config-v2-embedded", "package/dist/schema-v2.json", null],
+      ["missing-config-v2-vector", "fixtures/v2/vectors.json", null],
+      ["tampered-config-v2-authority", null, "schema-v2/schema.json"],
+      ["tampered-config-v2-vector", null, "fixtures/v2/vectors.json"],
+    ]) {
+      const directory = await mutationDirectory(
+        firstDirectory,
+        mutationsDirectory,
+        name,
+      );
+      const entries = [];
+      for (const path of configEntries) {
+        if (path === `${unsafeRoot}/${omitted}`) continue;
+        entries.push({
+          path,
+          contents:
+            path === `${unsafeRoot}/${changed}`
+              ? Buffer.from("tampered")
+              : await readFile(resolve(configExtracted, path)),
+        });
+      }
+      const contents = gzipSync(tarFixture(entries), { mtime: 0 });
+      await writeFile(resolve(directory, unsafeArtifact.filename), contents);
+      await mutateManifest(directory, (document) => {
+        const artifact = document.artifacts.find(
+          (entry) => entry.bundle === "config-schema",
+        );
+        artifact.sha256 = digest(contents);
+        artifact.size = contents.length;
+      });
+      await replaceChecksum(directory, unsafeArtifact.filename, contents);
+      await assert.rejects(
+        verifyContractRelease({ directory, version }),
+        /entries differ|bundle (?:size|digest) differs/,
+      );
+      assertPrivilegedBoundaryRejects(directory);
+    }
     for (const fixture of unsafeArchiveCases(unsafeRoot)) {
       const unsafeMutation = await mutationDirectory(
         firstDirectory,
