@@ -1618,6 +1618,292 @@ paths:
           $ref: "#/components/responses/IdempotencyConflict"
         default:
           $ref: "#/components/responses/Problem"
+  /v2/organizations/{organizationId}/network-policy:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    get:
+      operationId: getOrganizationNetworkPolicyV2
+      summary: Read the current explicit network policy version
+      description: >-
+        See network-policy-management-v2-semantics.md. Requires current owner/admin
+        membership and projects:manage authority for the exact tenant and source.
+        Project-scoped tokens cannot administer organization policy or another project.
+        Actions grants are refused. Authentication and resource authorization precede
+        body/version inspection and replay. Session-cookie writes require existing
+        same-origin and CSRF protections. Missing explicit history is private not-found,
+        never an inherited or default grant. Immutable source identity does not activate
+        workload networking. Complete request and response bodies are bounded to 64 KiB.
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Exact private network policy version.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkPolicyVersionV2"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "429":
+          $ref: "#/components/responses/PrivateProblem"
+        "503":
+          $ref: "#/components/responses/PrivateProblem"
+        "default":
+          $ref: "#/components/responses/PrivateProblem"
+  /v2/organizations/{organizationId}/network-policy/versions:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+    post:
+      operationId: createOrganizationNetworkPolicyVersionV2
+      summary: Append an authorized conditional network policy version
+      description: >-
+        See network-policy-management-v2-semantics.md. Requires current owner/admin
+        membership and projects:manage authority for the exact tenant and source.
+        Project-scoped tokens cannot administer organization policy or another project.
+        Actions grants are refused. Authentication and resource authorization precede
+        body/version inspection and replay. Session-cookie writes require existing
+        same-origin and CSRF protections. Missing explicit history is private not-found,
+        never an inherited or default grant. Immutable source identity does not activate
+        workload networking. Complete request and response bodies are bounded to 64 KiB.
+        Writes are independently default-disabled. The expected predecessor must match;
+        identical idempotent retries preserve their original version after successors
+        exist. Conflicts never overwrite history or reset the current policy.
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNetworkPolicyVersionRequestV2"
+      responses:
+        "201":
+          description: Exact private network policy version created or identically replayed.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkPolicyVersionV2"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "409":
+          $ref: "#/components/responses/NetworkPolicyVersionConflict"
+        "429":
+          $ref: "#/components/responses/PrivateProblem"
+        "503":
+          $ref: "#/components/responses/PrivateProblem"
+        "default":
+          $ref: "#/components/responses/PrivateProblem"
+  /v2/organizations/{organizationId}/network-policy/versions/{networkPolicyVersionId}:
+    parameters:
+      - $ref: "#/components/parameters/OrganizationId"
+      - $ref: "#/components/parameters/NetworkPolicyVersionId"
+    get:
+      operationId: getOrganizationNetworkPolicyVersionV2
+      summary: Read one exact immutable network policy version
+      description: >-
+        See network-policy-management-v2-semantics.md. Requires current owner/admin
+        membership and projects:manage authority for the exact tenant and source.
+        Project-scoped tokens cannot administer organization policy or another project.
+        Actions grants are refused. Authentication and resource authorization precede
+        body/version inspection and replay. Session-cookie writes require existing
+        same-origin and CSRF protections. Missing explicit history is private not-found,
+        never an inherited or default grant. Immutable source identity does not activate
+        workload networking. Complete request and response bodies are bounded to 64 KiB.
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Exact private network policy version.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkPolicyVersionV2"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "429":
+          $ref: "#/components/responses/PrivateProblem"
+        "503":
+          $ref: "#/components/responses/PrivateProblem"
+        "default":
+          $ref: "#/components/responses/PrivateProblem"
+  /v2/projects/{projectId}/network-policy:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: getProjectNetworkPolicyV2
+      summary: Read the current explicit network policy version
+      description: >-
+        See network-policy-management-v2-semantics.md. Requires current owner/admin
+        membership and projects:manage authority for the exact tenant and source.
+        Project-scoped tokens cannot administer organization policy or another project.
+        Actions grants are refused. Authentication and resource authorization precede
+        body/version inspection and replay. Session-cookie writes require existing
+        same-origin and CSRF protections. Missing explicit history is private not-found,
+        never an inherited or default grant. Immutable source identity does not activate
+        workload networking. Complete request and response bodies are bounded to 64 KiB.
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Exact private network policy version.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkPolicyVersionV2"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "429":
+          $ref: "#/components/responses/PrivateProblem"
+        "503":
+          $ref: "#/components/responses/PrivateProblem"
+        "default":
+          $ref: "#/components/responses/PrivateProblem"
+  /v2/projects/{projectId}/network-policy/versions:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    post:
+      operationId: createProjectNetworkPolicyVersionV2
+      summary: Append an authorized conditional network policy version
+      description: >-
+        See network-policy-management-v2-semantics.md. Requires current owner/admin
+        membership and projects:manage authority for the exact tenant and source.
+        Project-scoped tokens cannot administer organization policy or another project.
+        Actions grants are refused. Authentication and resource authorization precede
+        body/version inspection and replay. Session-cookie writes require existing
+        same-origin and CSRF protections. Missing explicit history is private not-found,
+        never an inherited or default grant. Immutable source identity does not activate
+        workload networking. Complete request and response bodies are bounded to 64 KiB.
+        Writes are independently default-disabled. The expected predecessor must match;
+        identical idempotent retries preserve their original version after successors
+        exist. Conflicts never overwrite history or reset the current policy.
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNetworkPolicyVersionRequestV2"
+      responses:
+        "201":
+          description: Exact private network policy version created or identically replayed.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkPolicyVersionV2"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "409":
+          $ref: "#/components/responses/NetworkPolicyVersionConflict"
+        "429":
+          $ref: "#/components/responses/PrivateProblem"
+        "503":
+          $ref: "#/components/responses/PrivateProblem"
+        "default":
+          $ref: "#/components/responses/PrivateProblem"
+  /v2/projects/{projectId}/network-policy/versions/{networkPolicyVersionId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/NetworkPolicyVersionId"
+    get:
+      operationId: getProjectNetworkPolicyVersionV2
+      summary: Read one exact immutable network policy version
+      description: >-
+        See network-policy-management-v2-semantics.md. Requires current owner/admin
+        membership and projects:manage authority for the exact tenant and source.
+        Project-scoped tokens cannot administer organization policy or another project.
+        Actions grants are refused. Authentication and resource authorization precede
+        body/version inspection and replay. Session-cookie writes require existing
+        same-origin and CSRF protections. Missing explicit history is private not-found,
+        never an inherited or default grant. Immutable source identity does not activate
+        workload networking. Complete request and response bodies are bounded to 64 KiB.
+      tags: [organizations-projects]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Exact private network policy version.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkPolicyVersionV2"
+        "400":
+          $ref: "#/components/responses/PrivateProblem"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PrivateProblem"
+        "404":
+          $ref: "#/components/responses/PrivateLogNotFound"
+        "429":
+          $ref: "#/components/responses/PrivateProblem"
+        "503":
+          $ref: "#/components/responses/PrivateProblem"
+        "default":
+          $ref: "#/components/responses/PrivateProblem"
   /v2/projects/{projectId}/config-snapshots:
     parameters:
       - $ref: "#/components/parameters/ProjectId"
@@ -3653,6 +3939,12 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/StableId"
+    NetworkPolicyVersionId:
+      name: networkPolicyVersionId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/CanonicalStableId"
     ProjectId:
       name: projectId
       in: path
@@ -4684,6 +4976,15 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
+    NetworkPolicyVersionConflict:
+      description: Expected predecessor or idempotency identity conflicts, or network policy writes are disabled.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/PrivateNoStore"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/PrivateProblemDetails"
     ConfigSnapshotV2Conflict:
       description: Idempotency key or immutable configuration source identity conflicts with retained content.
       headers:
@@ -5232,6 +5533,132 @@ components:
           schema:
             $ref: "#/components/schemas/RevokeRunnerCredentialsRequest"
   schemas:
+    NetworkPermissionV2:
+      type: object
+      additionalProperties: false
+      required:
+        - hostname
+        - port
+        - transport
+      properties:
+        hostname:
+          type: string
+          minLength: 1
+          maxLength: 253
+          pattern: ^(?=[\s\S]*[a-z])(?!(?:[0-9]+|0x[0-9a-f]+)(?:\.(?:[0-9]+|0x[0-9a-f]+))+$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))+(?![\s\S])
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          not:
+            enum:
+              - 25
+              - 53
+              - 465
+              - 587
+              - 853
+        transport:
+          enum:
+            - tcp
+            - udp
+    NetworkPolicyV2:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - permissions
+        - maximumConnections
+        - maximumBytesPerSecond
+      properties:
+        mode:
+          enum:
+            - none
+            - restricted
+            - allowlist
+        permissions:
+          type: array
+          maxItems: 128
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/NetworkPermissionV2"
+        maximumConnections:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
+        maximumBytesPerSecond:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
+      allOf:
+        - if:
+            properties:
+              mode:
+                const: none
+            required:
+              - mode
+          then:
+            properties:
+              permissions:
+                type: array
+                maxItems: 0
+              maximumConnections:
+                const: 0
+              maximumBytesPerSecond:
+                const: 0
+          else:
+            properties:
+              permissions:
+                type: array
+                minItems: 1
+              maximumConnections:
+                type: integer
+                minimum: 1
+              maximumBytesPerSecond:
+                type: integer
+                minimum: 1
+    CreateNetworkPolicyVersionRequestV2:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, expectedVersion, policy]
+      properties:
+        schemaVersion: { type: integer, const: 2 }
+        expectedVersion:
+          { type: integer, minimum: 0, maximum: 9007199254740990 }
+        policy:
+          $ref: "#/components/schemas/NetworkPolicyV2"
+    NetworkPolicyVersionV2:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          id,
+          organizationId,
+          sourceKind,
+          sourceId,
+          version,
+          policy,
+          networkPolicySha256,
+          createdAt,
+        ]
+      properties:
+        schemaVersion: { type: integer, const: 2 }
+        id:
+          $ref: "#/components/schemas/CanonicalStableId"
+        organizationId:
+          $ref: "#/components/schemas/CanonicalStableId"
+        sourceKind: { type: string, enum: [organization, project] }
+        sourceId:
+          $ref: "#/components/schemas/CanonicalStableId"
+        version: { type: integer, minimum: 1, maximum: 9007199254740991 }
+        policy:
+          $ref: "#/components/schemas/NetworkPolicyV2"
+        networkPolicySha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+          description: SHA-256 of exact deterministic validated NetworkPolicyV2 source bytes, not a complete EffectivePolicy hash.
+        createdAt:
+          $ref: "#/components/schemas/BoundedTimestamp"
     AutomaticPaperRuntimeManifest:
       type: object
       additionalProperties: false

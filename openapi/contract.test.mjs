@@ -19,6 +19,8 @@ import "./candidate-inputs.test.mjs";
 import "./execution-details.test.mjs";
 import "./release-rejection.test.mjs";
 import "./network-config-v2.test.mjs";
+import "./network-policy-management-v2.test.mjs";
+import { networkPolicyManagementOperations } from "./network-policy-management-v2-compat.mjs";
 
 import { parse } from "yaml";
 
@@ -682,6 +684,12 @@ test("operation and path inventory matches the public v1 skeleton", () => {
     actual.every(
       ({ path, method, operationId }) =>
         path.startsWith("/v1/") ||
+        networkPolicyManagementOperations.some(
+          (operation) =>
+            operation.path === path &&
+            operation.method === method &&
+            operation.operationId === operationId,
+        ) ||
         (path === "/v2/projects/{projectId}/config-snapshots" &&
           method === "post" &&
           operationId === "createProjectConfigSnapshotV2") ||
@@ -741,7 +749,10 @@ test("every operation exposes structured failure responses", () => {
       operation.responses.default?.$ref,
       operation.operationId.includes("Alpha")
         ? "#/components/responses/AlphaProblem503"
-        : privateLogOperationIds.has(operation.operationId) ||
+        : networkPolicyManagementOperations.some(
+              (entry) => entry.operationId === operation.operationId,
+            ) ||
+            privateLogOperationIds.has(operation.operationId) ||
             [
               "listReleaseCandidateMatrix",
               "getReleaseCandidateInputs",
@@ -824,6 +835,9 @@ test("every mutation has deterministic idempotency semantics", () => {
       operation.operationId === "createGitHubActionsGrant" ||
       operation.operationId === "rejectReleaseCandidate" ||
       operation.operationId === "createProjectConfigSnapshotV2" ||
+      networkPolicyManagementOperations.some(
+        (entry) => entry.operationId === operation.operationId,
+      ) ||
       operation.operationId.includes("Alpha")
     ) {
       assert.equal(parameter.required, true);

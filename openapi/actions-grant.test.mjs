@@ -19,9 +19,12 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforeNetworkPolicyManagementV2 } from "./network-policy-management-v2-compat.mjs";
 
 const root = new URL("./", import.meta.url);
-const doc = parse(await readFile(new URL("provenance.v1.yaml", root), "utf8"));
+const doc = beforeNetworkPolicyManagementV2(
+  parse(await readFile(new URL("provenance.v1.yaml", root), "utf8")),
+);
 const baseline = JSON.parse(
   await readFile(new URL("alpha17-compat.hashes.json", root), "utf8"),
 );

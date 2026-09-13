@@ -617,6 +617,140 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
+    "/v2/organizations/{organizationId}/network-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["parameters"]["OrganizationId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the current explicit network policy version
+         * @description See network-policy-management-v2-semantics.md. Requires current owner/admin membership and projects:manage authority for the exact tenant and source. Project-scoped tokens cannot administer organization policy or another project. Actions grants are refused. Authentication and resource authorization precede body/version inspection and replay. Session-cookie writes require existing same-origin and CSRF protections. Missing explicit history is private not-found, never an inherited or default grant. Immutable source identity does not activate workload networking. Complete request and response bodies are bounded to 64 KiB.
+         */
+        get: operations["getOrganizationNetworkPolicyV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/organizations/{organizationId}/network-policy/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["parameters"]["OrganizationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Append an authorized conditional network policy version
+         * @description See network-policy-management-v2-semantics.md. Requires current owner/admin membership and projects:manage authority for the exact tenant and source. Project-scoped tokens cannot administer organization policy or another project. Actions grants are refused. Authentication and resource authorization precede body/version inspection and replay. Session-cookie writes require existing same-origin and CSRF protections. Missing explicit history is private not-found, never an inherited or default grant. Immutable source identity does not activate workload networking. Complete request and response bodies are bounded to 64 KiB. Writes are independently default-disabled. The expected predecessor must match; identical idempotent retries preserve their original version after successors exist. Conflicts never overwrite history or reset the current policy.
+         */
+        post: operations["createOrganizationNetworkPolicyVersionV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/organizations/{organizationId}/network-policy/versions/{networkPolicyVersionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["parameters"]["OrganizationId"];
+                networkPolicyVersionId: components["parameters"]["NetworkPolicyVersionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read one exact immutable network policy version
+         * @description See network-policy-management-v2-semantics.md. Requires current owner/admin membership and projects:manage authority for the exact tenant and source. Project-scoped tokens cannot administer organization policy or another project. Actions grants are refused. Authentication and resource authorization precede body/version inspection and replay. Session-cookie writes require existing same-origin and CSRF protections. Missing explicit history is private not-found, never an inherited or default grant. Immutable source identity does not activate workload networking. Complete request and response bodies are bounded to 64 KiB.
+         */
+        get: operations["getOrganizationNetworkPolicyVersionV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/projects/{projectId}/network-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the current explicit network policy version
+         * @description See network-policy-management-v2-semantics.md. Requires current owner/admin membership and projects:manage authority for the exact tenant and source. Project-scoped tokens cannot administer organization policy or another project. Actions grants are refused. Authentication and resource authorization precede body/version inspection and replay. Session-cookie writes require existing same-origin and CSRF protections. Missing explicit history is private not-found, never an inherited or default grant. Immutable source identity does not activate workload networking. Complete request and response bodies are bounded to 64 KiB.
+         */
+        get: operations["getProjectNetworkPolicyV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/projects/{projectId}/network-policy/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Append an authorized conditional network policy version
+         * @description See network-policy-management-v2-semantics.md. Requires current owner/admin membership and projects:manage authority for the exact tenant and source. Project-scoped tokens cannot administer organization policy or another project. Actions grants are refused. Authentication and resource authorization precede body/version inspection and replay. Session-cookie writes require existing same-origin and CSRF protections. Missing explicit history is private not-found, never an inherited or default grant. Immutable source identity does not activate workload networking. Complete request and response bodies are bounded to 64 KiB. Writes are independently default-disabled. The expected predecessor must match; identical idempotent retries preserve their original version after successors exist. Conflicts never overwrite history or reset the current policy.
+         */
+        post: operations["createProjectNetworkPolicyVersionV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/projects/{projectId}/network-policy/versions/{networkPolicyVersionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                networkPolicyVersionId: components["parameters"]["NetworkPolicyVersionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read one exact immutable network policy version
+         * @description See network-policy-management-v2-semantics.md. Requires current owner/admin membership and projects:manage authority for the exact tenant and source. Project-scoped tokens cannot administer organization policy or another project. Actions grants are refused. Authentication and resource authorization precede body/version inspection and replay. Session-cookie writes require existing same-origin and CSRF protections. Missing explicit history is private not-found, never an inherited or default grant. Immutable source identity does not activate workload networking. Complete request and response bodies are bounded to 64 KiB.
+         */
+        get: operations["getProjectNetworkPolicyVersionV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/projects/{projectId}/config-snapshots": {
         parameters: {
             query?: never;
@@ -1694,6 +1828,39 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        NetworkPermissionV2: {
+            hostname: string;
+            port: number;
+            /** @enum {unknown} */
+            transport: "tcp" | "udp";
+        };
+        NetworkPolicyV2: {
+            /** @enum {unknown} */
+            mode: "none" | "restricted" | "allowlist";
+            permissions: components["schemas"]["NetworkPermissionV2"][];
+            maximumConnections: number;
+            maximumBytesPerSecond: number;
+        } & unknown;
+        CreateNetworkPolicyVersionRequestV2: {
+            /** @constant */
+            schemaVersion: 2;
+            expectedVersion: number;
+            policy: components["schemas"]["NetworkPolicyV2"];
+        };
+        NetworkPolicyVersionV2: {
+            /** @constant */
+            schemaVersion: 2;
+            id: components["schemas"]["CanonicalStableId"];
+            organizationId: components["schemas"]["CanonicalStableId"];
+            /** @enum {string} */
+            sourceKind: "organization" | "project";
+            sourceId: components["schemas"]["CanonicalStableId"];
+            version: number;
+            policy: components["schemas"]["NetworkPolicyV2"];
+            /** @description SHA-256 of exact deterministic validated NetworkPolicyV2 source bytes, not a complete EffectivePolicy hash. */
+            networkPolicySha256: string;
+            createdAt: components["schemas"]["BoundedTimestamp"];
+        };
         AutomaticPaperRuntimeManifest: {
             /** @description Base64 of exact UTF-8 AutomaticPaperRuntimePayload JSON bytes, at most 65536 decoded bytes. */
             payload: string;
@@ -4748,6 +4915,16 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description Expected predecessor or idempotency identity conflicts, or network policy writes are disabled. */
+        NetworkPolicyVersionConflict: {
+            headers: {
+                "Cache-Control": components["headers"]["PrivateNoStore"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["PrivateProblemDetails"];
+            };
+        };
         /** @description Idempotency key or immutable configuration source identity conflicts with retained content. */
         ConfigSnapshotV2Conflict: {
             headers: {
@@ -5177,6 +5354,7 @@ export interface components {
         /** @description SSE reconnect cursor. When both cursor forms are present they must be byte-for-byte equal. Any Last-Event-ID is invalid for JSON, and every SSE reconnect independently reauthorizes and validates the selected cursor. */
         LogLastEventId: components["schemas"]["LogCursor"];
         OrganizationId: components["schemas"]["StableId"];
+        NetworkPolicyVersionId: components["schemas"]["CanonicalStableId"];
         ProjectId: components["schemas"]["StableId"];
         ArtifactId: components["schemas"]["StableId"];
         CandidateId: components["schemas"]["StableId"];
@@ -6663,6 +6841,204 @@ export interface operations {
             };
             409: components["responses"]["IdempotencyConflict"];
             default: components["responses"]["Problem"];
+        };
+    };
+    getOrganizationNetworkPolicyV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["parameters"]["OrganizationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact private network policy version. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkPolicyVersionV2"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            429: components["responses"]["PrivateProblem"];
+            503: components["responses"]["PrivateProblem"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    createOrganizationNetworkPolicyVersionV2: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                organizationId: components["parameters"]["OrganizationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNetworkPolicyVersionRequestV2"];
+            };
+        };
+        responses: {
+            /** @description Exact private network policy version created or identically replayed. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkPolicyVersionV2"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            409: components["responses"]["NetworkPolicyVersionConflict"];
+            429: components["responses"]["PrivateProblem"];
+            503: components["responses"]["PrivateProblem"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    getOrganizationNetworkPolicyVersionV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["parameters"]["OrganizationId"];
+                networkPolicyVersionId: components["parameters"]["NetworkPolicyVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact private network policy version. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkPolicyVersionV2"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            429: components["responses"]["PrivateProblem"];
+            503: components["responses"]["PrivateProblem"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    getProjectNetworkPolicyV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact private network policy version. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkPolicyVersionV2"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            429: components["responses"]["PrivateProblem"];
+            503: components["responses"]["PrivateProblem"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    createProjectNetworkPolicyVersionV2: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Caller-generated key scoped to the authenticated identity, HTTP method, and route. Repeating the same key and request returns the original outcome; reusing it with a different request conflicts. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNetworkPolicyVersionRequestV2"];
+            };
+        };
+        responses: {
+            /** @description Exact private network policy version created or identically replayed. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkPolicyVersionV2"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            409: components["responses"]["NetworkPolicyVersionConflict"];
+            429: components["responses"]["PrivateProblem"];
+            503: components["responses"]["PrivateProblem"];
+            default: components["responses"]["PrivateProblem"];
+        };
+    };
+    getProjectNetworkPolicyVersionV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                networkPolicyVersionId: components["parameters"]["NetworkPolicyVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact private network policy version. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkPolicyVersionV2"];
+                };
+            };
+            400: components["responses"]["PrivateProblem"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["PrivateProblem"];
+            404: components["responses"]["PrivateLogNotFound"];
+            429: components["responses"]["PrivateProblem"];
+            503: components["responses"]["PrivateProblem"];
+            default: components["responses"]["PrivateProblem"];
         };
     };
     createProjectConfigSnapshotV2: {
