@@ -1,39 +1,39 @@
 // Project away only the registered additive tenant-management surface.
 export const networkPolicyManagementOperations = [
   {
-    path: "/v2/organizations/{organizationId}/network-policy",
     method: "get",
     operationId: "getOrganizationNetworkPolicyV2",
+    path: "/v2/organizations/{organizationId}/network-policy",
     tag: "organizations-projects",
   },
   {
-    path: "/v2/organizations/{organizationId}/network-policy/versions",
     method: "post",
     operationId: "createOrganizationNetworkPolicyVersionV2",
+    path: "/v2/organizations/{organizationId}/network-policy/versions",
     tag: "organizations-projects",
   },
   {
-    path: "/v2/organizations/{organizationId}/network-policy/versions/{networkPolicyVersionId}",
     method: "get",
     operationId: "getOrganizationNetworkPolicyVersionV2",
+    path: "/v2/organizations/{organizationId}/network-policy/versions/{networkPolicyVersionId}",
     tag: "organizations-projects",
   },
   {
-    path: "/v2/projects/{projectId}/network-policy",
     method: "get",
     operationId: "getProjectNetworkPolicyV2",
+    path: "/v2/projects/{projectId}/network-policy",
     tag: "organizations-projects",
   },
   {
-    path: "/v2/projects/{projectId}/network-policy/versions",
     method: "post",
     operationId: "createProjectNetworkPolicyVersionV2",
+    path: "/v2/projects/{projectId}/network-policy/versions",
     tag: "organizations-projects",
   },
   {
-    path: "/v2/projects/{projectId}/network-policy/versions/{networkPolicyVersionId}",
     method: "get",
     operationId: "getProjectNetworkPolicyVersionV2",
+    path: "/v2/projects/{projectId}/network-policy/versions/{networkPolicyVersionId}",
     tag: "organizations-projects",
   },
 ];
