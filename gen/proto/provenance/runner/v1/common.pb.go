@@ -3016,8 +3016,12 @@ type LogObject struct {
 	Digest              *Digest                `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
 	CompressedSizeBytes uint64                 `protobuf:"varint,3,opt,name=compressed_size_bytes,json=compressedSizeBytes,proto3" json:"compressed_size_bytes,omitempty"`
 	ContentType         string                 `protobuf:"bytes,4,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// True only when the trusted collector actually redacted retained log bytes.
+	// A literal customer-supplied marker is not evidence of redaction. Legacy
+	// producers omit this metadata; false does not prove secret-free output.
+	Redacted      bool `protobuf:"varint,10,opt,name=redacted,proto3" json:"redacted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LogObject) Reset() {
@@ -3076,6 +3080,13 @@ func (x *LogObject) GetContentType() string {
 		return x.ContentType
 	}
 	return ""
+}
+
+func (x *LogObject) GetRedacted() bool {
+	if x != nil {
+		return x.Redacted
+	}
+	return false
 }
 
 type StructuredResult struct {
@@ -3533,13 +3544,15 @@ const file_common_proto_rawDesc = "" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x04\x10\n" +
-	"\"\xbd\x01\n" +
+	"\"\xd9\x01\n" +
 	"\tLogObject\x12\x1d\n" +
 	"\n" +
 	"object_key\x18\x01 \x01(\tR\tobjectKey\x124\n" +
 	"\x06digest\x18\x02 \x01(\v2\x1c.provenance.runner.v1.DigestR\x06digest\x122\n" +
 	"\x15compressed_size_bytes\x18\x03 \x01(\x04R\x13compressedSizeBytes\x12!\n" +
-	"\fcontent_type\x18\x04 \x01(\tR\vcontentTypeJ\x04\b\x05\x10\n" +
+	"\fcontent_type\x18\x04 \x01(\tR\vcontentType\x12\x1a\n" +
+	"\bredacted\x18\n" +
+	" \x01(\bR\bredactedJ\x04\b\x05\x10\n" +
 	"\"\xaf\x04\n" +
 	"\x10StructuredResult\x12=\n" +
 	"\aoutcome\x18\x01 \x01(\x0e2#.provenance.runner.v1.ResultOutcomeR\aoutcome\x12E\n" +
