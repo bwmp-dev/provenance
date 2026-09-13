@@ -1,0 +1,86 @@
+{
+  "contract": "IFC-030-network-policy-management-v2",
+  "runtimeEvidence": false,
+  "vectors": [
+    {
+      "request": {
+        "schemaVersion": 2,
+        "expectedVersion": 0,
+        "policy": {
+          "mode": "none",
+          "permissions": [],
+          "maximumConnections": 0,
+          "maximumBytesPerSecond": 0
+        }
+      },
+      "response": {
+        "schemaVersion": 2,
+        "id": "30000000-0000-4000-8000-000000000001",
+        "organizationId": "10000000-0000-4000-8000-000000000001",
+        "sourceKind": "organization",
+        "sourceId": "10000000-0000-4000-8000-000000000001",
+        "version": 1,
+        "policy": {
+          "mode": "none",
+          "permissions": [],
+          "maximumConnections": 0,
+          "maximumBytesPerSecond": 0
+        },
+        "networkPolicySha256": "fb8da7eb5b1b399e7321179dac9e9f65773d7331e1e30554e3911e4325e1ef19",
+        "createdAt": "2026-09-13T00:00:00Z"
+      },
+      "wireHex": "0801"
+    },
+    {
+      "request": {
+        "schemaVersion": 2,
+        "expectedVersion": 1,
+        "policy": {
+          "mode": "allowlist",
+          "permissions": [
+            {
+              "hostname": "a.example",
+              "port": 443,
+              "transport": "tcp"
+            },
+            {
+              "hostname": "b.example",
+              "port": 8443,
+              "transport": "udp"
+            }
+          ],
+          "maximumConnections": 8,
+          "maximumBytesPerSecond": 65536
+        }
+      },
+      "response": {
+        "schemaVersion": 2,
+        "id": "30000000-0000-4000-8000-000000000002",
+        "organizationId": "10000000-0000-4000-8000-000000000001",
+        "sourceKind": "project",
+        "sourceId": "20000000-0000-4000-8000-000000000001",
+        "version": 2,
+        "policy": {
+          "mode": "allowlist",
+          "permissions": [
+            {
+              "hostname": "a.example",
+              "port": 443,
+              "transport": "tcp"
+            },
+            {
+              "hostname": "b.example",
+              "port": 8443,
+              "transport": "udp"
+            }
+          ],
+          "maximumConnections": 8,
+          "maximumBytesPerSecond": 65536
+        },
+        "networkPolicySha256": "30219774e713b6faf9529fad442c5718c1b7cad7f6c0b6182f4c0e30d32e9b0e",
+        "createdAt": "2026-09-13T00:00:00Z"
+      },
+      "wireHex": "080312100a09612e6578616d706c6510bb03180112100a09622e6578616d706c6510fb411802180820808004"
+    }
+  ]
+}

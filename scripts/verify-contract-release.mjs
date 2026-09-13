@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { verifyRejectionConsumer } from "./release-rejection-consumer.mjs";
 import { verifyNetworkConfigV2Consumer } from "./release-network-config-consumer.mjs";
+import { verifyNetworkPolicyManagementV2Consumer } from "./release-network-policy-management-consumer.mjs";
+import { createRequire } from "node:module";
 import {
   mkdir,
   mkdtemp,
@@ -1997,6 +1999,36 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
         configuration,
       );
       hasReleasedNetworkConfigV2 = true;
+    }
+    if (
+      specification.paths?.["/v2/organizations/{organizationId}/network-policy"]
+    ) {
+      const protocolRoot = rootFor("runner-protocol");
+      const protocolDirectory = resolve(protocolRoot, "typescript");
+      const requireProtocol = createRequire(
+        resolve(protocolDirectory, "package.json"),
+      );
+      const { create, toBinary } = requireProtocol("@bufbuild/protobuf");
+      const protocol = await import(
+        pathToFileURL(resolve(protocolDirectory, "dist/index.js"))
+      );
+      const { validPolicy } = await import(
+        pathToFileURL(
+          resolve(protocolRoot, "proto/network-policy-v2/reference.mjs"),
+        )
+      );
+      verifyNetworkPolicyManagementV2Consumer(
+        specification,
+        await readFile(
+          resolve(root, "network-policy-management-v2-semantics.md"),
+          "utf8",
+        ),
+        await readJson(
+          resolve(root, "network-policy-management-v2-vectors.json"),
+          "released tenant network policy vectors",
+        ),
+        { create, toBinary, protocol, validPolicy },
+      );
     }
     if (
       specification.paths?.[

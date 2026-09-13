@@ -124,6 +124,14 @@ export const legacyContractBundles = [
       },
       { source: "openapi/redocly.yaml", destination: "redocly.yaml" },
       {
+        source: "openapi/network-policy-management-v2-semantics.md",
+        destination: "network-policy-management-v2-semantics.md",
+      },
+      {
+        source: "openapi/network-policy-management-v2-vectors.json",
+        destination: "network-policy-management-v2-vectors.json",
+      },
+      {
         source: "openapi/network-config-v2-semantics.md",
         destination: "network-config-v2-semantics.md",
       },

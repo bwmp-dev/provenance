@@ -1,5 +1,41 @@
 [
   {
+    "path": "/v2/organizations/{organizationId}/network-policy",
+    "method": "get",
+    "operationId": "getOrganizationNetworkPolicyV2",
+    "tag": "organizations-projects"
+  },
+  {
+    "path": "/v2/organizations/{organizationId}/network-policy/versions",
+    "method": "post",
+    "operationId": "createOrganizationNetworkPolicyVersionV2",
+    "tag": "organizations-projects"
+  },
+  {
+    "path": "/v2/organizations/{organizationId}/network-policy/versions/{networkPolicyVersionId}",
+    "method": "get",
+    "operationId": "getOrganizationNetworkPolicyVersionV2",
+    "tag": "organizations-projects"
+  },
+  {
+    "path": "/v2/projects/{projectId}/network-policy",
+    "method": "get",
+    "operationId": "getProjectNetworkPolicyV2",
+    "tag": "organizations-projects"
+  },
+  {
+    "path": "/v2/projects/{projectId}/network-policy/versions",
+    "method": "post",
+    "operationId": "createProjectNetworkPolicyVersionV2",
+    "tag": "organizations-projects"
+  },
+  {
+    "path": "/v2/projects/{projectId}/network-policy/versions/{networkPolicyVersionId}",
+    "method": "get",
+    "operationId": "getProjectNetworkPolicyVersionV2",
+    "tag": "organizations-projects"
+  },
+  {
     "method": "post",
     "operationId": "createProjectConfigSnapshotV2",
     "path": "/v2/projects/{projectId}/config-snapshots",
