@@ -2,6 +2,7 @@ package terminalevidence_test
 
 import (
  "bytes"
+ "crypto/sha256"
  "encoding/hex"
  "encoding/json"
  "os"
@@ -10,6 +11,25 @@ import (
  "google.golang.org/protobuf/encoding/protojson"
  "google.golang.org/protobuf/proto"
 )
+
+func TestReleasedNetworkPolicyV2FullIdentity(t *testing.T) {
+ raw,err:=os.ReadFile("../proto/network-policy-v2/vectors.json");if err!=nil {t.Fatal(err)}
+ var v struct {EffectivePolicy json.RawMessage; EffectivePolicyWireHex,EffectivePolicySha256,LegacyFullPolicyWireHex,LegacyFullPolicySha256 string}
+ if err=json.Unmarshal(raw,&v);err!=nil {t.Fatal(err)}
+ var policy p.EffectivePolicy
+ if err=protojson.Unmarshal(v.EffectivePolicy,&policy);err!=nil {t.Fatal(err)}
+ encoded,err:=proto.MarshalOptions{Deterministic:true}.Marshal(&policy);if err!=nil {t.Fatal(err)}
+ hash:=sha256.Sum256(encoded)
+ if hex.EncodeToString(encoded)!=v.EffectivePolicyWireHex||hex.EncodeToString(hash[:])!=v.EffectivePolicySha256 {t.Fatal("full v2 policy identity differs")}
+ var replay p.EffectivePolicy
+ if err=proto.Unmarshal(encoded,&replay);err!=nil {t.Fatal(err)}
+ again,err:=proto.MarshalOptions{Deterministic:true}.Marshal(&replay)
+ if err!=nil||!bytes.Equal(encoded,again) {t.Fatal("full policy replay changed")}
+ policy.NetworkV2=nil;policy.Network=&p.NetworkPolicy{Mode:p.NetworkMode_NETWORK_MODE_NONE}
+ encoded,err=proto.MarshalOptions{Deterministic:true}.Marshal(&policy);if err!=nil {t.Fatal(err)}
+ hash=sha256.Sum256(encoded)
+ if hex.EncodeToString(encoded)!=v.LegacyFullPolicyWireHex||hex.EncodeToString(hash[:])!=v.LegacyFullPolicySha256||v.LegacyFullPolicySha256!="cb70bae1ac8b86e891449ee3224dfc4b7132234983d4b8d22360cbac4d125a08" {t.Fatal("legacy full policy identity changed")}
+}
 
 func TestReleasedNetworkPolicyV2(t *testing.T) {
  raw,err:=os.ReadFile("../proto/network-policy-v2/vectors.json");if err!=nil {t.Fatal(err)}

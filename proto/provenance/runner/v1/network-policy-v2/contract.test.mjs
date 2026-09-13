@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
@@ -10,6 +11,98 @@ const vectors = JSON.parse(
   readFileSync(new URL("vectors.json", import.meta.url)),
 );
 const fresh = () => structuredClone(vectors.enabled);
+
+test("full v2 policy hash binds every dimension with independent legacy identity", async () => {
+  const directory =
+    process.env.NETWORK_POLICY_PROTOCOL_DIR ||
+    fileURLToPath(
+      new URL("../../../../../packages/runner-protocol", import.meta.url),
+    );
+  const require = createRequire(resolve(directory, "package.json"));
+  const { create, fromJson, toBinary } = require("@bufbuild/protobuf");
+  const p = await import(pathToFileURL(resolve(directory, "dist/index.js")));
+  const hash = (policy) =>
+    createHash("sha256")
+      .update(toBinary(p.EffectivePolicySchema, policy))
+      .digest("hex");
+  const policy = fromJson(p.EffectivePolicySchema, vectors.effectivePolicy);
+  assert.equal(
+    Buffer.from(toBinary(p.EffectivePolicySchema, policy)).toString("hex"),
+    vectors.effectivePolicyWireHex,
+  );
+  assert.equal(hash(policy), vectors.effectivePolicySha256);
+  assert.notEqual(
+    createHash("sha256")
+      .update(toBinary(p.NetworkPolicyV2Schema, policy.networkV2))
+      .digest("hex"),
+    vectors.effectivePolicySha256,
+  );
+  assert.notEqual(
+    createHash("sha256")
+      .update(JSON.stringify(vectors.effectivePolicy))
+      .digest("hex"),
+    vectors.effectivePolicySha256,
+  );
+  for (const mutate of [
+    (v) => {
+      v.networkV2.permissions[0].hostname = "c.example";
+    },
+    (v) => {
+      v.networkV2.permissions[0].port = 8443;
+    },
+    (v) => {
+      v.networkV2.permissions[0].transport = 2;
+    },
+    (v) => {
+      v.networkV2.maximumConnections--;
+    },
+    (v) => {
+      v.networkV2.maximumBytesPerSecond--;
+    },
+    (v) => {
+      v.resources.cpuMillis--;
+    },
+    (v) => {
+      v.resources.memoryBytes--;
+    },
+    (v) => {
+      v.resources.diskBytes--;
+    },
+    (v) => {
+      v.resources.processCount--;
+    },
+    (v) => {
+      v.preparationTimeout.seconds--;
+    },
+    (v) => {
+      v.executionTimeout.seconds--;
+    },
+    (v) => {
+      v.gracefulShutdownTimeout.seconds--;
+    },
+    (v) => {
+      v.sandbox = 2;
+    },
+    (v) => {
+      v.requirement = 2;
+    },
+  ]) {
+    const changed = fromJson(p.EffectivePolicySchema, vectors.effectivePolicy);
+    mutate(changed);
+    assert.notEqual(hash(changed), vectors.effectivePolicySha256);
+  }
+  policy.networkV2 = undefined;
+  policy.network = create(p.NetworkPolicySchema, { mode: 1 });
+  assert.equal(
+    Buffer.from(toBinary(p.EffectivePolicySchema, policy)).toString("hex"),
+    vectors.legacyFullPolicyWireHex,
+  );
+  assert.equal(hash(policy), vectors.legacyFullPolicySha256);
+  assert.equal(
+    hash(policy),
+    "cb70bae1ac8b86e891449ee3224dfc4b7132234983d4b8d22360cbac4d125a08",
+  );
+});
 const context = () => ({
   features: [1, 3, 9],
   effective: fresh(),

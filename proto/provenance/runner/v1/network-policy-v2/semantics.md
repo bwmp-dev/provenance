@@ -66,6 +66,22 @@ the maximum is refused, not silently narrowed after job identity was frozen.
 
 ## Enforcement obligations
 
+For a v2 job, `JobHashes.policy` is SHA-256 of the deterministic Protobuf wire
+encoding of the complete validated `EffectivePolicy`, including `network_v2`,
+resources, timeouts, sandbox and requirement. No map or unknown fields are
+allowed in that policy. Sorted unique permission tuples, known enum values and
+valid duration encodings are validated before hashing. Do not hash ProtoJSON,
+only the network subset or an independently reconstructed legacy policy. Compare
+the offered digest before accepting the lease and retain the same policy and
+digest on replay. The digest binds bytes; it never authenticates the five source
+policies by itself. Existing legacy-none policy identities are not recalculated.
+
+The existing terminal evidence policy-SHA binding may bind these complete v2
+policy bytes without changing an evidence schema or claiming packet enforcement
+from a hash. Actual enforcement acceptance is still required. A future signed
+public document exposing additional policy fields needs its own explicit schema
+version; this rule does not authorize adding fields to released signed history.
+
 Only the runner's controlled DNS may resolve approved names. Both A and AAAA
 answers and complete CNAME chains are validated against trusted mandatory deny
 inventory; mixed safe/unsafe answers are refused. Pin short-lived bindings to
