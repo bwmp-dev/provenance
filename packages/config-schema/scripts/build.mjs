@@ -16,3 +16,7 @@ await cp(
   resolve(repositoryDirectory, "schemas/config/v1/schema.json"),
   resolve(outputDirectory, "schema.json"),
 );
+await cp(
+  resolve(repositoryDirectory, "schemas/config/v2/schema.json"),
+  resolve(outputDirectory, "schema-v2.json"),
+);

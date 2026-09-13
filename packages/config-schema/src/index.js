@@ -4,6 +4,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { isAlias, isMap, isScalar, isSeq, parseDocument } from "yaml";
 
 import schema from "./schema.json" with { type: "json" };
+import schemaV2 from "./schema-v2.json" with { type: "json" };
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 ajv.addFormat("regex", {
@@ -19,6 +20,7 @@ ajv.addFormat("regex", {
 });
 
 const validate = ajv.compile(schema);
+const validateV2 = ajv.compile(schemaV2);
 
 export class ConfigurationError extends Error {
   constructor(message, errors = []) {
@@ -140,10 +142,13 @@ function canonicalize(value) {
 }
 
 export function validateConfiguration(value) {
-  if (!validate(value)) {
-    throw new ConfigurationError("configuration does not satisfy schema v1", [
-      ...validate.errors,
-    ]);
+  const selected =
+    value?.apiVersion === "provenance.dev/v2" ? validateV2 : validate;
+  if (!selected(value)) {
+    throw new ConfigurationError(
+      `configuration does not satisfy schema ${selected === validateV2 ? "v2" : "v1"}`,
+      [...selected.errors],
+    );
   }
   return value;
 }
@@ -174,4 +179,4 @@ export function hashConfiguration(value) {
     .digest("hex");
 }
 
-export { schema };
+export { schema, schemaV2 };

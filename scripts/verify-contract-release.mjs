@@ -453,6 +453,12 @@ async function verifyArchive({
 
   let sdkSources;
   if (archive.bundle === "typescript-sdk") {
+    const configurationV2 = (
+      await readFile(
+        resolve(extractedRoot, "package/vendor/config-schema/dist/index.js"),
+        "utf8",
+      )
+    ).includes("schema-v2.json");
     const verifierV2 = (
       await readFile(
         resolve(extractedRoot, "package/vendor/verification/dist/index.js"),
@@ -473,7 +479,14 @@ async function verifyArchive({
           "api-client",
           ["index.js", "index.d.ts", "index.d.ts.map", "gen/schema.d.ts"],
         ],
-        ["config-schema", ["index.js", "schema.json"]],
+        [
+          "config-schema",
+          [
+            "index.js",
+            "schema.json",
+            ...(configurationV2 ? ["schema-v2.json"] : []),
+          ],
+        ],
         [
           "verification",
           [
@@ -596,6 +609,33 @@ async function verifyArchive({
       invariant(
         file.transform === undefined,
         `unknown bundle transform: ${file.transform}`,
+      );
+    }
+  }
+  if (archive.bundle === "config-schema") {
+    const source = await readFile(
+      resolve(extractedRoot, "package/dist/index.js"),
+      "utf8",
+    );
+    if (source.includes("schema-v2.json")) {
+      for (const path of [
+        "schema-v2/schema.json",
+        "schema-v2/normalized-json.md",
+        "fixtures/v2/vectors.json",
+        "package/dist/schema-v2.json",
+      ]) {
+        invariant(
+          embeddedManifest.files.some((file) => file.path === path),
+          `released configuration v2 file missing: ${path}`,
+        );
+      }
+      invariant(
+        (
+          await readFile(resolve(extractedRoot, "package/dist/schema-v2.json"))
+        ).equals(
+          await readFile(resolve(extractedRoot, "schema-v2/schema.json")),
+        ),
+        "released configuration v2 embedded schema differs",
       );
     }
   }
@@ -1628,6 +1668,51 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
       ) === expectedHash,
       "released configuration consumer normalized the fixture differently",
     );
+    if (configuration.schemaV2) {
+      const v2 = await readJson(
+        resolve(root, "fixtures/v2/vectors.json"),
+        "configuration v2 vector",
+      );
+      const parsed = configuration.parseConfiguration(v2.canonical);
+      invariant(
+        configuration.normalizeConfiguration(parsed) === v2.canonical &&
+          configuration.hashConfiguration(parsed) === v2.sha256,
+        "released configuration v2 identity differs",
+      );
+      for (const change of [
+        (v) => {
+          v.apiVersion = "provenance.dev/v1";
+        },
+        (v) => {
+          v.network.maximumConnections = 0;
+        },
+        (v) => {
+          v.network.maximumBytesPerSecond = 0;
+        },
+        (v) => {
+          v.network.permissions[0].hostname = "0x7f.0.0.1";
+        },
+        (v) => {
+          v.network.permissions[0].transport = "icmp";
+        },
+        (v) => {
+          v.network.resolver = "customer.example";
+        },
+      ]) {
+        const invalid = structuredClone(parsed);
+        change(invalid);
+        let rejected = false;
+        try {
+          configuration.validateConfiguration(invalid);
+        } catch {
+          rejected = true;
+        }
+        invariant(
+          rejected,
+          "released configuration v2 accepted an invalid request",
+        );
+      }
+    }
   }
 
   {

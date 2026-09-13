@@ -15869,6 +15869,125 @@ var schema_default = {
   }
 };
 
+// ../config-schema/dist/schema-v2.json
+var schema_v2_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://schemas.provenance.dev/config/v2/schema.json",
+  title: "Provenance configuration v2",
+  description: "Explicit opt-in job network request. Schema validity does not grant network access. All non-network definitions retain v1 meaning; validation resolves the bundled v1 schema offline.",
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "apiVersion",
+    "project",
+    "artifact",
+    "paper",
+    "dependencies",
+    "tests",
+    "release",
+    "network",
+    "resources"
+  ],
+  properties: {
+    apiVersion: { const: "provenance.dev/v2" },
+    project: {
+      $ref: "https://schemas.provenance.dev/config/v1/schema.json#/$defs/project"
+    },
+    artifact: {
+      $ref: "https://schemas.provenance.dev/config/v1/schema.json#/$defs/artifact"
+    },
+    paper: {
+      $ref: "https://schemas.provenance.dev/config/v1/schema.json#/$defs/paper"
+    },
+    dependencies: {
+      $ref: "https://schemas.provenance.dev/config/v1/schema.json#/properties/dependencies"
+    },
+    tests: {
+      $ref: "https://schemas.provenance.dev/config/v1/schema.json#/$defs/tests"
+    },
+    release: {
+      $ref: "https://schemas.provenance.dev/config/v1/schema.json#/$defs/release"
+    },
+    network: { $ref: "#/$defs/network" },
+    resources: {
+      $ref: "https://schemas.provenance.dev/config/v1/schema.json#/$defs/resources"
+    }
+  },
+  $defs: {
+    permission: {
+      type: "object",
+      additionalProperties: false,
+      required: ["hostname", "port", "transport"],
+      properties: {
+        hostname: {
+          type: "string",
+          minLength: 1,
+          maxLength: 253,
+          pattern: "^(?=[\\s\\S]*[a-z])(?!(?:[0-9]+|0x[0-9a-f]+)(?:\\.(?:[0-9]+|0x[0-9a-f]+))+$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))+(?![\\s\\S])"
+        },
+        port: {
+          type: "integer",
+          minimum: 1,
+          maximum: 65535,
+          not: { enum: [25, 53, 465, 587, 853] }
+        },
+        transport: { enum: ["tcp", "udp"] }
+      }
+    },
+    network: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "mode",
+        "permissions",
+        "maximumConnections",
+        "maximumBytesPerSecond"
+      ],
+      properties: {
+        mode: { enum: ["none", "restricted", "allowlist"] },
+        permissions: {
+          type: "array",
+          maxItems: 128,
+          uniqueItems: true,
+          items: { $ref: "#/$defs/permission" }
+        },
+        maximumConnections: {
+          type: "integer",
+          minimum: 0,
+          maximum: 4294967295
+        },
+        maximumBytesPerSecond: {
+          type: "integer",
+          minimum: 0,
+          maximum: 4294967295
+        }
+      },
+      allOf: [
+        {
+          if: {
+            properties: { mode: { const: "none" } },
+            required: ["mode"]
+          },
+          then: {
+            properties: {
+              permissions: { type: "array", maxItems: 0 },
+              maximumConnections: { const: 0 },
+              maximumBytesPerSecond: { const: 0 }
+            }
+          },
+          else: {
+            properties: {
+              permissions: { type: "array", minItems: 1 },
+              maximumConnections: { type: "integer", minimum: 1 },
+              maximumBytesPerSecond: { type: "integer", minimum: 1 }
+            }
+          }
+        }
+      ]
+    }
+  }
+};
+
 // ../config-schema/dist/index.js
 var ajv = new import__.default({ allErrors: true, strict: true });
 ajv.addFormat("regex", {
@@ -15883,6 +16002,7 @@ ajv.addFormat("regex", {
   }
 });
 var validate = ajv.compile(schema_default);
+var validateV2 = ajv.compile(schema_v2_default);
 var ConfigurationError = class extends Error {
   constructor(message, errors = []) {
     super(message);
@@ -15991,10 +16111,12 @@ function canonicalize(value) {
   );
 }
 function validateConfiguration(value) {
-  if (!validate(value)) {
-    throw new ConfigurationError("configuration does not satisfy schema v1", [
-      ...validate.errors
-    ]);
+  const selected = value?.apiVersion === "provenance.dev/v2" ? validateV2 : validate;
+  if (!selected(value)) {
+    throw new ConfigurationError(
+      `configuration does not satisfy schema ${selected === validateV2 ? "v2" : "v1"}`,
+      [...selected.errors]
+    );
   }
   return value;
 }
