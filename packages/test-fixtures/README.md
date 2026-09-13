@@ -86,7 +86,10 @@ hexadecimal characters. Never provision a real credential for this fixture.
 Startup requires the fixed job-private file to be regular, non-symlink and
 read-only. The `provenance-test-secret` console command reads it again and emits
 `PROVENANCE_SECRET_FIXTURE_VALUE=<synthetic value>` followed by
-`PROVENANCE_SECRET_FIXTURE_OK`. The acceptance driver must independently verify
+`PROVENANCE_SECRET_FIXTURE_OK` both to the command sender and the plugin logger.
+The probe captures command output without forwarding it to stdout/stderr, so
+logger emission is a separate requirement for exercising live/stored redaction.
+The acceptance driver must independently verify
 that the actual secret is replaced by `[REDACTED]` in live and complete logs;
 the OK marker alone does not prove redaction. Refusals contain no value or path.
 Input is bounded to 256 bytes; no host path, environment override or network
