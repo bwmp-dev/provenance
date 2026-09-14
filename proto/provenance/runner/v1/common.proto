@@ -498,6 +498,10 @@ enum ProtocolFeature {
   // Separate admission; see network-policy-v2/semantics.md. Do not advertise
   // until authenticated policy, DNS, caps and lifecycle enforcement are ready.
   PROTOCOL_FEATURE_NETWORK_POLICY_V2 = 9;
+  // Independently negotiated current-authority observations for enabled jobs;
+  // requires NETWORK_POLICY_V2, durable acknowledgements and job correlation.
+  // See network-authority-v2/semantics.md. Never infer withdrawal from STALE.
+  PROTOCOL_FEATURE_NETWORK_AUTHORITY_V2 = 10;
 }
 
 // Optional, negotiated observation proof, not an attestation or public claim.

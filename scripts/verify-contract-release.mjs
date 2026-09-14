@@ -647,6 +647,22 @@ async function verifyArchive({
       filesystemPath(extractedRoot, "proto/common.proto"),
       "utf8",
     );
+    if (/PROTOCOL_FEATURE_NETWORK_AUTHORITY_V2\s*=\s*10\s*;/.test(common)) {
+      for (const name of [
+        "semantics.md",
+        "reference.mjs",
+        "vectors.json",
+        "contract.test.mjs",
+        "go-consumer.go.txt",
+      ]) {
+        invariant(
+          embeddedManifest.files.some(
+            (file) => file.path === `proto/network-authority-v2/${name}`,
+          ),
+          `released network authority v2 file missing: ${name}`,
+        );
+      }
+    }
     if (/PROTOCOL_FEATURE_NETWORK_POLICY_V2\s*=\s*9\s*;/.test(common)) {
       for (const name of [
         "semantics.md",
@@ -1876,6 +1892,24 @@ await assert.rejects(verifyAttestedArtifact(fixture.document, key, [artifact]));
         resolve(root, "go/terminal_evidence_v2_test.go"),
         await readFile(
           resolve(root, "proto/terminal-evidence-v2/go-consumer.go.txt"),
+        ),
+      );
+    }
+    if (protocol.ProtocolFeature.NETWORK_AUTHORITY_V2 === 10) {
+      run(
+        process.execPath,
+        [
+          "--test",
+          resolve(root, "proto/network-authority-v2/contract.test.mjs"),
+        ],
+        root,
+        "released current authority v2 vectors and generated wire",
+        { NETWORK_AUTHORITY_PROTOCOL_DIR: resolve(root, "typescript") },
+      );
+      await writeFile(
+        resolve(root, "go/network_authority_v2_test.go"),
+        await readFile(
+          resolve(root, "proto/network-authority-v2/go-consumer.go.txt"),
         ),
       );
     }

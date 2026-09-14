@@ -1100,6 +1100,21 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     );
     for (const [name, omitted, changed] of [
       [
+        "missing-network-authority-vector",
+        "proto/network-authority-v2/vectors.json",
+        null,
+      ],
+      [
+        "missing-network-authority-semantics",
+        "proto/network-authority-v2/semantics.md",
+        null,
+      ],
+      [
+        "tampered-network-authority-vector",
+        null,
+        "proto/network-authority-v2/vectors.json",
+      ],
+      [
         "missing-network-v2-vector",
         "proto/network-policy-v2/vectors.json",
         null,

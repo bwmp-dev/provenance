@@ -99,7 +99,7 @@ export function admitV2({
   return (
     Array.isArray(features) &&
     new Set(features).size === features.length &&
-    features.every((f) => Number.isInteger(f) && f >= 1 && f <= 9) &&
+    features.every((f) => Number.isInteger(f) && f >= 1 && f <= 10) &&
     [1, 3, 9].every((f) => features.includes(f)) &&
     legacyPresent === false &&
     correlationValid === true &&

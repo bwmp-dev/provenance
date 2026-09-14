@@ -883,21 +883,26 @@ const (
 	// Separate admission; see network-policy-v2/semantics.md. Do not advertise
 	// until authenticated policy, DNS, caps and lifecycle enforcement are ready.
 	ProtocolFeature_PROTOCOL_FEATURE_NETWORK_POLICY_V2 ProtocolFeature = 9
+	// Independently negotiated current-authority observations for enabled jobs;
+	// requires NETWORK_POLICY_V2, durable acknowledgements and job correlation.
+	// See network-authority-v2/semantics.md. Never infer withdrawal from STALE.
+	ProtocolFeature_PROTOCOL_FEATURE_NETWORK_AUTHORITY_V2 ProtocolFeature = 10
 )
 
 // Enum value maps for ProtocolFeature.
 var (
 	ProtocolFeature_name = map[int32]string{
-		0: "PROTOCOL_FEATURE_UNSPECIFIED",
-		1: "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
-		2: "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
-		3: "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
-		4: "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
-		5: "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
-		6: "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1",
-		7: "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2",
-		8: "PROTOCOL_FEATURE_TEST_SECRETS_V1",
-		9: "PROTOCOL_FEATURE_NETWORK_POLICY_V2",
+		0:  "PROTOCOL_FEATURE_UNSPECIFIED",
+		1:  "PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS",
+		2:  "PROTOCOL_FEATURE_CREDENTIAL_ROTATION",
+		3:  "PROTOCOL_FEATURE_JOB_CORRELATION_V1",
+		4:  "PROTOCOL_FEATURE_RESTART_UPLOAD_RECOVERY",
+		5:  "PROTOCOL_FEATURE_OBJECT_UPLOAD_IDENTITY",
+		6:  "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1",
+		7:  "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2",
+		8:  "PROTOCOL_FEATURE_TEST_SECRETS_V1",
+		9:  "PROTOCOL_FEATURE_NETWORK_POLICY_V2",
+		10: "PROTOCOL_FEATURE_NETWORK_AUTHORITY_V2",
 	}
 	ProtocolFeature_value = map[string]int32{
 		"PROTOCOL_FEATURE_UNSPECIFIED":                    0,
@@ -910,6 +915,7 @@ var (
 		"PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2":           7,
 		"PROTOCOL_FEATURE_TEST_SECRETS_V1":                8,
 		"PROTOCOL_FEATURE_NETWORK_POLICY_V2":              9,
+		"PROTOCOL_FEATURE_NETWORK_AUTHORITY_V2":           10,
 	}
 )
 
@@ -3658,7 +3664,7 @@ const file_common_proto_rawDesc = "" +
 	"\x15FAILURE_STAGE_STARTUP\x10\x03\x12\x1b\n" +
 	"\x17FAILURE_STAGE_EXECUTION\x10\x04\x12\x19\n" +
 	"\x15FAILURE_STAGE_CLEANUP\x10\x05\x12\x1f\n" +
-	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xba\x03\n" +
+	"\x1bFAILURE_STAGE_RESULT_UPLOAD\x10\x06*\xe5\x03\n" +
 	"\x0fProtocolFeature\x12 \n" +
 	"\x1cPROTOCOL_FEATURE_UNSPECIFIED\x10\x00\x123\n" +
 	"/PROTOCOL_FEATURE_DURABLE_LEASE_ACKNOWLEDGEMENTS\x10\x01\x12(\n" +
@@ -3669,7 +3675,9 @@ const file_common_proto_rawDesc = "" +
 	"%PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1\x10\x06\x12)\n" +
 	"%PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2\x10\a\x12$\n" +
 	" PROTOCOL_FEATURE_TEST_SECRETS_V1\x10\b\x12&\n" +
-	"\"PROTOCOL_FEATURE_NETWORK_POLICY_V2\x10\tBHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
+	"\"PROTOCOL_FEATURE_NETWORK_POLICY_V2\x10\t\x12)\n" +
+	"%PROTOCOL_FEATURE_NETWORK_AUTHORITY_V2\x10\n" +
+	"BHZFgithub.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1;runnerv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once

@@ -227,6 +227,9 @@ test("network v2 hostname, transport, sorting and bounds refusals", () => {
 
 test("network v2 rejects downgrade, mixed representation and unauthenticated admission", () => {
   assert.equal(admitV2(context()), true);
+  // Offer shape remains valid with the separately negotiated authority profile;
+  // this does not replace its mandatory current observation before networking.
+  assert.equal(admitV2({ ...context(), features: [1, 3, 9, 10] }), true);
   for (const features of [
     [],
     [1, 3],
