@@ -1,5 +1,5 @@
 {
-  "descriptorSha256": "c1946178e5d760b424c2b69c1108bcbaa05a8352dd6d53360ec61cd3ed94fc72",
+  "descriptorSha256": "169fcb952570754538506c5088692956dc79297381b7e4e1b13d29acf2b6e67a",
   "service": {
     "name": "RunnerGateway",
     "method": "Connect",
@@ -78,6 +78,7 @@
     "NetworkPolicy",
     "NetworkPermissionV2",
     "NetworkPolicyV2",
+    "NetworkAuthorityV2",
     "ObjectDownload",
     "ObjectUpload",
     "OrganizationScope",
@@ -113,6 +114,7 @@
     "LogStream",
     "NetworkMode",
     "NetworkTransportV2",
+    "NetworkAuthorityStateV2",
     "OperatingSystem",
     "ResultOutcome",
     "RunnerMessageDisposition",
@@ -131,7 +133,13 @@
       "6": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V1",
       "7": "PROTOCOL_FEATURE_TERMINAL_EVIDENCE_V2",
       "8": "PROTOCOL_FEATURE_TEST_SECRETS_V1",
-      "9": "PROTOCOL_FEATURE_NETWORK_POLICY_V2"
+      "9": "PROTOCOL_FEATURE_NETWORK_POLICY_V2",
+      "10": "PROTOCOL_FEATURE_NETWORK_AUTHORITY_V2"
+    },
+    "NetworkAuthorityStateV2": {
+      "0": "NETWORK_AUTHORITY_STATE_V2_UNSPECIFIED",
+      "1": "NETWORK_AUTHORITY_STATE_V2_CURRENT",
+      "2": "NETWORK_AUTHORITY_STATE_V2_WITHDRAWN"
     },
     "NetworkTransportV2": {
       "0": "NETWORK_TRANSPORT_V2_UNSPECIFIED",
@@ -276,7 +284,14 @@
       "5": "phase",
       "6": "terminal_message_id",
       "7": "cancellation_id",
-      "16": "complete_log_upload"
+      "16": "complete_log_upload",
+      "17": "network_authority_v2"
+    },
+    "NetworkAuthorityV2": {
+      "1": "policy",
+      "2": "state",
+      "3": "checked_at",
+      "4": "expires_at"
     },
     "RunnerEventAcknowledgement": {
       "1": "runner_message_id",
@@ -345,6 +360,7 @@
     "NetworkPolicy": [[4, 10]],
     "NetworkPermissionV2": [[4, 10]],
     "NetworkPolicyV2": [[5, 10]],
+    "NetworkAuthorityV2": [[5, 10]],
     "EffectivePolicy": [[8, 16]],
     "RunnerPolicy": [[5, 10]],
     "RunnerMessage": [

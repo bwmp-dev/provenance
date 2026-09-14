@@ -1,0 +1,40 @@
+package terminalevidence_test
+
+import (
+ "bytes"
+ "encoding/hex"
+ "encoding/json"
+ "os"
+ "testing"
+ p "github.com/bwmp-dev/provenance/gen/proto/provenance/runner/v1"
+ "google.golang.org/protobuf/encoding/protojson"
+ "google.golang.org/protobuf/proto"
+)
+
+func TestReleasedNetworkAuthorityV2Wire(t *testing.T) {
+ raw,err:=os.ReadFile("../proto/network-authority-v2/vectors.json");if err!=nil {t.Fatal(err)}
+ var v struct {CurrentWireHex,LegacyReconciliationHex string; Context struct {Observation,Lease,Attempt json.RawMessage}}
+ if err=json.Unmarshal(raw,&v);err!=nil {t.Fatal(err)}
+ var observation p.NetworkAuthorityV2
+ if err=protojson.Unmarshal(v.Context.Observation,&observation);err!=nil {t.Fatal(err)}
+ encoded,err:=proto.MarshalOptions{Deterministic:true}.Marshal(&observation)
+ if err!=nil||hex.EncodeToString(encoded)!=v.CurrentWireHex {t.Fatal("cross-language current authority differs")}
+ if p.ProtocolFeature_PROTOCOL_FEATURE_NETWORK_AUTHORITY_V2!=10 {t.Fatal("authority negotiation changed")}
+ if (&p.LeaseReconciliation{}).ProtoReflect().Descriptor().Fields().ByName("network_authority_v2").Number()!=17 {t.Fatal("authority field moved")}
+ legacy:=&p.LeaseReconciliation{Lease:&p.LeaseIdentity{},Attempt:&p.AttemptIdentity{},Disposition:p.RunnerMessageDisposition_RUNNER_MESSAGE_DISPOSITION_STALE,Status:p.LeaseStatus_LEASE_STATUS_ACTIVE,Phase:p.JobPhase_JOB_PHASE_RUNNING}
+ if err=protojson.Unmarshal(v.Context.Lease,legacy.Lease);err!=nil {t.Fatal(err)}
+ if err=protojson.Unmarshal(v.Context.Attempt,legacy.Attempt);err!=nil {t.Fatal(err)}
+ original,err:=proto.MarshalOptions{Deterministic:true}.Marshal(legacy)
+ if err!=nil||hex.EncodeToString(original)!=v.LegacyReconciliationHex {t.Fatal("legacy reconciliation identity changed")}
+ legacy.NetworkAuthorityV2=&observation
+ encoded,err=proto.MarshalOptions{Deterministic:true}.Marshal(legacy);if err!=nil {t.Fatal(err)}
+ var restored p.LeaseReconciliation
+ if err=proto.Unmarshal(encoded,&restored);err!=nil||!proto.Equal(restored.NetworkAuthorityV2,&observation) {t.Fatal("authority lost in transit")}
+ restored.NetworkAuthorityV2=nil
+ again,err:=proto.MarshalOptions{Deterministic:true}.Marshal(&restored)
+ if err!=nil||!bytes.Equal(original,again) {t.Fatal("delivery metadata rewrote legacy receipt")}
+ observation.State=p.NetworkAuthorityStateV2_NETWORK_AUTHORITY_STATE_V2_WITHDRAWN;observation.ExpiresAt=nil
+ encoded,err=proto.MarshalOptions{Deterministic:true}.Marshal(&observation);if err!=nil {t.Fatal(err)}
+ var withdrawn p.NetworkAuthorityV2
+ if err=proto.Unmarshal(encoded,&withdrawn);err!=nil||withdrawn.State!=p.NetworkAuthorityStateV2_NETWORK_AUTHORITY_STATE_V2_WITHDRAWN||withdrawn.ExpiresAt!=nil {t.Fatal("withdrawal changed in transit")}
+}
