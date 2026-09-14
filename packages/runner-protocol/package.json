@@ -12,10 +12,10 @@
     "test": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "2.14.0"
+    "@bufbuild/protobuf": "2.14.1"
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=24.19.0 <25"
