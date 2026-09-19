@@ -184,6 +184,12 @@ async function scenario(t, opts = {}) {
     assert.equal(req.headers.authorization, `Bearer ${grantToken}`);
     if (opts.revoke) return response(res, 403, { code: "forbidden" });
     if (url.pathname.endsWith("/config-snapshots")) {
+      assert.equal(
+        url.pathname,
+        `/v${opts.configV2 ? 2 : 1}/projects/${id(1)}/config-snapshots`,
+      );
+      assert.equal(body.schemaVersion, opts.configV2 ? 2 : 1);
+      if (opts.v2Disabled) return response(res, 409, { code: "conflict" });
       if (opts.platformRedirect) {
         res.writeHead(307, { location: "https://127.0.0.1:9/steal" });
         return res.end();
@@ -201,18 +207,28 @@ async function scenario(t, opts = {}) {
         createHash("sha256").update(body.normalizedJson).digest("hex"),
         body.configurationHash,
       );
-      assert.deepEqual(
-        JSON.parse(body.normalizedJson),
-        JSON.parse(
-          await readFile(
-            new URL(
-              "../../../schemas/fixtures/config/valid/hosted.normalized.json",
-              import.meta.url,
+      const expectedConfig = opts.configV2
+        ? JSON.parse(
+            JSON.parse(
+              await readFile(
+                new URL(
+                  "../../../schemas/fixtures/config/v2/vectors.json",
+                  import.meta.url,
+                ),
+                "utf8",
+              ),
+            ).canonical,
+          )
+        : JSON.parse(
+            await readFile(
+              new URL(
+                "../../../schemas/fixtures/config/valid/hosted.normalized.json",
+                import.meta.url,
+              ),
+              "utf8",
             ),
-            "utf8",
-          ),
-        ),
-      );
+          );
+      assert.deepEqual(JSON.parse(body.normalizedJson), expectedConfig);
       if (opts.resourceLoss && resourceAttempt++ === 0)
         return req.socket.destroy();
       if (opts.foreignResource)
@@ -227,7 +243,13 @@ async function scenario(t, opts = {}) {
         projectId: id(1),
         sourceCommit: commit,
         sourceRef: "refs/heads/main",
-        schemaVersion: 1,
+        schemaVersion: opts.wrongSnapshotVersion
+          ? opts.configV2
+            ? 1
+            : 2
+          : opts.configV2
+            ? 2
+            : 1,
         configurationHash: body.configurationHash,
         createdAt: new Date().toISOString(),
       });
@@ -363,10 +385,37 @@ test("compiled distribution submits real normalized configuration and exact byte
   assert.ok(s.masks.includes(grantToken));
   assert.ok(!JSON.stringify(s.result).includes("private"));
 });
-test("compiled Action refuses valid v2 before OIDC or v1 snapshot submission", async (t) => {
+test("compiled Action submits v2 only through its released versioned boundary", async (t) => {
   const s = await scenario(t, { configV2: true });
-  assert.equal(s.result.reason, "invalid_configuration");
-  assert.deepEqual(s.calls, []);
+  assert.equal(s.result.outcome, "submitted");
+  assert.equal(
+    s.calls.filter(
+      (c) => c.path.startsWith("/v1/") && c.path.endsWith("/config-snapshots"),
+    ).length,
+    0,
+  );
+});
+for (const configV2 of [false, true]) {
+  test(`compiled Action refuses substituted snapshot version for v${configV2 ? 2 : 1}`, async (t) => {
+    const s = await scenario(t, { configV2, wrongSnapshotVersion: true });
+    assert.equal(s.result.reason, "identity_mismatch");
+    assert.equal(
+      s.calls.filter((c) => c.path.endsWith("/artifacts/uploads")).length,
+      0,
+    );
+  });
+}
+test("disabled v2 snapshot creation never falls back to v1", async (t) => {
+  const s = await scenario(t, { configV2: true, v2Disabled: true });
+  assert.notEqual(s.result.outcome, "submitted");
+  assert.equal(
+    s.calls.filter((c) => c.path.endsWith("/config-snapshots")).length,
+    1,
+  );
+  assert.equal(
+    s.calls.filter((c) => c.path.endsWith("/artifacts/uploads")).length,
+    0,
+  );
 });
 for (const name of ["If-None-Match", "if-none-match", "IF-NONE-MATCH"]) {
   test(`immutable storage condition reaches PUT: ${name}`, async (t) => {

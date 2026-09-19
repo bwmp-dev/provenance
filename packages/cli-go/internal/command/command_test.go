@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/bwmp-dev/provenance/packages/cli-go/internal/command"
+	"github.com/bwmp-dev/provenance/packages/cli-go/internal/config"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -196,10 +197,30 @@ func configFile(t *testing.T, dir string) string {
 func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 	const artifactID = "11111111-1111-4111-8111-111111111111"
 	const snapshotID = "22222222-2222-4222-8222-222222222222"
-	for _, mode := range []string{"session-snapshot", "project-token", "mutated", "redirect", "wrong-digest", "wrong-snapshot", "manual", "wrong-precondition", "injected-precondition", "credential-header"} {
+	for _, mode := range []string{"session-snapshot", "project-token", "v2", "v2-session-snapshot", "v2-wrong-version", "v2-wrong-ref", "v2-disabled", "mutated", "redirect", "wrong-digest", "wrong-snapshot", "manual", "wrong-precondition", "injected-precondition", "credential-header"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
 			cfg := configFile(t, dir)
+			schemaVersion := 1
+			if strings.HasPrefix(mode, "v2") {
+				schemaVersion = 2
+				raw, _ := os.ReadFile(cfg)
+				var doc map[string]any
+				normalized, err := config.Normalize(raw)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if json.Unmarshal([]byte(normalized.Normalized), &doc) != nil {
+					t.Fatal("fixture")
+				}
+				doc["apiVersion"] = "provenance.dev/v2"
+				doc["network"] = map[string]any{"mode": "allowlist", "permissions": []any{map[string]any{"hostname": "api.github.com", "port": 443, "transport": "tcp"}}, "maximumConnections": 4, "maximumBytesPerSecond": 65536}
+				raw, _ = json.Marshal(doc)
+				if err := os.WriteFile(cfg, raw, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+
 			jar := filepath.Join(dir, "plugin.jar")
 			jarBytes := []byte("already-built-synthetic-jar")
 			_ = os.WriteFile(jar, jarBytes, 0600)
@@ -233,11 +254,25 @@ func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 					return
 				}
 				switch r.URL.Path {
-				case "/v1/projects/project/config-snapshots":
+				case "/v1/projects/project/config-snapshots", "/v2/projects/project/config-snapshots":
 					creates++
 					var b map[string]any
 					_ = json.NewDecoder(r.Body).Decode(&b)
-					assertReleasedShape(t, "CreateProjectConfigSnapshotRequest", b)
+					shape := "CreateProjectConfigSnapshotRequest"
+					expectedPath := "/v1/projects/project/config-snapshots"
+					if schemaVersion == 2 {
+						shape += "V2"
+						expectedPath = "/v2/projects/project/config-snapshots"
+					}
+					if r.URL.Path != expectedPath {
+						t.Error("configuration sent to wrong version boundary")
+					}
+					assertReleasedShape(t, shape, b)
+					if mode == "v2-disabled" {
+						reply(w, 409, map[string]any{"code": "conflict"})
+						return
+					}
+
 					configurationHash = b["configurationHash"].(string)
 					if r.Header.Get("Authorization") == "" {
 						t.Error("session created snapshot")
@@ -246,7 +281,15 @@ func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 					if mode == "wrong-snapshot" {
 						hash = strings.Repeat("0", 64)
 					}
-					reply(w, 201, map[string]any{"id": snapshotID, "projectId": "project", "sourceCommit": strings.Repeat("a", 40), "configurationHash": hash})
+					returnedVersion := schemaVersion
+					sourceRef := "refs/heads/main"
+					if mode == "v2-wrong-version" {
+						returnedVersion = 1
+					}
+					if mode == "v2-wrong-ref" {
+						sourceRef = "refs/heads/other"
+					}
+					reply(w, 201, map[string]any{"id": snapshotID, "projectId": "project", "sourceCommit": strings.Repeat("a", 40), "sourceRef": sourceRef, "schemaVersion": returnedVersion, "configurationHash": hash})
 				case "/v1/projects/project/artifacts/uploads":
 					var body map[string]any
 					_ = json.NewDecoder(r.Body).Decode(&body)
@@ -292,7 +335,7 @@ func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 			s := &store{values: map[string]string{server.URL + "/session": strings.Repeat("s", 43)}}
 			app := command.App{Out: &out, Err: &errs, Store: s, Transport: server.Client().Transport, In: strings.NewReader(strings.Repeat("p", 43) + "\n")}
 			args := []string{"test", "--origin", server.URL, "--timeout", "10s", "--project", "project", "--jar", jar, "--config", cfg, "--version", "1.0.0"}
-			if mode == "project-token" || mode == "wrong-snapshot" {
+			if mode == "project-token" || mode == "wrong-snapshot" || (strings.HasPrefix(mode, "v2") && mode != "v2-session-snapshot") {
 				args = append(args, "--auth", "project-token", "--project-token-stdin", "--source-commit", strings.Repeat("a", 40), "--source-ref", "refs/heads/main")
 			} else {
 				args = append(args, "--snapshot", snapshotID)
@@ -302,7 +345,7 @@ func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 				_ = os.WriteFile(cfg, b, 0600)
 			}
 			exit := app.Run(context.Background(), args)
-			success := mode == "session-snapshot" || mode == "project-token"
+			success := mode == "session-snapshot" || mode == "project-token" || mode == "v2" || mode == "v2-session-snapshot"
 			if (exit == 0) != success {
 				t.Fatalf("exit %d %s", exit, errs.String())
 			}
@@ -312,7 +355,7 @@ func TestExactTestSubmissionAndUploadIsolation(t *testing.T) {
 			if mode == "manual" && calls != 0 {
 				t.Fatal("non-test-only mutation")
 			}
-			if mode == "session-snapshot" && creates != 0 {
+			if (mode == "session-snapshot" || mode == "v2-session-snapshot") && creates != 0 {
 				t.Fatal("session snapshot privilege bypass")
 			}
 		})

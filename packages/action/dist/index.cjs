@@ -16485,8 +16485,8 @@ async function runAction(input2, runtime) {
     } catch {
       fail("invalid_configuration");
     }
-    if (parsed.apiVersion !== "provenance.dev/v1")
-      fail("invalid_configuration");
+    const schemaVersion = parsed.apiVersion === "provenance.dev/v1" ? 1 : parsed.apiVersion === "provenance.dev/v2" ? 2 : 0;
+    if (!schemaVersion) fail("invalid_configuration");
     const normalizedJson = runtime.normalizeConfiguration(parsed);
     const configurationHash = runtime.hashConfiguration(parsed);
     await source.check();
@@ -16601,12 +16601,12 @@ async function runAction(input2, runtime) {
     const project = { path: { projectId: config.project } };
     const snapshot = await call(
       "POST",
-      "/v1/projects/{projectId}/config-snapshots",
+      schemaVersion === 2 ? "/v2/projects/{projectId}/config-snapshots" : "/v1/projects/{projectId}/config-snapshots",
       project,
       {
         rawYaml,
         normalizedJson,
-        schemaVersion: 1,
+        schemaVersion,
         configurationHash,
         sourceCommit: config.commit,
         sourceRef: config.ref
@@ -16626,7 +16626,7 @@ async function runAction(input2, runtime) {
       ["sourceRef"]
     );
     timestamp(snapshot.createdAt);
-    if (!uuid(snapshot.id) || snapshot.projectId !== config.project || snapshot.configurationHash !== configurationHash || snapshot.sourceCommit !== config.commit || snapshot.sourceRef !== config.ref || snapshot.schemaVersion !== 1)
+    if (!uuid(snapshot.id) || snapshot.projectId !== config.project || snapshot.configurationHash !== configurationHash || snapshot.sourceCommit !== config.commit || snapshot.sourceRef !== config.ref || snapshot.schemaVersion !== schemaVersion)
       fail("identity_mismatch");
     const fileName = (0, import_node_path.basename)(config.artifactPath);
     if (!fileName || fileName.length > 255 || /[\r\n\x00]/.test(fileName))

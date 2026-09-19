@@ -69,6 +69,12 @@ To create a snapshot using an explicitly authorized project token, supply
 through standard input; never put it in argv. This invocation does not persist
 the token. No session-to-project-token substitution occurs.
 
+Explicit `provenance.dev/v1` and `provenance.dev/v2` configurations use their
+matching `/v1` or `/v2` snapshot creation route and schema version. Responses must
+match the configuration hash, project, source commit/ref and schema version.
+A disabled or refused v2 route fails without retrying through v1; configuration
+validation does not grant networking permission. Existing v1 bytes are unchanged.
+
 One retained regular JAR (1 byte to 1 GiB) is independently streamed and hashed,
 then uploaded through a separate credential-free client. Upload redirects are
 not followed. A changed file, inconsistent hash/size, rejected artifact or

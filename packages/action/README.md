@@ -18,6 +18,12 @@ origin, OIDC audience, originating repository/commit/ref, and an explicit maximu
 artifact byte budget. Configuration release mode is preserved, including manual
 approval. Changelog is sent only to the configured platform and never printed.
 
+Explicit `provenance.dev/v1` and `provenance.dev/v2` configurations use their
+matching `/v1` or `/v2` snapshot creation route and schema version. Responses must
+match the configuration hash, project, source commit/ref and schema version.
+A disabled or refused v2 route fails without retrying through v1; configuration
+validation does not grant networking permission. Existing v1 bytes are unchanged.
+
 Only GitHub.com `push` and `workflow_dispatch` contexts are supported initially.
 Repository/commit/ref must exactly match runner context; numeric repository and
 owner IDs must match the returned grant scope. Pull requests (including forks and

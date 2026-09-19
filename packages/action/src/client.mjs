@@ -221,10 +221,13 @@ export async function runAction(input, runtime) {
     } catch {
       fail("invalid_configuration");
     }
-    // The released HTTP snapshot boundary still requires schemaVersion 1.
-    // Local schema support is not authority to mislabel a v2 submission.
-    if (parsed.apiVersion !== "provenance.dev/v1")
-      fail("invalid_configuration");
+    const schemaVersion =
+      parsed.apiVersion === "provenance.dev/v1"
+        ? 1
+        : parsed.apiVersion === "provenance.dev/v2"
+          ? 2
+          : 0;
+    if (!schemaVersion) fail("invalid_configuration");
     const normalizedJson = runtime.normalizeConfiguration(parsed);
     const configurationHash = runtime.hashConfiguration(parsed);
     await source.check();
@@ -372,12 +375,14 @@ export async function runAction(input, runtime) {
     const project = { path: { projectId: config.project } };
     const snapshot = await call(
       "POST",
-      "/v1/projects/{projectId}/config-snapshots",
+      schemaVersion === 2
+        ? "/v2/projects/{projectId}/config-snapshots"
+        : "/v1/projects/{projectId}/config-snapshots",
       project,
       {
         rawYaml,
         normalizedJson,
-        schemaVersion: 1,
+        schemaVersion,
         configurationHash,
         sourceCommit: config.commit,
         sourceRef: config.ref,
@@ -403,7 +408,7 @@ export async function runAction(input, runtime) {
       snapshot.configurationHash !== configurationHash ||
       snapshot.sourceCommit !== config.commit ||
       snapshot.sourceRef !== config.ref ||
-      snapshot.schemaVersion !== 1
+      snapshot.schemaVersion !== schemaVersion
     )
       fail("identity_mismatch");
     const fileName = basename(config.artifactPath);

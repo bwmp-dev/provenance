@@ -24,8 +24,7 @@ func TestVersionedNetworkSchemaAndGolden(t *testing.T) {
 	if err != nil || d.Normalized != vector.Canonical || d.Hash != vector.SHA256 {
 		t.Fatal("v2 independent canonical/hash differs", err)
 	}
-	// Public HTTP snapshots are still v1. Valid v2 must not be relabelled by
-	// submission, even if its release mode is otherwise executable.
+	// Submission carries the validated explicit version to the matching HTTP boundary.
 	var submission map[string]any
 	if json.Unmarshal([]byte(vector.Canonical), &submission) != nil {
 		t.Fatal("fixture invalid")
@@ -38,8 +37,8 @@ func TestVersionedNetworkSchemaAndGolden(t *testing.T) {
 	if _, err = Normalize(input); err != nil {
 		t.Fatal("valid test-only v2 refused by validator", err)
 	}
-	if _, err = Parse(input); err == nil {
-		t.Fatal("v2 admitted through v1 submission boundary")
+	if parsed, err := Parse(input); err != nil || parsed.SchemaVersion != 2 {
+		t.Fatal("valid v2 must retain its submission version", err)
 	}
 	for _, tc := range []struct {
 		key   string

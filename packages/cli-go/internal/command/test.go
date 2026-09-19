@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -69,8 +70,9 @@ func (a App) test(ctx context.Context, api *api, o options) error {
 	}
 	snapshot := o.snapshot
 	if snapshot == "" {
-		r, e := api.call(ctx, "POST", project+"/config-snapshots", map[string]any{"sourceCommit": o.commit, "sourceRef": o.ref, "rawYaml": cfg.Raw, "normalizedJson": cfg.Normalized, "schemaVersion": 1, "configurationHash": cfg.Hash}, true)
-		if e != nil || r.status != 201 || text(r.body, "configurationHash") != cfg.Hash || text(r.body, "projectId") != o.project || text(r.body, "sourceCommit") != o.commit {
+		snapshotProject := "/v" + strconv.Itoa(cfg.SchemaVersion) + "/projects/" + url.PathEscape(o.project)
+		r, e := api.call(ctx, "POST", snapshotProject+"/config-snapshots", map[string]any{"sourceCommit": o.commit, "sourceRef": o.ref, "rawYaml": cfg.Raw, "normalizedJson": cfg.Normalized, "schemaVersion": cfg.SchemaVersion, "configurationHash": cfg.Hash}, true)
+		if e != nil || r.status != 201 || text(r.body, "configurationHash") != cfg.Hash || text(r.body, "projectId") != o.project || text(r.body, "sourceCommit") != o.commit || text(r.body, "sourceRef") != o.ref || integer(r.body, "schemaVersion") != int64(cfg.SchemaVersion) {
 			return ErrFailed
 		}
 		snapshot = text(r.body, "id")

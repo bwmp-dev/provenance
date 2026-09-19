@@ -42,6 +42,7 @@ var coreNumber = regexp.MustCompile(`^(?:0o[0-7]+|0x[0-9a-fA-F]+|[-+]?[0-9]+|[-+
 type Document struct {
 	Raw, Normalized string
 	Hash            string
+	SchemaVersion   int
 }
 type regex struct{ pattern string }
 
@@ -70,12 +71,6 @@ func Parse(raw []byte) (Document, error) {
 	}
 	var v map[string]any
 	if json.Unmarshal([]byte(d.Normalized), &v) != nil {
-		return Document{}, ErrInvalid
-	}
-	// Normalize supports the explicit v2 contract; submission stays v1 until
-	// the separately versioned HTTP snapshot boundary is accepted and consumed.
-	// Never label a v2 document schemaVersion 1, even with a preselected snapshot.
-	if v["apiVersion"] != "provenance.dev/v1" {
 		return Document{}, ErrInvalid
 	}
 	release, ok := v["release"].(map[string]any)
@@ -138,7 +133,11 @@ func Normalize(raw []byte) (Document, error) {
 	}
 	b := canonical(v)
 	h := sha256.Sum256([]byte(b))
-	return Document{string(raw), b, hex.EncodeToString(h[:])}, nil
+	version := 1
+	if selected == "https://schemas.provenance.dev/config/v2/schema.json" {
+		version = 2
+	}
+	return Document{Raw: string(raw), Normalized: b, Hash: hex.EncodeToString(h[:]), SchemaVersion: version}, nil
 }
 
 // The released contract uses JavaScript RegExp with the Unicode flag, not

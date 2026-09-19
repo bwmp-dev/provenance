@@ -61,7 +61,7 @@ func TestExistingArtifactRemainsBoundToLocalFileAndProject(t *testing.T) {
 					}
 					var body map[string]any
 					_ = json.NewDecoder(r.Body).Decode(&body)
-					reply(w, 201, map[string]any{"id": "snapshot", "projectId": "project", "configurationHash": body["configurationHash"], "sourceCommit": strings.Repeat("a", 40)})
+					reply(w, 201, map[string]any{"id": "snapshot", "projectId": "project", "configurationHash": body["configurationHash"], "sourceCommit": strings.Repeat("a", 40), "sourceRef": "refs/heads/main", "schemaVersion": 1})
 					return
 				}
 				if r.URL.Path == "/v1/projects/project/release-candidates" && r.Method == "POST" {
