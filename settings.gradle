@@ -24,6 +24,7 @@ dependencyResolutionManagement {
 rootProject.name = "provenance-public-toolkit"
 
 include(
+    ":fixture-network-canary",
     ":fixture-test-secret-delivery",
     ":fixture-matrix-compatibility",
     ":paper-api-stubs",
@@ -47,6 +48,7 @@ include(
 project(":paper-api-stubs").projectDir = file("packages/test-fixtures/paper-api-stubs")
 
 [
+    "network-canary",
     "test-secret-delivery",
     "matrix-compatibility",
     "success",

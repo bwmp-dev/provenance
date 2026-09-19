@@ -14,6 +14,7 @@ if (write && !includeHostile) {
 }
 
 const benign = [
+  "network-canary",
   "test-secret-delivery",
   "matrix-compatibility",
   "success",
@@ -55,6 +56,7 @@ if (!build.includes('tasks.register("hostileFixtures")')) {
   );
 }
 const allowedDefaultCheckDependencies = [
+  ":fixture-network-canary:test",
   ":fixture-test-secret-delivery:test",
   ":fixture-matrix-compatibility:test",
   ":paper-probe:check",
