@@ -1,0 +1,7 @@
+name: ProvenanceNetworkCanary
+version: 1.0.0
+main: dev.provenance.fixtures.NetworkCanaryPlugin
+api-version: "1.20"
+commands:
+  networkcanary:
+    description: Probe the fixed public HTTPS endpoint for network-policy acceptance.

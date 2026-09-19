@@ -1,8 +1,8 @@
 # Paper test fixtures
 
 `pnpm check` invokes the default Gradle check, which builds and hash-verifies all
-16 benign and hostile fixture JARs and runs the focused `fork-pid-bomb`,
-`matrix-compatibility` and `test-secret-delivery` unit suites:
+17 benign and hostile fixture JARs and runs the focused `fork-pid-bomb`,
+`matrix-compatibility`, `test-secret-delivery` and `network-canary` unit suites:
 
 ```text
 node scripts/run-gradle.mjs :check
@@ -98,3 +98,19 @@ access is accepted. Byte-buffer clearing does not claim complete JVM heap erasur
 Focused tests use temporary synthetic files, not a server or hosted secret.
 They do not prove end-to-end delivery, revocation, rotation, restart or cleanup;
 those require the deployed platform/gateway/runner acceptance record.
+
+## Fixed-destination network canary
+
+`network-canary` performs no network operation on startup. An explicit
+`networkcanary` console command makes one HTTPS HEAD request to
+`https://api.github.com/`, with five-second connection/read timeouts, redirects
+and caching disabled, and ordinary certificate validation. No destination or
+other argument is accepted; the fixture never reads test secrets or response
+bodies. It emits a closed success, unexpected-status or unreachable marker to
+both the command sender and the actual plugin log, then disconnects.
+
+Its default unit tests use synthetic connections and never access the network.
+The real-Paper behavioral harness does not select this fixture automatically.
+Explicit execution belongs to the controlled network-policy acceptance pilot.
+A timeout or unreachable marker alone does not prove enforcement: retain paired
+allowed/denied runs plus the exact policy, runtime and cleanup evidence.
