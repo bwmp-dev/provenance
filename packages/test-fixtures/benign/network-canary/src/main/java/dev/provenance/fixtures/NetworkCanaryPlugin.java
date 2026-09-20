@@ -9,7 +9,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /** Explicit, bounded probe of one public endpoint; never reads test secrets. */
 public final class NetworkCanaryPlugin extends JavaPlugin {
-  static final String ENDPOINT = "https://api.github.com/";
+  static final String ENDPOINT = "https://one.one.one.one/";
 
   @FunctionalInterface
   interface ConnectionFactory {

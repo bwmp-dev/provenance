@@ -22,7 +22,7 @@ final class NetworkCanaryPluginTest {
     }
     @Override public int getResponseCode() throws IOException {
       requests++;
-      assertEquals("https://api.github.com/", getURL().toString());
+      assertEquals("https://one.one.one.one/", getURL().toString());
       assertEquals("HEAD", getRequestMethod());
       assertEquals("provenance-alpha-network-canary/1", getRequestProperty("User-Agent"));
       assertEquals(5000, getConnectTimeout());

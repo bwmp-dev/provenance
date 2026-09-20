@@ -103,7 +103,7 @@ those require the deployed platform/gateway/runner acceptance record.
 
 `network-canary` performs no network operation on startup. An explicit
 `networkcanary` console command makes one HTTPS HEAD request to
-`https://api.github.com/`, with five-second connection/read timeouts, redirects
+`https://one.one.one.one/`, with five-second connection/read timeouts, redirects
 and caching disabled, and ordinary certificate validation. No destination or
 other argument is accepted; the fixture never reads test secrets or response
 bodies. It emits a closed success, unexpected-status or unreachable marker to
@@ -114,3 +114,10 @@ The real-Paper behavioral harness does not select this fixture automatically.
 Explicit execution belongs to the controlled network-policy acceptance pilot.
 A timeout or unreachable marker alone does not prove enforcement: retain paired
 allowed/denied runs plus the exact policy, runtime and cleanup evidence.
+
+The network canary uses the fixed public `one.one.one.one` endpoint. Rotating
+API hostnames can legitimately change their address set during a run and trigger
+the runner's intentional per-job DNS rebinding refusal before the probe executes.
+Confirm the endpoint is reachable and its complete IPv4/IPv6 set remains stable
+from the test runner before live acceptance. Keep rebinding/TTL checks enabled;
+this external service is a test prerequisite, not a product dependency.
