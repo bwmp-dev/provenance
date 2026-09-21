@@ -70,6 +70,7 @@ def check_v2_contract() -> None:
         "type": "string", "minLength": 1, "maxLength": 128,
         "pattern": r"^[A-Za-z0-9][A-Za-z0-9._:-]*(?![\s\S])",
     }
+    expected["$defs"]["configuration"]["properties"]["apiVersion"] = {"enum": ["provenance.dev/v1", "provenance.dev/v2"]}
     assert schema == expected, "unexpected v2 contract change"
     document = json.loads((FIXTURES / "valid/hosted.json").read_text(encoding="utf-8"))
     assert not validator.is_valid(document), "v1 envelope admitted as v2"
@@ -83,6 +84,7 @@ def check_v2_contract() -> None:
     for path, value in [
         (["mediaType"], "application/vnd.provenance.attestation.v1+json"),
         (["statement", "apiVersion"], "provenance.dev/attestation/v1"),
+        (["statement", "configuration", "apiVersion"], "provenance.dev/v3"),
         (["statement", "assertions", 2, "type"], "console-default"),
         (["statement", "assertions", 2, "id"], "literal\n"),
         (["statement", "assertions", 2, "id"], "literal/unsafe"),
@@ -104,20 +106,26 @@ def check_v2_contract() -> None:
         pass
     else:
         raise AssertionError("v2 signature admitted in v1 domain")
-    golden = json.loads((FIXTURES / "interop/small-artifact-v2.json").read_text(encoding="utf-8"))
-    validator.validate(golden["document"])
-    canonical = canonicalize(golden["document"]["statement"])
-    assert canonical.decode() == golden["canonicalStatement"]
-    assert hashlib.sha256(canonical).hexdigest() == golden["canonicalStatementSha256"]
-    payload = b"Provenance Attestation v2\n" + golden["document"]["signature"]["keyId"].encode() + b"\n" + canonical
-    assert hashlib.sha256(payload).hexdigest() == golden["signingInputSha256"]
-    signature = decode_base64url(golden["signatureBase64Url"])
-    assert golden["document"]["signature"]["value"] == golden["signatureBase64Url"]
-    assert private.sign(payload) == signature
-    Ed25519PublicKey.from_public_bytes(bytes.fromhex(golden["publicKeyHex"])).verify(signature, payload)
-    artifact = bytes.fromhex(golden["artifactHex"])
-    assert len(artifact) == golden["document"]["statement"]["subject"]["sizeBytes"]
-    assert hashlib.sha256(artifact).hexdigest() == golden["document"]["statement"]["subject"]["digest"]["value"]
+    for name in ("small-artifact-v2.json", "small-artifact-config-v2.json"):
+        golden = json.loads((FIXTURES / "interop" / name).read_text(encoding="utf-8"))
+        validator.validate(golden["document"])
+        if name == "small-artifact-config-v2.json":
+            legacy = copy.deepcopy(schema)
+            legacy["$defs"]["configuration"]["properties"]["apiVersion"] = {"const": "provenance.dev/v1"}
+            assert not Draft202012Validator(legacy).is_valid(golden["document"]), "legacy verifier unexpectedly admits configuration v2"
+
+        canonical = canonicalize(golden["document"]["statement"])
+        assert canonical.decode() == golden["canonicalStatement"]
+        assert hashlib.sha256(canonical).hexdigest() == golden["canonicalStatementSha256"]
+        payload = b"Provenance Attestation v2\n" + golden["document"]["signature"]["keyId"].encode() + b"\n" + canonical
+        assert hashlib.sha256(payload).hexdigest() == golden["signingInputSha256"]
+        signature = decode_base64url(golden["signatureBase64Url"])
+        assert golden["document"]["signature"]["value"] == golden["signatureBase64Url"]
+        assert private.sign(payload) == signature
+        Ed25519PublicKey.from_public_bytes(bytes.fromhex(golden["publicKeyHex"])).verify(signature, payload)
+        artifact = bytes.fromhex(golden["artifactHex"])
+        assert len(artifact) == golden["document"]["statement"]["subject"]["sizeBytes"]
+        assert hashlib.sha256(artifact).hexdigest() == golden["document"]["statement"]["subject"]["digest"]["value"]
     print("validated v2 literal schema, separate domain and shared Go/JS/Python golden")
 
 

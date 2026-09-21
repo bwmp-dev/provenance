@@ -398,7 +398,7 @@ func TestStatusPaginationAndOriginIsolation(t *testing.T) {
 	}
 }
 func TestVerifyUsesAcceptedSmallArtifactVector(t *testing.T) {
-	for _, fixture := range []string{"small-artifact.json", "small-artifact-v2.json"} {
+	for _, fixture := range []string{"small-artifact.json", "small-artifact-v2.json", "small-artifact-config-v2.json"} {
 		t.Run(fixture, func(t *testing.T) { verifyAcceptedSmallArtifactVector(t, fixture) })
 	}
 }

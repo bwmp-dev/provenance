@@ -30,27 +30,40 @@ const privateKey = createPrivateKey({
 });
 const publicKey = Buffer.from(small.publicKeyHex, "hex");
 
-test("shared v2 golden bytes match Go and Python signing inputs", async () => {
-  const vector = JSON.parse(
-    await readFile(new URL("interop/small-artifact-v2.json", fixtures), "utf8"),
-  );
-  const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
-  const canonical = canonicalizeStatement(vector.document.statement);
-  const input = createSigningInput(vector.document);
-  assert.equal(canonical.toString("utf8"), vector.canonicalStatement);
-  assert.equal(hash(canonical), vector.canonicalStatementSha256);
-  assert.equal(hash(input), vector.signingInputSha256);
-  assert.equal(
-    sign(null, input, privateKey).toString("base64url"),
-    vector.signatureBase64Url,
-  );
-  assert.equal(vector.document.signature.value, vector.signatureBase64Url);
-  const key = Buffer.from(vector.publicKeyHex, "hex");
-  assert.equal(verifyAttestationSignature(vector.document, key), true);
-  await verifyAttestedArtifact(vector.document, key, [
-    Buffer.from(vector.artifactHex, "hex"),
-  ]);
-});
+for (const name of [
+  "small-artifact-v2.json",
+  "small-artifact-config-v2.json",
+]) {
+  test(`shared v2 golden ${name} matches Go and Python signing inputs`, async () => {
+    const vector = JSON.parse(
+      await readFile(new URL(`interop/${name}`, fixtures), "utf8"),
+    );
+    const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+    const canonical = canonicalizeStatement(vector.document.statement);
+    const input = createSigningInput(vector.document);
+    assert.equal(canonical.toString("utf8"), vector.canonicalStatement);
+    assert.equal(hash(canonical), vector.canonicalStatementSha256);
+    assert.equal(hash(input), vector.signingInputSha256);
+    assert.equal(
+      sign(null, input, privateKey).toString("base64url"),
+      vector.signatureBase64Url,
+    );
+    assert.equal(vector.document.signature.value, vector.signatureBase64Url);
+    const key = Buffer.from(vector.publicKeyHex, "hex");
+    assert.equal(verifyAttestationSignature(vector.document, key), true);
+    if (name === "small-artifact-config-v2.json") {
+      const changed = structuredClone(vector.document);
+      changed.statement.configuration.apiVersion = "provenance.dev/v1";
+      assert.equal(verifyAttestationSignature(changed, key), false);
+      changed.statement.configuration.apiVersion = "provenance.dev/v3";
+      assert.throws(() => createSigningInput(changed), AttestationSchemaError);
+    }
+
+    await verifyAttestedArtifact(vector.document, key, [
+      Buffer.from(vector.artifactHex, "hex"),
+    ]);
+  });
+}
 
 function v2(literal = true) {
   const doc = structuredClone(small.document);
