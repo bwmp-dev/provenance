@@ -4082,6 +4082,11 @@ export interface components {
                 status: "active" | "retired";
             }[];
         };
+        "$defs-configuration": {
+            /** @enum {unknown} */
+            apiVersion: "provenance.dev/v1" | "provenance.dev/v2";
+            digest: components["schemas"]["digest"];
+        };
         "$defs-assertion": {
             id: string;
             environmentId: components["schemas"]["identifier"];
@@ -4096,7 +4101,7 @@ export interface components {
             apiVersion: "provenance.dev/attestation/v2";
             subject: components["schemas"]["subject"];
             source: components["schemas"]["source"];
-            configuration: components["schemas"]["configuration"];
+            configuration: components["schemas"]["$defs-configuration"];
             dependencies: components["schemas"]["dependency"][];
             environments: components["schemas"]["environment"][];
             assertions: components["schemas"]["$defs-assertion"][];
@@ -4125,7 +4130,7 @@ export interface components {
                     apiVersion: "provenance.dev/attestation/v2";
                     subject: components["schemas"]["subject"];
                     source: components["schemas"]["source"];
-                    configuration: components["schemas"]["configuration"];
+                    configuration: components["schemas"]["$defs-configuration"];
                     dependencies: components["schemas"]["dependency"][];
                     environments: components["schemas"]["environment"][];
                     assertions: components["schemas"]["$defs-assertion"][];
@@ -4147,8 +4152,8 @@ export interface components {
                     ref: string;
                 };
                 configuration: {
-                    /** @constant */
-                    apiVersion: "provenance.dev/v1";
+                    /** @enum {unknown} */
+                    apiVersion: "provenance.dev/v1" | "provenance.dev/v2";
                     digest: components["schemas"]["digest"];
                 };
                 dependency: {

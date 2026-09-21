@@ -13,14 +13,32 @@ import (
 )
 
 func TestSharedV2GoldenVector(t *testing.T) {
+	for _, name := range []string{"small-artifact-v2.json", "small-artifact-config-v2.json"} {
+		t.Run(name, func(t *testing.T) { testSharedV2GoldenVector(t, name) })
+	}
+}
+
+func testSharedV2GoldenVector(t *testing.T, name string) {
 	var vector struct {
 		Document                                                                                                        json.RawMessage
 		ArtifactHex, PublicKeyHex, CanonicalStatement, CanonicalStatementSha256, SigningInputSha256, SignatureBase64Url string
 	}
-	if err := json.Unmarshal(readFixture(t, "interop/small-artifact-v2.json"), &vector); err != nil {
+	if err := json.Unmarshal(readFixture(t, "interop/"+name), &vector); err != nil {
 		t.Fatal(err)
 	}
 	public := ed25519.PublicKey(decodeHex(t, vector.PublicKeyHex))
+	if name == "small-artifact-config-v2.json" {
+		changed := object(t, vector.Document)
+		setPath(t, changed, []any{"statement", "configuration", "apiVersion"}, "provenance.dev/v1")
+		if _, err := VerifyEnvelope(marshal(t, changed), public); !errors.Is(err, ErrSignature) {
+			t.Fatal("configuration identity relabel accepted", err)
+		}
+		setPath(t, changed, []any{"statement", "configuration", "apiVersion"}, "provenance.dev/v3")
+		if _, err := VerifyEnvelope(marshal(t, changed), public); !errors.Is(err, ErrSchema) {
+			t.Fatal("unknown configuration identity accepted", err)
+		}
+	}
+
 	if _, err := VerifyArtifact(vector.Document, public, bytes.NewReader(decodeHex(t, vector.ArtifactHex))); err != nil {
 		t.Fatal(err)
 	}

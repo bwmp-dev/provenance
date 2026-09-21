@@ -25,6 +25,13 @@ coverage appear complete. Evidence digests bind the retained canonical evidence;
 they are not a place for console output, patterns, commands or private metadata.
 Absent/default operators are not silently promoted to supported assertions.
 
+V2 accepts configuration identity `provenance.dev/v1` or `provenance.dev/v2`.
+The field records the exact frozen configuration version; never relabel it to
+fit an older verifier. The existing v2 signing domain binds this field unchanged.
+Verifiers released before this extension reject configuration v2 statements;
+upgrade them before consuming these proofs. Existing v1/v2 proof bytes and
+signatures remain valid, and the v1 attestation schema remains unchanged.
+
 The remaining v1 field shapes and limits are retained. Schema validity and a valid
 signature establish neither observation truth nor issuance eligibility. Trusted
 issuance must reconstruct identities from immutable inputs, validate exact

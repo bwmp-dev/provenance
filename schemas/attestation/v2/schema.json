@@ -169,7 +169,7 @@
       "required": ["apiVersion", "digest"],
       "properties": {
         "apiVersion": {
-          "const": "provenance.dev/v1"
+          "enum": ["provenance.dev/v1", "provenance.dev/v2"]
         },
         "digest": {
           "$ref": "#/$defs/digest"
