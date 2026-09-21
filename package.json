@@ -34,11 +34,11 @@
     "export:hosted-updates": "node scripts/export-hosted-updates.mjs"
   },
   "devDependencies": {
-    "@bufbuild/buf": "1.72.0",
-    "@bufbuild/protoc-gen-es": "2.14.0",
-    "@redocly/cli": "2.49.0",
-    "prettier": "3.9.6",
+    "@bufbuild/buf": "1.73.0",
+    "@bufbuild/protoc-gen-es": "2.15.0",
+    "@redocly/cli": "2.53.3",
+    "prettier": "3.9.8",
     "tar": "7.5.22",
-    "yaml": "2.9.0"
+    "yaml": "2.9.1"
   }
 }
