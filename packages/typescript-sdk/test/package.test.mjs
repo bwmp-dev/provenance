@@ -109,7 +109,11 @@ assert.equal(result.data.status,'passed');console.log('PACKAGED_SDK_IMPORT_PASS'
     resolve(repository, "examples/consumption/sdk-verify.mjs"),
     resolve(consumer, "sdk-verify.mjs"),
   );
-  for (const name of ["small-artifact.json", "small-artifact-v2.json"]) {
+  for (const name of [
+    "small-artifact.json",
+    "small-artifact-v2.json",
+    "small-artifact-config-v2.json",
+  ]) {
     const fixture = JSON.parse(
       await readFile(
         resolve(repository, `schemas/fixtures/attestation/interop/${name}`),

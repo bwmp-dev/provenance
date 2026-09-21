@@ -265,7 +265,11 @@ test("existing configuration package remains authoritative", async () => {
     { code: "configuration_invalid" },
   );
 });
-for (const name of ["small-artifact.json", "small-artifact-v2.json"]) {
+for (const name of [
+  "small-artifact.json",
+  "small-artifact-v2.json",
+  "small-artifact-config-v2.json",
+]) {
   test(`verifier authenticates ${name} before reading artifact bytes`, async () => {
     const fixture = JSON.parse(
       await readFile(
