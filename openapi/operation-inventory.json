@@ -598,5 +598,29 @@
     "operationId": "listPaperBuilds",
     "path": "/v1/paper-versions/{version}/builds",
     "tag": "runners"
+  },
+  {
+    "method": "get",
+    "operationId": "listPublicOwnerReleases",
+    "path": "/v1/public/{ownerSlug}",
+    "tag": "verification"
+  },
+  {
+    "method": "get",
+    "operationId": "listPublicProjectReleases",
+    "path": "/v1/public/{ownerSlug}/{projectSlug}",
+    "tag": "verification"
+  },
+  {
+    "method": "get",
+    "operationId": "getPublicReleaseAttestation",
+    "path": "/v1/public/{ownerSlug}/{projectSlug}/versions/{version}/attestation",
+    "tag": "verification"
+  },
+  {
+    "method": "get",
+    "operationId": "getPublicReleaseAttestationV2",
+    "path": "/v1/public/{ownerSlug}/{projectSlug}/versions/{version}/attestations/v2",
+    "tag": "verification"
   }
 ]

@@ -1429,6 +1429,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/{ownerSlug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerSlug: components["parameters"]["OwnerSlug"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List explicitly published verification releases
+         * @description WP-10B: public-verification-semantics.md is normative. Only explicitly and permanently published proofs are visible. No authentication or project visibility implies publication. Private and absent resources are indistinguishable. No-store on every response. Reject credentials, unknown or repeated queries; never return unsigned evidence.
+         */
+        get: operations["listPublicOwnerReleases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/{ownerSlug}/{projectSlug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerSlug: components["parameters"]["OwnerSlug"];
+                projectSlug: components["parameters"]["ProjectSlug"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List explicitly published verification releases
+         * @description WP-10B: public-verification-semantics.md is normative. Only explicitly and permanently published proofs are visible. No authentication or project visibility implies publication. Private and absent resources are indistinguishable. No-store on every response. Reject credentials, unknown or repeated queries; never return unsigned evidence.
+         */
+        get: operations["listPublicProjectReleases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/{ownerSlug}/{projectSlug}/versions/{version}/attestation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerSlug: components["parameters"]["OwnerSlug"];
+                projectSlug: components["parameters"]["ProjectSlug"];
+                version: components["parameters"]["Version"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a public release signed v1 attestation
+         * @description WP-10B: public-verification-semantics.md is normative. Only explicitly and permanently published proofs are visible. No authentication or project visibility implies publication. Private and absent resources are indistinguishable. No-store on every response. Reject credentials, unknown or repeated queries; never return unsigned evidence.
+         */
+        get: operations["getPublicReleaseAttestation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/{ownerSlug}/{projectSlug}/versions/{version}/attestations/v2": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerSlug: components["parameters"]["OwnerSlug"];
+                projectSlug: components["parameters"]["ProjectSlug"];
+                version: components["parameters"]["Version"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a public release signed v2 attestation
+         * @description WP-10B: public-verification-semantics.md is normative. Only explicitly and permanently published proofs are visible. No authentication or project visibility implies publication. Private and absent resources are indistinguishable. No-store on every response. Reject credentials, unknown or repeated queries; never return unsigned evidence.
+         */
+        get: operations["getPublicReleaseAttestationV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/{ownerSlug}/{projectSlug}/versions/{version}": {
         parameters: {
             query?: never;
@@ -3106,6 +3199,10 @@ export interface components {
             trust: "hosted" | "self_hosted";
             verifiedAt: components["schemas"]["Timestamp"];
         };
+        PublicVerificationPage: {
+            items: components["schemas"]["PublicRelease"][];
+            nextAfter: components["schemas"]["StableId"] | null;
+        };
         PublicRelease: {
             ownerSlug: components["schemas"]["Slug"];
             projectSlug: components["schemas"]["Slug"];
@@ -4067,21 +4164,6 @@ export interface components {
                 };
             };
         };
-        /** Provenance public key discovery v1 */
-        "schema-2": {
-            /** @constant */
-            version: 1;
-            /** @description Complete snapshot, including retired keys. keyId values must be unique; enforce this semantic constraint in addition to JSON Schema validation. */
-            keys: {
-                keyId: string;
-                /** @constant */
-                algorithm: "Ed25519";
-                /** @description Canonical unpadded base64url of exactly 32 raw Ed25519 public-key bytes. */
-                publicKey: string;
-                /** @enum {string} */
-                status: "active" | "retired";
-            }[];
-        };
         "$defs-configuration": {
             /** @enum {unknown} */
             apiVersion: "provenance.dev/v1" | "provenance.dev/v2";
@@ -4110,7 +4192,7 @@ export interface components {
             verifiedAt: string;
         };
         /** Provenance attestation envelope v2 */
-        "schema-3": {
+        "schema-2": {
             /** @constant */
             mediaType: "application/vnd.provenance.attestation.v2+json";
             statement: components["schemas"]["$defs-statement"];
@@ -4215,6 +4297,21 @@ export interface components {
                     value: string;
                 };
             };
+        };
+        /** Provenance public key discovery v1 */
+        "schema-3": {
+            /** @constant */
+            version: 1;
+            /** @description Complete snapshot, including retired keys. keyId values must be unique; enforce this semantic constraint in addition to JSON Schema validation. */
+            keys: {
+                keyId: string;
+                /** @constant */
+                algorithm: "Ed25519";
+                /** @description Canonical unpadded base64url of exactly 32 raw Ed25519 public-key bytes. */
+                publicKey: string;
+                /** @enum {string} */
+                status: "active" | "retired";
+            }[];
         };
     };
     responses: {
@@ -8000,6 +8097,115 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    listPublicOwnerReleases: {
+        parameters: {
+            query?: {
+                /** @description Exclusive verification ID cursor from this public listing; no snapshot across pages. */
+                after?: components["schemas"]["StableId"];
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                ownerSlug: components["parameters"]["OwnerSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public releases ordered by verification ID. Empty and nonexistent owners/projects both return an empty page. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicVerificationPage"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPublicProjectReleases: {
+        parameters: {
+            query?: {
+                /** @description Exclusive verification ID cursor from this public listing; no snapshot across pages. */
+                after?: components["schemas"]["StableId"];
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                ownerSlug: components["parameters"]["OwnerSlug"];
+                projectSlug: components["parameters"]["ProjectSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public releases ordered by verification ID. Empty and nonexistent owners/projects both return an empty page. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicVerificationPage"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPublicReleaseAttestation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerSlug: components["parameters"]["OwnerSlug"];
+                projectSlug: components["parameters"]["ProjectSlug"];
+                version: components["parameters"]["Version"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact canonical signed envelope; wrong schema version returns 404. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["schema"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPublicReleaseAttestationV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerSlug: components["parameters"]["OwnerSlug"];
+                projectSlug: components["parameters"]["ProjectSlug"];
+                version: components["parameters"]["Version"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact canonical signed envelope; wrong schema version returns 404. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["schema-2"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
     getPublicRelease: {
         parameters: {
             query?: never;
@@ -8405,7 +8611,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["schema-2"];
+                    "application/json": components["schemas"]["schema-3"];
                 };
             };
             /** @description Public key snapshot unavailable. */
@@ -8565,7 +8771,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["schema-3"];
+                    "application/json": components["schemas"]["schema-2"];
                 };
             };
             default: components["responses"]["Problem"];

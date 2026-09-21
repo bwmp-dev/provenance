@@ -1,3 +1,4 @@
+import "./public-verification.test.mjs";
 import "./hosted-runner-updates.test.mjs";
 import "./hosted-catalog-reconciliation.test.mjs";
 import "./automatic-paper-runtime.test.mjs";
@@ -1175,9 +1176,13 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
   for (const { operation: listOperation } of operations.filter(
     ({ operation: candidate }) =>
       candidate.operationId.startsWith("list") &&
-      !["listHostedRunners", "listPaperVersions", "listPaperBuilds"].includes(
-        candidate.operationId,
-      ),
+      ![
+        "listHostedRunners",
+        "listPaperVersions",
+        "listPaperBuilds",
+        "listPublicOwnerReleases",
+        "listPublicProjectReleases",
+      ].includes(candidate.operationId),
   )) {
     const names = listOperation.parameters
       .map(resolveParameter)
