@@ -1,3 +1,4 @@
+import { beforePublicVerification } from "./public-verification-compat.mjs";
 // Project away only the registered additive tenant-management surface.
 export const networkPolicyManagementOperations = [
   {
@@ -39,7 +40,7 @@ export const networkPolicyManagementOperations = [
 ];
 
 export function beforeNetworkPolicyManagementV2(document) {
-  const copy = structuredClone(document);
+  const copy = beforePublicVerification(document);
   for (const operation of networkPolicyManagementOperations)
     delete copy.paths[operation.path];
   delete copy.components.parameters.NetworkPolicyVersionId;

@@ -3107,6 +3107,157 @@ paths:
                 $ref: "../schemas/attestation/v1/schema.json"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/public/{ownerSlug}:
+    parameters:
+      - $ref: "#/components/parameters/OwnerSlug"
+    get:
+      operationId: listPublicOwnerReleases
+      summary: List explicitly published verification releases
+      description: "WP-10B: public-verification-semantics.md is normative. Only
+        explicitly and permanently published proofs are visible. No authentication
+        or project visibility implies publication. Private and absent resources
+        are indistinguishable. No-store on every response. Reject credentials,
+        unknown or repeated queries; never return unsigned evidence."
+      tags:
+        - verification
+      security: []
+      parameters:
+        - name: after
+          in: query
+          description:
+            Exclusive verification ID cursor from this public listing; no
+            snapshot across pages.
+          schema:
+            $ref: "#/components/schemas/StableId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description:
+            Public releases ordered by verification ID. Empty and nonexistent
+            owners/projects both return an empty page.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicVerificationPage"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/public/{ownerSlug}/{projectSlug}:
+    parameters:
+      - $ref: "#/components/parameters/OwnerSlug"
+      - $ref: "#/components/parameters/ProjectSlug"
+    get:
+      operationId: listPublicProjectReleases
+      summary: List explicitly published verification releases
+      description: "WP-10B: public-verification-semantics.md is normative. Only
+        explicitly and permanently published proofs are visible. No authentication
+        or project visibility implies publication. Private and absent resources
+        are indistinguishable. No-store on every response. Reject credentials,
+        unknown or repeated queries; never return unsigned evidence."
+      tags:
+        - verification
+      security: []
+      parameters:
+        - name: after
+          in: query
+          description:
+            Exclusive verification ID cursor from this public listing; no
+            snapshot across pages.
+          schema:
+            $ref: "#/components/schemas/StableId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description:
+            Public releases ordered by verification ID. Empty and nonexistent
+            owners/projects both return an empty page.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicVerificationPage"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/public/{ownerSlug}/{projectSlug}/versions/{version}/attestation:
+    parameters:
+      - $ref: "#/components/parameters/OwnerSlug"
+      - $ref: "#/components/parameters/ProjectSlug"
+      - $ref: "#/components/parameters/Version"
+    get:
+      operationId: getPublicReleaseAttestation
+      summary: Read a public release signed v1 attestation
+      description: "WP-10B: public-verification-semantics.md is normative. Only
+        explicitly and permanently published proofs are visible. No authentication
+        or project visibility implies publication. Private and absent resources
+        are indistinguishable. No-store on every response. Reject credentials,
+        unknown or repeated queries; never return unsigned evidence."
+      tags:
+        - verification
+      security: []
+      responses:
+        "200":
+          description: Exact canonical signed envelope; wrong schema version returns 404.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/attestation/v1/schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/public/{ownerSlug}/{projectSlug}/versions/{version}/attestations/v2:
+    parameters:
+      - $ref: "#/components/parameters/OwnerSlug"
+      - $ref: "#/components/parameters/ProjectSlug"
+      - $ref: "#/components/parameters/Version"
+    get:
+      operationId: getPublicReleaseAttestationV2
+      summary: Read a public release signed v2 attestation
+      description: "WP-10B: public-verification-semantics.md is normative. Only
+        explicitly and permanently published proofs are visible. No authentication
+        or project visibility implies publication. Private and absent resources
+        are indistinguishable. No-store on every response. Reject credentials,
+        unknown or repeated queries; never return unsigned evidence."
+      tags:
+        - verification
+      security: []
+      responses:
+        "200":
+          description: Exact canonical signed envelope; wrong schema version returns 404.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/attestation/v2/schema.json
+        default:
+          $ref: "#/components/responses/Problem"
   /v1/public/{ownerSlug}/{projectSlug}/versions/{version}:
     parameters:
       - $ref: "#/components/parameters/OwnerSlug"
@@ -9414,6 +9565,22 @@ components:
           enum: [hosted, self_hosted]
         verifiedAt:
           $ref: "#/components/schemas/Timestamp"
+    PublicVerificationPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextAfter
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/PublicRelease"
+        nextAfter:
+          oneOf:
+            - $ref: "#/components/schemas/StableId"
+            - type: "null"
     PublicRelease:
       type: object
       additionalProperties: false
