@@ -926,6 +926,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{projectId}/github-connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List active GitHub repository connections bound to a project
+         * @description IFC-033 returns a bounded page of the active (unrevoked) GitHub
+         *     repository connections bound to the path project, using the same
+         *     `GitHubConnection` representation returned by a successful connection
+         *     completion. It lets a client recover from an uncertain or conflicting
+         *     connection outcome by observing the durable binding instead of
+         *     inferring success or retrying blindly. The response is a read of
+         *     platform state only: the server never contacts GitHub to answer it,
+         *     and it never includes installation tokens, user tokens, provider
+         *     responses, webhook secrets or any other credential. An empty `items`
+         *     array means the project currently has no active repository
+         *     connection. A listed connection does not assert current GitHub App
+         *     installation health or repository access.
+         *
+         *     Results use deterministic ascending keyset order by `(createdAt, id)`.
+         *     The `createdAt` primary key compares RFC 3339 instants after
+         *     normalization to UTC; equal instants use canonical lowercase UUID text
+         *     for the `id` tie-break. A continuation cursor is opaque, binds the path
+         *     project and the last `(createdAt, id)` key from the preceding page, and
+         *     resumes strictly after that key. Clients must not parse or synthesize
+         *     cursors.
+         *
+         *     Any current member of the organization that owns the project may read
+         *     its connections; a project-scoped credential may read only its own
+         *     project. Authentication and project visibility are resolved before
+         *     cursor validation. A nonexistent project, a project outside the
+         *     caller's tenant, a project the caller is not a current member of, and
+         *     a project other than a project-scoped credential's project all return
+         *     the same HTTP 404 status and problem shape. A malformed or differently
+         *     scoped cursor, or a `limit` outside 1 through 100, receives HTTP 400.
+         *     Every response is `Cache-Control: private, no-store`.
+         */
+        get: operations["listProjectGitHubConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/github/webhooks": {
         parameters: {
             query?: never;
@@ -2784,6 +2835,10 @@ export interface components {
             repositoryId: number;
             repositoryFullName: string;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        GitHubConnectionPage: {
+            items: components["schemas"]["GitHubConnection"][];
+            page: components["schemas"]["PageInfo"];
         };
         CreateGitHubConnectionRequest: {
             projectId: components["schemas"]["StableId"];
@@ -7441,6 +7496,39 @@ export interface operations {
                 };
             };
             409: components["responses"]["IdempotencyConflict"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProjectGitHubConnections: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation cursor returned by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of resources to return. */
+                limit?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded page of active project GitHub repository connections. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PrivateNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubConnectionPage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            500: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

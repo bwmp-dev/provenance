@@ -622,5 +622,11 @@
     "operationId": "getPublicReleaseAttestationV2",
     "path": "/v1/public/{ownerSlug}/{projectSlug}/versions/{version}/attestations/v2",
     "tag": "verification"
+  },
+  {
+    "method": "get",
+    "operationId": "listProjectGitHubConnections",
+    "path": "/v1/projects/{projectId}/github-connections",
+    "tag": "github"
   }
 ]
