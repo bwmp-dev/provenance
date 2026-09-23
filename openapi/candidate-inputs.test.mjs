@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforePublicationGateEventDocument } from "./alpha-compat.mjs";
 import { beforeReleaseRejection } from "./release-rejection-compat.mjs";
 
 const doc = parse(
@@ -66,7 +67,9 @@ const inputs = {
   dependencyResolution: resolution,
 };
 test("input addition preserves the entire released alpha25 contract", () => {
-  const legacy = beforeReleaseRejection(doc);
+  const legacy = beforeReleaseRejection(
+    beforePublicationGateEventDocument(doc),
+  );
   delete legacy.paths[
     "/v1/release-candidates/{candidateId}/executions/{executionId}/details"
   ];

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforePublicationGateEventDocument } from "./alpha-compat.mjs";
 import { beforeNetworkConfigV2 } from "./network-config-v2-compat.mjs";
 
 const doc = parse(
@@ -25,7 +26,11 @@ const valid = (name, value) =>
 test("IFC030 HTTP additions preserve every prior operation and schema", () => {
   assert.equal(
     createHash("sha256")
-      .update(JSON.stringify(beforeNetworkConfigV2(doc)))
+      .update(
+        JSON.stringify(
+          beforeNetworkConfigV2(beforePublicationGateEventDocument(doc)),
+        ),
+      )
       .digest("hex"),
     "c354a7c3c4d6b546cee58cfee9c87ae402a78bacc67b1dc05e85a2993384323b",
   );

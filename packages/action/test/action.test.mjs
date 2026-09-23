@@ -105,7 +105,11 @@ async function scenario(t, opts = {}) {
     version: "v1",
     state:
       opts.state ||
-      (opts.wait ? (candidateReads ? "published" : "testing") : "pending"),
+      (opts.wait
+        ? candidateReads
+          ? opts.finalState || "published"
+          : opts.initialState || "testing"
+        : "pending"),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
@@ -290,7 +294,7 @@ async function scenario(t, opts = {}) {
             id: id(20),
             candidateId: opts.eventSubstitution ? id(99) : id(4),
             sequence: 1,
-            kind: "test_completed",
+            kind: opts.eventKind || "test_completed",
             occurredAt: "2026-09-07T00:00:00Z",
           },
         ],
@@ -462,6 +466,34 @@ test("compiled optional wait does not interpret test_completed as publication", 
     ["pending", "success"],
   );
   assert.ok(s.calls.some((c) => c.path.endsWith("/events")));
+});
+test("publication gate event is accepted but settled candidate state decides success", async (t) => {
+  const s = await scenario(t, {
+    wait: true,
+    initialState: "publishing",
+    finalState: "published",
+    eventKind: "publication_gate_passed",
+  });
+  assert.equal(s.result.outcome, "published");
+});
+test("publication gate event with a failed composition remains failure", async (t) => {
+  const s = await scenario(t, {
+    wait: true,
+    initialState: "publishing",
+    finalState: "failed",
+    eventKind: "publication_gate_passed",
+  });
+  assert.equal(s.result.outcome, "failed");
+});
+test("publication gate event alone never reports success", async (t) => {
+  const s = await scenario(t, {
+    wait: true,
+    state: "publishing",
+    eventKind: "publication_gate_passed",
+    expiresIn: 100,
+  });
+  assert.equal(s.result.outcome, "incomplete");
+  assert.equal(s.result.reason, "authority_expired");
 });
 test("same-grant lost resource acknowledgement retries identical key/body", async (t) => {
   const s = await scenario(t, { resourceLoss: true });

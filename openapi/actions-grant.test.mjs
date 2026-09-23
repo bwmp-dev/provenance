@@ -1,6 +1,7 @@
 import {
   beforeAlphaAdmission,
   beforeFailureClassification,
+  beforePublicationGateEvent,
 } from "./alpha-compat.mjs";
 const alphaPaths = [
   "/v1/admin/organizations",
@@ -79,10 +80,14 @@ test("IFC022 is additive to every alpha17 path and component", () => {
     for (const [name, digest] of Object.entries(names))
       assert.equal(
         hash(
-          beforeFailureClassification(
+          beforePublicationGateEvent(
             family,
             name,
-            doc.components[family][name],
+            beforeFailureClassification(
+              family,
+              name,
+              doc.components[family][name],
+            ),
           ),
         ),
         digest,

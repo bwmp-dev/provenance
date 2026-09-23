@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforePublicationGateEventDocument } from "./alpha-compat.mjs";
 import { beforeReleaseRejection } from "./release-rejection-compat.mjs";
 
 const doc = parse(
@@ -29,7 +30,11 @@ const valid = ajv.compile({
 test("IFC-029 preserves every existing alpha28 field, operation and closed enum", () => {
   assert.equal(
     createHash("sha256")
-      .update(JSON.stringify(beforeReleaseRejection(doc)))
+      .update(
+        JSON.stringify(
+          beforeReleaseRejection(beforePublicationGateEventDocument(doc)),
+        ),
+      )
       .digest("hex"),
     "6a23f535b82a5b4b98ccd67ca3bd4716b2f2877d2da7873aeac24b33f3ad564f",
   );

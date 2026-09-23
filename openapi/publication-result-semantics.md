@@ -6,6 +6,14 @@ In particular, legacy `published` may describe test-only completion and is not
 evidence of remote delivery. The normative wire schema is in provenance.v1.yaml;
 publication-result-vectors.json contains synthetic state examples, not live proof.
 
+The later WP-09F event-contract correction adds `publication_gate_passed` to the
+current `ReleaseEvent.kind` enum because the platform already emits that event
+after the required verification gate. It is a gate observation, not proof of
+remote publication or compatibility success. Consumers must wait for the
+candidate's terminal state and use the publication-result read for detailed
+target outcomes. Historical release compatibility assertions still use their
+original ten-kind enum; this addition is recorded explicitly in those checks.
+
 ## Identity, authorization and read isolation
 
 `GET /v1/release-candidates/{candidateId}/publication-result?generation=N`

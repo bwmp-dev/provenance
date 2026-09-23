@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforePublicationGateEventDocument } from "./alpha-compat.mjs";
 import { beforeReleaseRejection } from "./release-rejection-compat.mjs";
 
 const doc = parse(
@@ -83,7 +84,9 @@ const value = {
 };
 
 test("execution details preserve the entire released alpha26 OpenAPI", () => {
-  const legacy = beforeReleaseRejection(doc);
+  const legacy = beforeReleaseRejection(
+    beforePublicationGateEventDocument(doc),
+  );
   delete legacy.paths[route];
   for (const name of schemas) delete legacy.components.schemas[name];
   assert.equal(

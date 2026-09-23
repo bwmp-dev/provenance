@@ -8773,6 +8773,7 @@ components:
             - retry_requested
             - publication_started
             - publication_completed
+            - publication_gate_passed
             - failed
         occurredAt:
           $ref: "#/components/schemas/Timestamp"

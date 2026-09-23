@@ -46,3 +46,27 @@ export function beforeFailureClassification(family, name, value) {
   delete copy.properties.failureCategory;
   return copy;
 }
+
+// The gate event was already emitted by the platform when the current event
+// contract was corrected. Earlier releases retain their exact ten-kind enum.
+export function beforePublicationGateEvent(family, name, value) {
+  if (family !== "schemas" || name !== "ReleaseEvent") return value;
+  const copy = structuredClone(value);
+  const kinds = copy.properties.kind.enum;
+  assert.equal(
+    kinds.filter((kind) => kind === "publication_gate_passed").length,
+    1,
+  );
+  kinds.splice(kinds.indexOf("publication_gate_passed"), 1);
+  return copy;
+}
+
+export function beforePublicationGateEventDocument(document) {
+  const copy = structuredClone(document);
+  copy.components.schemas.ReleaseEvent = beforePublicationGateEvent(
+    "schemas",
+    "ReleaseEvent",
+    copy.components.schemas.ReleaseEvent,
+  );
+  return copy;
+}

@@ -59,7 +59,9 @@ hash and byte count are checked against server verification before candidate cre
 | Candidate canceled                               | canceled          | error                               | failure                       |
 | Timeout, expiry, inaccessible or unknown outcome | incomplete        | error if reporting remains possible | failure                       |
 
-`approved` and `test_completed` do not prove publication or compatibility success.
+`approved`, `test_completed` and `publication_gate_passed` do not prove
+publication or compatibility success. The Action waits for the candidate's
+terminal state before reporting a published or failed outcome.
 Events are bounded identity-checked observations, not a hidden result payload.
 Per-target publication results, private logs, lists, approvals, retries and cancel
 mutations are outside this grant and are never requested. Client cancellation

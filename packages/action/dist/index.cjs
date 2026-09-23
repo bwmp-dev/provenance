@@ -16338,6 +16338,7 @@ var eventKinds = /* @__PURE__ */ new Set([
   "created",
   "testing_started",
   "test_completed",
+  "publication_gate_passed",
   "approval_requested",
   "approved",
   "canceled",

@@ -1,6 +1,7 @@
 import {
   beforeAlphaAdmission,
   beforeFailureClassification,
+  beforePublicationGateEvent,
 } from "./alpha-compat.mjs";
 const alphaPaths = [
   "/v1/admin/organizations",
@@ -140,10 +141,14 @@ test("IFC021 leaves every alpha18 path/component and grant operation unchanged",
     for (const [name, digest] of Object.entries(entries))
       assert.equal(
         hash(
-          beforeFailureClassification(
+          beforePublicationGateEvent(
             family,
             name,
-            doc.components[family][name],
+            beforeFailureClassification(
+              family,
+              name,
+              doc.components[family][name],
+            ),
           ),
         ),
         digest,
