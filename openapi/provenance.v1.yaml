@@ -2317,6 +2317,71 @@ paths:
           $ref: "#/components/responses/IdempotencyConflict"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/projects/{projectId}/github-connections:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: listProjectGitHubConnections
+      summary: List active GitHub repository connections bound to a project
+      description: |
+        IFC-033 returns a bounded page of the active (unrevoked) GitHub
+        repository connections bound to the path project, using the same
+        `GitHubConnection` representation returned by a successful connection
+        completion. It lets a client recover from an uncertain or conflicting
+        connection outcome by observing the durable binding instead of
+        inferring success or retrying blindly. The response is a read of
+        platform state only: the server never contacts GitHub to answer it,
+        and it never includes installation tokens, user tokens, provider
+        responses, webhook secrets or any other credential. An empty `items`
+        array means the project currently has no active repository
+        connection. A listed connection does not assert current GitHub App
+        installation health or repository access.
+
+        Results use deterministic ascending keyset order by `(createdAt, id)`.
+        The `createdAt` primary key compares RFC 3339 instants after
+        normalization to UTC; equal instants use canonical lowercase UUID text
+        for the `id` tie-break. A continuation cursor is opaque, binds the path
+        project and the last `(createdAt, id)` key from the preceding page, and
+        resumes strictly after that key. Clients must not parse or synthesize
+        cursors.
+
+        Any current member of the organization that owns the project may read
+        its connections; a project-scoped credential may read only its own
+        project. Authentication and project visibility are resolved before
+        cursor validation. A nonexistent project, a project outside the
+        caller's tenant, a project the caller is not a current member of, and
+        a project other than a project-scoped credential's project all return
+        the same HTTP 404 status and problem shape. A malformed or differently
+        scoped cursor, or a `limit` outside 1 through 100, receives HTTP 400.
+        Every response is `Cache-Control: private, no-store`.
+      x-provenance-interface: IFC-033
+      tags: [github]
+      security:
+        - BearerAuth: []
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Bounded page of active project GitHub repository connections.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/PrivateNoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubConnectionPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /v1/github/webhooks:
     post:
       operationId: receiveGitHubWebhook
@@ -8552,6 +8617,19 @@ components:
           maxLength: 512
         createdAt:
           $ref: "#/components/schemas/Timestamp"
+    GitHubConnectionPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/GitHubConnection"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      x-provenance-max-json-bytes: 131072
     CreateGitHubConnectionRequest:
       type: object
       additionalProperties: false

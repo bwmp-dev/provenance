@@ -1,3 +1,4 @@
+import "./github-connection-read.test.mjs";
 import "./public-verification.test.mjs";
 import "./hosted-runner-updates.test.mjs";
 import "./hosted-catalog-reconciliation.test.mjs";
