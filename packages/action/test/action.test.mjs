@@ -485,6 +485,16 @@ test("publication gate event with a failed composition remains failure", async (
   });
   assert.equal(s.result.outcome, "failed");
 });
+test("publication gate event alone never reports success", async (t) => {
+  const s = await scenario(t, {
+    wait: true,
+    state: "publishing",
+    eventKind: "publication_gate_passed",
+    expiresIn: 100,
+  });
+  assert.equal(s.result.outcome, "incomplete");
+  assert.equal(s.result.reason, "authority_expired");
+});
 test("same-grant lost resource acknowledgement retries identical key/body", async (t) => {
   const s = await scenario(t, { resourceLoss: true });
   assert.equal(s.result.outcome, "submitted");
