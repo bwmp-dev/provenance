@@ -5,6 +5,7 @@ import "./automatic-paper-runtime.test.mjs";
 import {
   beforeAlphaAdmission,
   beforeFailureClassification,
+  beforePublicationGateEvent,
 } from "./alpha-compat.mjs";
 import "./alpha-administration.test.mjs";
 import assert from "node:assert/strict";
@@ -48,6 +49,21 @@ const methods = new Set([
   "post",
   "put",
 ]);
+
+test("WP-09F gate event is present in the current closed event contract and typed client", () => {
+  const event = document.components.schemas.ReleaseEvent;
+  assert.equal(event.additionalProperties, false);
+  assert.equal(
+    event.properties.kind.enum.filter(
+      (kind) => kind === "publication_gate_passed",
+    ).length,
+    1,
+  );
+  const start = generatedClient.indexOf("ReleaseEvent: {");
+  const end = generatedClient.indexOf("ReleaseEventPage: {", start);
+  assert.ok(start >= 0 && end > start);
+  assert.match(generatedClient.slice(start, end), /"publication_gate_passed"/);
+});
 
 test("attestation HTTP endpoints preserve explicit v1 and v2 selection", async () => {
   const response =
@@ -149,10 +165,14 @@ test("IFC018 leaves every released alpha14 path and component unchanged", async 
     for (const [name, digest] of Object.entries(entries))
       assert.equal(
         hash(
-          beforeFailureClassification(
+          beforePublicationGateEvent(
             kind,
             name,
-            document.components[kind][name],
+            beforeFailureClassification(
+              kind,
+              name,
+              document.components[kind][name],
+            ),
           ),
         ),
         digest,
@@ -1679,10 +1699,14 @@ test("IFC-011 is deeply additive to the released alpha.5 HTTP surface", () => {
       compatibilityHash(
         snapshot.names.map((name) => [
           name,
-          beforeFailureClassification(
+          beforePublicationGateEvent(
             category,
             name,
-            document.components[category][name],
+            beforeFailureClassification(
+              category,
+              name,
+              document.components[category][name],
+            ),
           ),
         ]),
       ),

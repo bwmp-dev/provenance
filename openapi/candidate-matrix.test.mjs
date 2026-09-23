@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforePublicationGateEventDocument } from "./alpha-compat.mjs";
 import { beforeReleaseRejection } from "./release-rejection-compat.mjs";
 
 const doc = parse(
@@ -23,7 +24,9 @@ const valid = (value) =>
   );
 const id = "11111111-1111-4111-8111-111111111111";
 test("matrix addition preserves the entire released alpha24 contract", () => {
-  const legacy = beforeReleaseRejection(doc);
+  const legacy = beforeReleaseRejection(
+    beforePublicationGateEventDocument(doc),
+  );
   delete legacy.paths[
     "/v1/release-candidates/{candidateId}/executions/{executionId}/details"
   ];

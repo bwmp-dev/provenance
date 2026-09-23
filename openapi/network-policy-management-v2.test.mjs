@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforePublicationGateEventDocument } from "./alpha-compat.mjs";
 import {
   beforeNetworkPolicyManagementV2,
   networkPolicyManagementOperations,
@@ -42,7 +43,13 @@ const wireInput = (policy) => ({
 test("tenant policy HTTP additions preserve the complete alpha31 document", () => {
   assert.equal(
     createHash("sha256")
-      .update(JSON.stringify(beforeNetworkPolicyManagementV2(document)))
+      .update(
+        JSON.stringify(
+          beforeNetworkPolicyManagementV2(
+            beforePublicationGateEventDocument(document),
+          ),
+        ),
+      )
       .digest("hex"),
     "20bec81d13c65c37d128921f7be1bf69154740167f7a13e38cbf9c9232d8eb88",
   );

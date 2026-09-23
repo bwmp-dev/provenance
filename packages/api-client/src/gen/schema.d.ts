@@ -2864,7 +2864,7 @@ export interface components {
             candidateId: components["schemas"]["StableId"];
             sequence: number;
             /** @enum {string} */
-            kind: "created" | "testing_started" | "test_completed" | "approval_requested" | "approved" | "canceled" | "retry_requested" | "publication_started" | "publication_completed" | "failed";
+            kind: "created" | "testing_started" | "test_completed" | "approval_requested" | "approved" | "canceled" | "retry_requested" | "publication_started" | "publication_completed" | "publication_gate_passed" | "failed";
             occurredAt: components["schemas"]["Timestamp"];
         };
         ReleaseEventPage: {

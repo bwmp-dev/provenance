@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { parse } from "yaml";
+import { beforePublicationGateEventDocument } from "./alpha-compat.mjs";
 import {
   beforePublicVerification,
   publicVerificationPaths,
@@ -13,7 +14,13 @@ const document = parse(
 test("WP-10B adds public discovery and proofs without changing existing contracts", () => {
   assert.equal(
     createHash("sha256")
-      .update(JSON.stringify(beforePublicVerification(document)))
+      .update(
+        JSON.stringify(
+          beforePublicVerification(
+            beforePublicationGateEventDocument(document),
+          ),
+        ),
+      )
       .digest("hex"),
     "7ecf4a2f944a17223c9ab66f7f5b415d3a1b35cf45bea8cc0e499d6261368352",
   );
