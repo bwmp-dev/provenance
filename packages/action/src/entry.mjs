@@ -34,6 +34,40 @@ export function execute(config, runtime) {
   });
 }
 
+export function incompleteGuidance(result) {
+  const guidance = {
+    invalid_configuration:
+      "Check explicit origin/project/audience, configuration schema and finite input bounds.",
+    invalid_file:
+      "Provide one regular non-symlink JAR within max-artifact-bytes and a valid configuration file.",
+    file_changed:
+      "Build and freeze the artifact/configuration before invoking the Action; do not modify them during submission.",
+    oidc_unavailable:
+      "Use a supported workflow with id-token: write and an explicitly configured platform audience.",
+    grant_denied:
+      "Check the platform installation/project/workflow policy; do not substitute a long-lived token.",
+    credential_unrecoverable:
+      "Shown-once issuance cannot be replayed. Do not use a new grant to recover old resources.",
+    authority_expired: `The Actions grant expired before an authoritative candidate outcome was observed; the outcome is unknown, not success or failure. Grant expiry is no later than the GitHub OIDC assertion expiry (typically about 5 minutes), so timeout-ms cannot extend waiting. ${result.candidateId ? `Candidate ${result.candidateId} exists (candidateId output); see its result in the Provenance console for this project or with separately authorized access.` : "No candidate identifier was observed by this run; known identifiers are in the outputs."} Do not rerun with a new grant to resume these resources.`,
+    authority_denied:
+      "Current grant or repository authority was denied. Do not broaden credentials or inherit resources.",
+    resource_not_owned:
+      "The resource is not admitted by this grant. Do not adopt another grant's resources.",
+    identity_mismatch:
+      "The response does not match the exact submitted source/artifact identity. Submission stopped.",
+    reporting_failed:
+      "Check the separate ephemeral repository token and statuses: write permission; no successful report is assumed.",
+    timeout:
+      "The bounded client deadline ended with an incomplete outcome; do not refresh the grant to resume resources.",
+    cancelled:
+      "Client work stopped. This does not cancel the durable platform candidate.",
+  };
+  return (
+    guidance[result.reason] ||
+    "Submission or observation is incomplete. Inspect the nonsecret reason output; do not assume remote success or retry with broader credentials."
+  );
+}
+
 async function main() {
   const env = process.env;
   for (const secret of [
@@ -80,6 +114,9 @@ async function main() {
       oidcURL: env.ACTIONS_ID_TOKEN_REQUEST_URL,
       oidcToken: env.ACTIONS_ID_TOKEN_REQUEST_TOKEN,
       mask,
+      // Messages are composed only from validated numbers and package text.
+      warn: (message) =>
+        process.stdout.write(`::warning::${escape(message)}\n`),
       signal: abort.signal,
     },
   );
@@ -90,37 +127,7 @@ async function main() {
   }
   process.stdout.write(`Provenance Action: ${result.outcome}\n`);
   if (result.outcome === "incomplete") {
-    const guidance = {
-      invalid_configuration:
-        "Check explicit origin/project/audience, configuration schema and finite input bounds.",
-      invalid_file:
-        "Provide one regular non-symlink JAR within max-artifact-bytes and a valid configuration file.",
-      file_changed:
-        "Build and freeze the artifact/configuration before invoking the Action; do not modify them during submission.",
-      oidc_unavailable:
-        "Use a supported workflow with id-token: write and an explicitly configured platform audience.",
-      grant_denied:
-        "Check the platform installation/project/workflow policy; do not substitute a long-lived token.",
-      credential_unrecoverable:
-        "Shown-once issuance cannot be replayed. Do not use a new grant to recover old resources.",
-      authority_expired:
-        "Grant expiry ended observation/replay. Known identifiers require separately authorized operator follow-up.",
-      authority_denied:
-        "Current grant or repository authority was denied. Do not broaden credentials or inherit resources.",
-      resource_not_owned:
-        "The resource is not admitted by this grant. Do not adopt another grant's resources.",
-      identity_mismatch:
-        "The response does not match the exact submitted source/artifact identity. Submission stopped.",
-      reporting_failed:
-        "Check the separate ephemeral repository token and statuses: write permission; no successful report is assumed.",
-      timeout:
-        "The bounded client deadline ended with an incomplete outcome; do not refresh the grant to resume resources.",
-      cancelled:
-        "Client work stopped. This does not cancel the durable platform candidate.",
-    };
-    process.stdout.write(
-      `::error::${guidance[result.reason] || "Submission or observation is incomplete. Inspect the nonsecret reason output; do not assume remote success or retry with broader credentials."}\n`,
-    );
+    process.stdout.write(`::error::${escape(incompleteGuidance(result))}\n`);
   }
   if (["incomplete", "failed", "canceled"].includes(result.outcome))
     process.exitCode = 1;
