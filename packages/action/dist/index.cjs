@@ -14775,7 +14775,8 @@ var require_dist = __commonJS({
 // src/entry.mjs
 var entry_exports = {};
 __export(entry_exports, {
-  execute: () => execute
+  execute: () => execute,
+  incompleteGuidance: () => incompleteGuidance
 });
 module.exports = __toCommonJS(entry_exports);
 var import_promises3 = require("node:fs/promises");
@@ -16378,6 +16379,11 @@ function validateInputs(c) {
     fail("invalid_configuration");
   return c;
 }
+function grantDeadline(expiresAtMs, dateHeader, requestStartedMs) {
+  const serverNow = typeof dateHeader === "string" && dateHeader.length <= 64 ? Date.parse(dateHeader) : NaN;
+  if (!Number.isFinite(serverNow)) return expiresAtMs;
+  return requestStartedMs + (expiresAtMs - serverNow) - 1e3;
+}
 async function runAction(input2, runtime) {
   let config, jar, source;
   let grant, candidateId, artifactId, outcome = "incomplete", reason;
@@ -16393,19 +16399,27 @@ async function runAction(input2, runtime) {
     lastTime = value;
     return value;
   };
+  const warn = runtime.warn || (() => {
+  });
   let operationDeadline;
+  let grantExpiry = Infinity;
   const check = (credential = true) => {
     if (signal.aborted) fail("cancelled");
     if (now() >= operationDeadline) fail("timeout");
-    if (credential && grant && now() >= timestamp(grant.expiresAt))
-      fail("authority_expired");
+    if (credential && grant && now() >= grantExpiry) fail("authority_expired");
+  };
+  const pause = async () => {
+    const remaining = Math.min(operationDeadline, grantExpiry) - now();
+    await (0, import_promises2.setTimeout)(Math.max(0, Math.min(config.pollMs, remaining)), void 0, {
+      signal
+    });
   };
   const request = async (url, options = {}, credential = false) => {
     check(credential);
     const end = Math.min(
       operationDeadline,
       now() + config.requestMs,
-      credential && grant ? timestamp(grant.expiresAt) : Infinity
+      credential && grant ? grantExpiry : Infinity
     );
     const abort2 = AbortSignal.any([
       signal,
@@ -16432,7 +16446,7 @@ async function runAction(input2, runtime) {
       if (signal.aborted) fail("cancelled");
       if (now() >= end)
         fail(
-          credential && grant && now() >= timestamp(grant.expiresAt) ? "authority_expired" : "timeout"
+          credential && grant && now() >= grantExpiry ? "authority_expired" : "timeout"
         );
       fail("unavailable");
     }
@@ -16509,6 +16523,7 @@ async function runAction(input2, runtime) {
     if (!object(oidc) || typeof oidc.value !== "string" || oidc.value.length < 16 || oidc.value.length > 16384 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(oidc.value))
       fail("invalid_response");
     mask2(oidc.value);
+    const issuedAt = now();
     const issued = await request(
       `${config.origin}/v1/auth/github-actions/grants`,
       {
@@ -16546,7 +16561,17 @@ async function runAction(input2, runtime) {
     ]);
     if (!uuid(grant.grantId) || !uuid(grant.scope.organizationId) || grant.principalType !== "github-actions" || grant.tokenType !== "Bearer" || !/^pva_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(grant.accessToken) || grant.scope.projectId !== config.project || grant.scope.repositoryId !== config.repositoryId || grant.scope.repositoryOwnerId !== config.ownerId || grant.scope.sourceCommit !== config.commit || grant.scope.sourceRef !== config.ref || !numeric(grant.scope.appId) || !numeric(grant.scope.installationId) || typeof grant.scope.workflowRef !== "string" || !grant.scope.workflowRef || grant.scope.workflowRef.length > 1024)
       fail("identity_mismatch");
+    grantExpiry = grantDeadline(
+      timestamp(grant.expiresAt),
+      issued.headers.get("date"),
+      issuedAt
+    );
     check();
+    const ceiling = Math.min(operationDeadline, grantExpiry);
+    if (config.wait && grantExpiry < operationDeadline)
+      warn(
+        `timeout-ms ${config.totalMs} exceeds this run's Actions grant lifetime (grant expiresAt ${new Date(timestamp(grant.expiresAt)).toISOString()}, about ${Math.max(0, grantExpiry - now())} ms from now). Waiting is bounded by grant expiry: effective wait ceiling ${Math.max(0, ceiling - started)} ms after Action start. An unresolved candidate is then reported as incomplete (authority_expired), never as success or failure.`
+      );
     const client = runtime.createClient({
       baseUrl: config.origin,
       fetch: async (req) => {
@@ -16595,7 +16620,7 @@ async function runAction(input2, runtime) {
           const error = e instanceof ActionError ? e : new ActionError("unavailable");
           if (error.code !== "unavailable" || attempt >= config.attempts)
             throw error;
-          await (0, import_promises2.setTimeout)(config.pollMs, void 0, { signal });
+          await pause();
         }
       }
     };
@@ -16697,7 +16722,7 @@ async function runAction(input2, runtime) {
       if (artifact.state === "ready") break;
       if (!["pending", "uploaded", "verifying"].includes(artifact.state))
         fail("artifact_rejected");
-      await (0, import_promises2.setTimeout)(config.pollMs, void 0, { signal });
+      await pause();
       artifact = await call(
         "GET",
         "/v1/artifacts/{artifactId}",
@@ -16801,7 +16826,7 @@ async function runAction(input2, runtime) {
           } else if (page.page.hasMore) fail("invalid_response");
           if (!page.page.hasMore) break;
         }
-        await (0, import_promises2.setTimeout)(config.pollMs, void 0, { signal });
+        await pause();
         candidate = await call(
           "GET",
           "/v1/release-candidates/{candidateId}",
@@ -16854,6 +16879,24 @@ function execute(config, runtime) {
     ...runtime
   });
 }
+function incompleteGuidance(result) {
+  const guidance = {
+    invalid_configuration: "Check explicit origin/project/audience, configuration schema and finite input bounds.",
+    invalid_file: "Provide one regular non-symlink JAR within max-artifact-bytes and a valid configuration file.",
+    file_changed: "Build and freeze the artifact/configuration before invoking the Action; do not modify them during submission.",
+    oidc_unavailable: "Use a supported workflow with id-token: write and an explicitly configured platform audience.",
+    grant_denied: "Check the platform installation/project/workflow policy; do not substitute a long-lived token.",
+    credential_unrecoverable: "Shown-once issuance cannot be replayed. Do not use a new grant to recover old resources.",
+    authority_expired: `The Actions grant expired before an authoritative candidate outcome was observed; the outcome is unknown, not success or failure. Grant expiry is no later than the GitHub OIDC assertion expiry (typically about 5 minutes), so timeout-ms cannot extend waiting. ${result.candidateId ? `Candidate ${result.candidateId} exists (candidateId output); see its result in the Provenance console for this project or with separately authorized access.` : "No candidate identifier was observed by this run; known identifiers are in the outputs."} Do not rerun with a new grant to resume these resources.`,
+    authority_denied: "Current grant or repository authority was denied. Do not broaden credentials or inherit resources.",
+    resource_not_owned: "The resource is not admitted by this grant. Do not adopt another grant's resources.",
+    identity_mismatch: "The response does not match the exact submitted source/artifact identity. Submission stopped.",
+    reporting_failed: "Check the separate ephemeral repository token and statuses: write permission; no successful report is assumed.",
+    timeout: "The bounded client deadline ended with an incomplete outcome; do not refresh the grant to resume resources.",
+    cancelled: "Client work stopped. This does not cancel the durable platform candidate."
+  };
+  return guidance[result.reason] || "Submission or observation is incomplete. Inspect the nonsecret reason output; do not assume remote success or retry with broader credentials.";
+}
 async function main() {
   const env = process.env;
   for (const secret of [
@@ -16892,6 +16935,9 @@ async function main() {
       oidcURL: env.ACTIONS_ID_TOKEN_REQUEST_URL,
       oidcToken: env.ACTIONS_ID_TOKEN_REQUEST_TOKEN,
       mask,
+      // Messages are composed only from validated numbers and package text.
+      warn: (message) => process.stdout.write(`::warning::${escape2(message)}
+`),
       signal: abort.signal
     }
   );
@@ -16903,25 +16949,8 @@ async function main() {
   process.stdout.write(`Provenance Action: ${result.outcome}
 `);
   if (result.outcome === "incomplete") {
-    const guidance = {
-      invalid_configuration: "Check explicit origin/project/audience, configuration schema and finite input bounds.",
-      invalid_file: "Provide one regular non-symlink JAR within max-artifact-bytes and a valid configuration file.",
-      file_changed: "Build and freeze the artifact/configuration before invoking the Action; do not modify them during submission.",
-      oidc_unavailable: "Use a supported workflow with id-token: write and an explicitly configured platform audience.",
-      grant_denied: "Check the platform installation/project/workflow policy; do not substitute a long-lived token.",
-      credential_unrecoverable: "Shown-once issuance cannot be replayed. Do not use a new grant to recover old resources.",
-      authority_expired: "Grant expiry ended observation/replay. Known identifiers require separately authorized operator follow-up.",
-      authority_denied: "Current grant or repository authority was denied. Do not broaden credentials or inherit resources.",
-      resource_not_owned: "The resource is not admitted by this grant. Do not adopt another grant's resources.",
-      identity_mismatch: "The response does not match the exact submitted source/artifact identity. Submission stopped.",
-      reporting_failed: "Check the separate ephemeral repository token and statuses: write permission; no successful report is assumed.",
-      timeout: "The bounded client deadline ended with an incomplete outcome; do not refresh the grant to resume resources.",
-      cancelled: "Client work stopped. This does not cancel the durable platform candidate."
-    };
-    process.stdout.write(
-      `::error::${guidance[result.reason] || "Submission or observation is incomplete. Inspect the nonsecret reason output; do not assume remote success or retry with broader credentials."}
-`
-    );
+    process.stdout.write(`::error::${escape2(incompleteGuidance(result))}
+`);
   }
   if (["incomplete", "failed", "canceled"].includes(result.outcome))
     process.exitCode = 1;
@@ -16935,5 +16964,6 @@ if (typeof require !== "undefined" && require.main === module)
   });
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  execute
+  execute,
+  incompleteGuidance
 });

@@ -72,7 +72,29 @@ per resource operation, ten event pages (1000 retained event identities), and 1M
 per response. These are client safety defaults, not platform grant lifetimes or
 deployment settings. Explicit artifact budget has a 2GiB-minus-one-byte ceiling;
 choose a much smaller value appropriate to the build. All time/page bounds have
-hard maxima in metadata/source. Grant expiry may be far shorter than total time.
+hard maxima in metadata/source.
+
+### Effective wait ceiling
+
+Grant expiry is fixed at issuance and is no later than the GitHub OIDC assertion
+expiry, which is typically about 5 minutes. `timeout-ms` never extends it: the
+effective wait ceiling is the earlier of `timeout-ms` (measured from Action start)
+and grant expiry. With `wait: "true"`, when `timeout-ms` exceeds the grant's
+remaining lifetime the Action logs a warning up front naming `timeout-ms`, the
+grant `expiresAt` and the effective ceiling, and polling is bounded at that
+ceiling. A candidate that has not settled by then is reported as `incomplete`
+with reason `authority_expired`: the outcome is unknown, never success or failure.
+The error names the known `candidateId` so its result can be checked in the
+Provenance console or with separately authorized access; do not rerun with a new
+grant to resume it. Keep `timeout-ms` at or below about `280000` when waiting,
+or leave `wait: "false"` and follow the candidate outside the workflow when
+tests or approval routinely take longer.
+
+Expiry is measured against the platform's clock: when the grant response
+carries an HTTP `Date`, the remaining lifetime is computed on the server clock
+and anchored to the local request start minus one second of `Date` resolution,
+so runner clock skew neither ends a live grant early nor extends use past
+server expiry. Without `Date`, the absolute `expiresAt` is compared locally.
 
 Only the original in-memory grant is used. Resource retries keep the same request
 body and idempotency key, within its lifetime. Issuance is never automatically

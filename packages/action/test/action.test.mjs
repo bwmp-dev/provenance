@@ -8,7 +8,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 import { compile, notices } from "../scripts/build.mjs";
-import { reportingState } from "../src/client.mjs";
+import { reportingState, grantDeadline } from "../src/client.mjs";
 
 const require = createRequire(import.meta.url);
 const { execute } = require("../dist/index.cjs");
@@ -76,7 +76,8 @@ async function scenario(t, opts = {}) {
   }
   const calls = [],
     masks = [],
-    reports = [];
+    reports = [],
+    warnings = [];
   let snapshotBody,
     artifactBody,
     candidateBody,
@@ -147,13 +148,18 @@ async function scenario(t, opts = {}) {
         });
       if (opts.issueConflict)
         return response(res, 409, { code: "credential_not_replayable" });
+      // Simulated platform clock: expiresAt and the HTTP Date header are both
+      // stated on the server's clock, which may differ from the runner clock.
+      const serverNow = Date.now() + (opts.serverClockOffset ?? 0);
+      if (opts.serverClockOffset !== undefined)
+        res.setHeader("date", new Date(serverNow).toUTCString());
       return response(res, 201, {
         grantId: id(9),
         principalType: "github-actions",
         accessToken: grantToken,
         tokenType: "Bearer",
         expiresAt: new Date(
-          Date.now() + (opts.expiresIn ?? 60000),
+          serverNow + (opts.expiresIn ?? 60000),
         ).toISOString(),
         scope: {
           organizationId: id(8),
@@ -358,7 +364,7 @@ async function scenario(t, opts = {}) {
       report: opts.report ? "status" : "none",
       repositoryToken: "report-fixture-token",
       maxArtifactBytes: 1024,
-      requestMs: opts.totalMs ? 50 : 1000,
+      requestMs: opts.requestMs ?? (opts.totalMs ? 50 : 1000),
       totalMs: opts.totalMs || 3000,
       pollMs: 10,
       attempts: 2,
@@ -372,10 +378,11 @@ async function scenario(t, opts = {}) {
       testEndpoints: true,
       fetch: fixtureFetch,
       mask: (v) => masks.push(v),
+      warn: (v) => warnings.push(v),
       signal: opts.signal,
     },
   );
-  return { result, calls, masks, reports, candidateBody };
+  return { result, calls, masks, reports, warnings, candidateBody };
 }
 
 test("compiled distribution submits real normalized configuration and exact bytes", async (t) => {
@@ -686,4 +693,109 @@ test("released IFC022 issuance-denial vectors never retry or request resources",
         ["/oidc", "/v1/auth/github-actions/grants"],
       );
     });
+});
+
+test("grant deadline anchors server-stated lifetime on the local clock", () => {
+  const expires = Date.parse("2026-09-23T10:00:36Z");
+  // Server clock 10 minutes behind the runner: 300s remain on the server.
+  assert.equal(
+    grantDeadline(expires, "Wed, 23 Sep 2026 09:55:36 GMT", 5_000_000),
+    5_000_000 + 300_000 - 1000,
+  );
+  // Missing or unparseable Date falls back to absolute expiry.
+  assert.equal(grantDeadline(expires, null, 1), expires);
+  assert.equal(grantDeadline(expires, "not a date", 1), expires);
+  assert.equal(grantDeadline(expires, "x".repeat(65), 1), expires);
+});
+test("timeout below grant lifetime is honoured without a ceiling warning", async (t) => {
+  const s = await scenario(t, {
+    wait: true,
+    state: "approved",
+    totalMs: 300,
+    requestMs: 200,
+    serverClockOffset: 0,
+    expiresIn: 60000,
+  });
+  assert.equal(s.result.outcome, "incomplete");
+  assert.equal(s.result.reason, "timeout");
+  assert.deepEqual(s.warnings, []);
+});
+test("timeout above grant lifetime warns up front and waits only to expiry", async (t) => {
+  const started = Date.now();
+  const s = await scenario(t, {
+    wait: true,
+    state: "approved",
+    totalMs: 20000,
+    serverClockOffset: 0,
+    expiresIn: 2500,
+  });
+  const elapsed = Date.now() - started;
+  assert.equal(s.result.outcome, "incomplete");
+  assert.equal(s.result.reason, "authority_expired");
+  assert.equal(s.result.candidateId, id(4));
+  assert.equal(s.warnings.length, 1);
+  assert.match(s.warnings[0], /timeout-ms 20000 exceeds/);
+  assert.match(s.warnings[0], /grant expiresAt \d{4}-\d\d-\d\dT/);
+  assert.match(s.warnings[0], /effective wait ceiling \d+ ms/);
+  assert.match(s.warnings[0], /never as success or failure/);
+  const ceiling = Number(s.warnings[0].match(/ceiling (\d+) ms/)[1]);
+  assert.ok(ceiling < 20000 && ceiling <= 2500, String(ceiling));
+  assert.ok(elapsed < 10000, String(elapsed));
+  assert.equal(
+    s.calls.filter((c) => c.path === "/v1/auth/github-actions/grants").length,
+    1,
+  );
+});
+test("no ceiling warning without wait even when timeout exceeds grant", async (t) => {
+  const s = await scenario(t, {
+    totalMs: 20000,
+    requestMs: 1000,
+    serverClockOffset: 0,
+    expiresIn: 5000,
+  });
+  assert.equal(s.result.outcome, "submitted");
+  assert.deepEqual(s.warnings, []);
+});
+test("runner clock ahead of platform does not end a live grant early", async (t) => {
+  // Absolute expiresAt is already in the runner's past; the server lifetime is not.
+  const s = await scenario(t, {
+    wait: true,
+    serverClockOffset: -600000,
+    expiresIn: 60000,
+  });
+  assert.equal(s.result.outcome, "published");
+  assert.deepEqual(s.warnings, []);
+});
+test("runner clock behind platform stops at server expiry, not later", async (t) => {
+  // Absolute expiresAt looks ten minutes away locally; the server says ~2.5s.
+  const s = await scenario(t, {
+    wait: true,
+    state: "approved",
+    totalMs: 20000,
+    serverClockOffset: 600000,
+    expiresIn: 2500,
+  });
+  assert.equal(s.result.outcome, "incomplete");
+  assert.equal(s.result.reason, "authority_expired");
+  assert.equal(s.warnings.length, 1);
+});
+test("expiry guidance states unknown outcome and names the candidate", () => {
+  const { incompleteGuidance } = require("../dist/index.cjs");
+  const withCandidate = incompleteGuidance({
+    outcome: "incomplete",
+    reason: "authority_expired",
+    candidateId: id(4),
+  });
+  assert.match(withCandidate, /grant expired/);
+  assert.match(withCandidate, /outcome is unknown, not success or failure/);
+  assert.ok(withCandidate.includes(`Candidate ${id(4)}`));
+  const withoutCandidate = incompleteGuidance({
+    outcome: "incomplete",
+    reason: "authority_expired",
+  });
+  assert.match(withoutCandidate, /No candidate identifier was observed/);
+  assert.match(
+    incompleteGuidance({ outcome: "incomplete", reason: "novel" }),
+    /do not assume remote success/,
+  );
 });

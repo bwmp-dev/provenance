@@ -99,6 +99,22 @@ export function validateInputs(c) {
   return c;
 }
 
+// Maps the server-stated grant expiry onto the local monotonic-checked clock.
+// The platform enforces expiry with its own clock, so a skewed runner clock must
+// neither extend use past server expiry nor end it long before. When the issuance
+// response carries an HTTP Date, the remaining lifetime is measured on the
+// server's clock and anchored conservatively at the local request start: Date
+// has one-second resolution (truncated), so one second is subtracted. Without a
+// usable Date, the absolute expiresAt is compared with the local clock.
+export function grantDeadline(expiresAtMs, dateHeader, requestStartedMs) {
+  const serverNow =
+    typeof dateHeader === "string" && dateHeader.length <= 64
+      ? Date.parse(dateHeader)
+      : NaN;
+  if (!Number.isFinite(serverNow)) return expiresAtMs;
+  return requestStartedMs + (expiresAtMs - serverNow) - 1000;
+}
+
 // The only production factory is the generated public API client. Injection is
 // available to black-box fixtures, never from Action inputs or repository files.
 export async function runAction(input, runtime) {
@@ -119,19 +135,29 @@ export async function runAction(input, runtime) {
     lastTime = value;
     return value;
   };
+  const warn = runtime.warn || (() => {});
   let operationDeadline;
+  // Local-clock instant at which this run must treat the grant as expired.
+  let grantExpiry = Infinity;
   const check = (credential = true) => {
     if (signal.aborted) fail("cancelled");
     if (now() >= operationDeadline) fail("timeout");
-    if (credential && grant && now() >= timestamp(grant.expiresAt))
-      fail("authority_expired");
+    if (credential && grant && now() >= grantExpiry) fail("authority_expired");
+  };
+  // Bounded pause: never sleeps past the client deadline or grant expiry, so
+  // the following check ends observation promptly with the closed reason.
+  const pause = async () => {
+    const remaining = Math.min(operationDeadline, grantExpiry) - now();
+    await delay(Math.max(0, Math.min(config.pollMs, remaining)), undefined, {
+      signal,
+    });
   };
   const request = async (url, options = {}, credential = false) => {
     check(credential);
     const end = Math.min(
       operationDeadline,
       now() + config.requestMs,
-      credential && grant ? timestamp(grant.expiresAt) : Infinity,
+      credential && grant ? grantExpiry : Infinity,
     );
     const abort = AbortSignal.any([
       signal,
@@ -158,7 +184,7 @@ export async function runAction(input, runtime) {
       if (signal.aborted) fail("cancelled");
       if (now() >= end)
         fail(
-          credential && grant && now() >= timestamp(grant.expiresAt)
+          credential && grant && now() >= grantExpiry
             ? "authority_expired"
             : "timeout",
         );
@@ -260,6 +286,7 @@ export async function runAction(input, runtime) {
       fail("invalid_response");
     mask(oidc.value);
     // Issuance is deliberately not retried: successful response loss is not recoverable.
+    const issuedAt = now();
     const issued = await request(
       `${config.origin}/v1/auth/github-actions/grants`,
       {
@@ -313,7 +340,22 @@ export async function runAction(input, runtime) {
       grant.scope.workflowRef.length > 1024
     )
       fail("identity_mismatch");
+    grantExpiry = grantDeadline(
+      timestamp(grant.expiresAt),
+      issued.headers.get("date"),
+      issuedAt,
+    );
     check();
+    const ceiling = Math.min(operationDeadline, grantExpiry);
+    if (config.wait && grantExpiry < operationDeadline)
+      warn(
+        `timeout-ms ${config.totalMs} exceeds this run's Actions grant lifetime ` +
+          `(grant expiresAt ${new Date(timestamp(grant.expiresAt)).toISOString()}, ` +
+          `about ${Math.max(0, grantExpiry - now())} ms from now). Waiting is bounded ` +
+          `by grant expiry: effective wait ceiling ${Math.max(0, ceiling - started)} ms ` +
+          `after Action start. An unresolved candidate is then reported as incomplete ` +
+          `(authority_expired), never as success or failure.`,
+      );
     const client = runtime.createClient({
       baseUrl: config.origin,
       fetch: async (req) => {
@@ -369,7 +411,7 @@ export async function runAction(input, runtime) {
             e instanceof ActionError ? e : new ActionError("unavailable");
           if (error.code !== "unavailable" || attempt >= config.attempts)
             throw error;
-          await delay(config.pollMs, undefined, { signal });
+          await pause();
         }
       }
     };
@@ -493,7 +535,7 @@ export async function runAction(input, runtime) {
       if (artifact.state === "ready") break;
       if (!["pending", "uploaded", "verifying"].includes(artifact.state))
         fail("artifact_rejected");
-      await delay(config.pollMs, undefined, { signal });
+      await pause();
       artifact = await call(
         "GET",
         "/v1/artifacts/{artifactId}",
@@ -626,7 +668,7 @@ export async function runAction(input, runtime) {
           } else if (page.page.hasMore) fail("invalid_response");
           if (!page.page.hasMore) break;
         }
-        await delay(config.pollMs, undefined, { signal });
+        await pause();
         candidate = await call(
           "GET",
           "/v1/release-candidates/{candidateId}",
