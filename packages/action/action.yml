@@ -35,7 +35,10 @@ inputs:
     description: Explicit positive bounded memory/upload budget, maximum 2147483647 bytes.
     required: true
   wait:
-    description: Observe only this grant's candidate until result, approval, deadline or expiry.
+    description: >-
+      Observe only this grant's candidate until result, approval, deadline or
+      grant expiry (typically about 5 minutes); expiry yields an incomplete,
+      unknown outcome.
     default: "false"
   report:
     description: none or status; status requires a separate ephemeral GitHub token with statuses write.
@@ -47,7 +50,12 @@ inputs:
     description: Per-request safety timeout, at most 120000.
     default: "30000"
   timeout-ms:
-    description: Total client safety timeout, at most 3600000; does not extend grant expiry.
+    description: >-
+      Total client safety timeout, at most 3600000; does not extend grant expiry.
+      Grant expiry is no later than the GitHub OIDC assertion expiry (typically
+      about 5 minutes), so the effective wait ceiling is the earlier of this
+      timeout and grant expiry. With wait true, a larger value logs a warning
+      naming both values; an unresolved candidate at expiry is incomplete.
     default: "600000"
   poll-interval-ms:
     description: Bounded polling/retry interval, at most 60000.
