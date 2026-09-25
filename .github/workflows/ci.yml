@@ -105,8 +105,9 @@ jobs:
       - name: Unit tests
         run: |
           go -C packages/cli-go vet ./...
-          if [[ "$RUNNER_OS" == macOS ]]; then race=-race; else race=; fi
-          go -C packages/cli-go test $race ./...
+          # The race detector runs in the Linux contracts job. Without it here,
+          # the 100 ms regex-validation budget is not exceeded on slow hosts.
+          go -C packages/cli-go test ./...
       - name: Offline verify fixtures
         run: python scripts/test-cli-offline-verify.py "$RUNNER_TEMP/provenance$(go env GOEXE)"
       - name: Native Keychain in a disposable keychain
