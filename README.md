@@ -89,7 +89,7 @@ compatibility. The workflow uses only the repository
 `GITHUB_TOKEN` and GitHub's OIDC identity to create SLSA build-provenance
 attestations for all release assets and a dedicated SPDX SBOM attestation for the
 seven archives; no publishing secret is required. The CLI has a separate
-[Linux distribution workflow](docs/cli-distribution.md), and the Action is consumed
+[distribution workflow](docs/cli-distribution.md), and the Action is consumed
 at an accepted immutable source commit, not from these contract archives.
 Actual publication is established only by inspecting downloaded release assets.
 After downloading a release,

@@ -1,4 +1,4 @@
-# Linux CLI distribution
+# CLI distribution
 
 The inspected Linux amd64 release is
 [`cli-v0.1.0-alpha.1`](https://github.com/bwmp-dev/provenance/releases/tag/cli-v0.1.0-alpha.1),
@@ -16,22 +16,31 @@ downloaded binary in the isolated native fixture described below. These pins
 do not replace that verification order for a fresh download. The separate CLI
 release does not change contract tags or their archive inventories.
 
-## Four assets
+## Assets
+
+`cli-v0.1.0-alpha.1` shipped only the four Linux amd64 assets. Later releases
+add cross-compiled macOS amd64/arm64 and Windows amd64 targets, for thirteen
+assets. Linux keeps its original unsuffixed manifest/SBOM names:
 
 - `provenance-cli-<version>-linux-amd64.tar.gz`
 - `provenance-cli-<version>.manifest.json`
 - `provenance-cli-<version>.spdx.json`
+- `provenance-cli-<version>-<target>.tar.gz`, `-<target>.manifest.json` and
+  `-<target>.spdx.json` for `darwin-amd64`, `darwin-arm64` and `windows-amd64`
 - `provenance-cli-<version>.sha256`
 
-The checksum file covers the other three assets. Provenance attestations cover
-all four, and the archive receives an SPDX attestation. An annotated Git tag is
+The checksum file covers the other twelve assets. Provenance attestations cover
+all thirteen, and each archive receives an SPDX attestation for its own
+target SBOM. The Windows archive is also a `.tar.gz` (Windows 10+ includes
+`tar`) and contains `provenance.exe`. An annotated Git tag is
 not a signed Git tag; this does not claim immutable release hosting or a SLSA
 level.
 
 ## Build and inspect
 
 Use a complete repository checkout, Node 24, Python 3, Git, the locked pnpm
-dependencies and **Go 1.25.13 on Linux amd64**. No Node runtime is needed by the
+dependencies and **Go 1.25.13 on Linux amd64**; every target is cross-compiled
+there with CGO disabled. No Node runtime is needed by the
 resulting binary. Go dependency provisioning uses the public module proxy and
 checksum database. Compilation then uses the populated task-private module
 cache with the proxy disabled; this is not an offline cold-install claim.
@@ -46,8 +55,8 @@ bash scripts/test-cli-release-native.sh /absolute/new/bundle 0.1.0-alpha.1 \
 ```
 
 The builder clones the exact source twice into different absolute directories,
-requires clean source identity, sets CGO=0/GOAMD64=v1, trims paths and compares all
-four asset bytes. Archive entries have fixed modes, sorted paths, numeric owner
+requires clean source identity, sets CGO=0/GOAMD64=v1 (GOARM64=v8.0 for arm64),
+trims paths and compares every binary and all thirteen asset bytes. Archive entries have fixed modes, sorted paths, numeric owner
 zero and the source commit timestamp. It refuses existing output directories.
 Only its newly allocated temporary cache is made writable for cleanup.
 
@@ -57,13 +66,17 @@ commit, not its placeholder Go module version. The archive carries repository
 Apache-2.0 text, Go LICENSE/PATENTS, all audited linked-module license files,
 Goja's nested Lucene/V8 notices and the pinned regexpp MIT license. Some modules
 contain extra notices beyond their linked code; those notices are conservatively
-included. Darwin/Windows-only modules are not represented as Linux dependencies.
+included. Each target's manifest/SBOM lists only the modules actually linked for
+that target: libsecret only for Linux, wincred only for Windows, and no Keychain
+module for CGO-disabled macOS.
 The SBOM uses `NOASSERTION` for unclassified aggregate license expressions rather
 than guessing an SPDX expression; actual pinned license texts are included.
 
 The independent Python verifier never invokes the binary, Go, Node or the
 builder. It checks source bytes through Git, bounded decompression, safe archive
-inventory, static Linux amd64 ELF identity, embedded Go build information,
+inventory, static Linux amd64 ELF identity, Mach-O CPU type with only the
+system dynamic libraries Go's CGO-disabled darwin runtime uses, PE32+ amd64
+console identity, embedded Go build information (including target GOOS/GOARCH),
 linked module checksums against source `go.sum`, audited license hashes and
 complete SPDX relationships. Source/code authenticity still depends on trusted
 GitHub provenance, not a self-consistent checksum file alone.
@@ -89,7 +102,7 @@ extra, incomplete or partially uploaded assets fail closed. Draft recovery may
 upload only missing names, then reads back every asset before publishing.
 
 Before executing a downloaded release, an operator must independently verify
-all four provenance subjects and the archive SPDX attestation with a modern
+every provenance subject and each archive's SPDX attestation with a modern
 GitHub CLI, pinning repository `bwmp-dev/provenance`, the trusted workflow/policy
 commit, signer workflow `.github/workflows/release-cli.yml` and
 `refs/heads/main` (including the signer certificate identity/SAN). Independently
@@ -103,8 +116,15 @@ annotated tag object and the release's actual asset inventory. Download into a
 fresh directory, then run the independent verifier from the trusted policy
 checkout. Never execute an unverified archive to inspect its identity.
 
-Linux amd64 is the only accepted binary/native-store target. An unlocked Linux
-Secret Service is required for session login, with no plaintext fallback. No
-live platform, browser confirmation, macOS/Windows native acceptance, automatic
-update channel or default platform origin is supplied. The archive README
+Only the Linux amd64 archive is executed at release time (the isolated native
+fixture above). macOS and Windows archives are built and statically verified on
+Linux, not executed there; the CLI source is separately exercised by the
+test-only GitHub-hosted macOS/Windows CI matrix. Session login needs an unlocked
+native store with no plaintext fallback: Linux Secret Service or Windows
+Credential Manager. **Cross-compiled macOS binaries have no Keychain backend,
+so session login fails closed**; `verify` works. macOS login requires a native
+cgo build. macOS binaries are ad-hoc signed by the Go linker only (not
+Developer ID signed or notarized) and Windows binaries are not Authenticode
+signed. No live platform, browser confirmation, automatic update channel or
+default platform origin is supplied. The archive README
 documents all four verbs and explicit origin/key trust requirements.

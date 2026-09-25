@@ -43,6 +43,20 @@ function run(command, args, cwd, env = {}) {
 function git(root, ...args) {
   return run("git", args, root).trim();
 }
+// Every target is cross-compiled with CGO disabled on the Linux amd64 release
+// runner. Linux keeps its original unsuffixed manifest/SBOM names so existing
+// consumers of the linux-amd64 assets are unaffected.
+export const platforms = [
+  { id: "linux-amd64", goos: "linux", goarch: "amd64", binary: "provenance" },
+  { id: "darwin-amd64", goos: "darwin", goarch: "amd64", binary: "provenance" },
+  { id: "darwin-arm64", goos: "darwin", goarch: "arm64", binary: "provenance" },
+  {
+    id: "windows-amd64",
+    goos: "windows",
+    goarch: "amd64",
+    binary: "provenance.exe",
+  },
+];
 export function names(version) {
   requireThat(
     typeof version === "string" && version.length <= 64,
@@ -54,13 +68,34 @@ export function names(version) {
     "CLI release versions cannot contain build metadata",
   );
   const prefix = `provenance-cli-${version}`;
+  const targets = platforms.map((platform) => {
+    const metadata =
+      platform.id === "linux-amd64" ? prefix : `${prefix}-${platform.id}`;
+    return {
+      ...platform,
+      root: `${prefix}-${platform.id}`,
+      archive: `${prefix}-${platform.id}.tar.gz`,
+      manifest: `${metadata}.manifest.json`,
+      sbom: `${metadata}.spdx.json`,
+    };
+  });
+  const checksums = `${prefix}.sha256`;
   return {
     tag: `cli-v${version}`,
-    root: `${prefix}-linux-amd64`,
-    archive: `${prefix}-linux-amd64.tar.gz`,
-    manifest: `${prefix}.manifest.json`,
-    sbom: `${prefix}.spdx.json`,
-    checksums: `${prefix}.sha256`,
+    // Linux amd64 aliases retained for existing callers.
+    root: targets[0].root,
+    archive: targets[0].archive,
+    manifest: targets[0].manifest,
+    sbom: targets[0].sbom,
+    checksums,
+    platforms: targets,
+    checked: targets
+      .flatMap((t) => [t.archive, t.manifest, t.sbom])
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+    assets: [
+      ...targets.flatMap((t) => [t.archive, t.manifest, t.sbom]),
+      checksums,
+    ].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
   };
 }
 function regular(path, max = 64 * 1024 * 1024) {
@@ -150,7 +185,7 @@ function parseStream(text) {
   requireThat(depth === 0 && !string, "invalid Go JSON stream");
   return results;
 }
-function buildOne(checkout, output, go, cache, source, createdAt) {
+function buildOne(checkout, output, go, cache, source, createdAt, platform) {
   const env = {
     GOTOOLCHAIN: "local",
     GOROOT: "",
@@ -162,6 +197,7 @@ function buildOne(checkout, output, go, cache, source, createdAt) {
     GOOS: "linux",
     GOARCH: "amd64",
     GOAMD64: "v1",
+    GOARM64: "v8.0",
     CGO_ENABLED: "0",
     GOMODCACHE: join(cache, "modules"),
     GOCACHE: join(cache, "build"),
@@ -179,9 +215,17 @@ function buildOne(checkout, output, go, cache, source, createdAt) {
   );
   run(go, ["mod", "download"], module, env);
   run(go, ["mod", "verify"], module, env);
-  const offline = { ...env, GOPROXY: "off", GOSUMDB: "off" };
+  // The toolchain identity above is the Linux amd64 host; only compilation,
+  // package listing and build metadata use the cross-compilation target.
+  const offline = {
+    ...env,
+    GOOS: platform.goos,
+    GOARCH: platform.goarch,
+    GOPROXY: "off",
+    GOSUMDB: "off",
+  };
   mkdirSync(output, { recursive: true });
-  const binary = join(output, "provenance");
+  const binary = join(output, platform.binary);
   run(
     go,
     [
@@ -222,7 +266,7 @@ function buildOne(checkout, output, go, cache, source, createdAt) {
   ].sort((a, b) => a.Path.localeCompare(b.Path, "en"));
   const components = [];
   const archiveFiles = new Map([
-    ["provenance", { bytes: regular(binary), mode: 0o755 }],
+    [platform.binary, { bytes: regular(binary), mode: 0o755 }],
     [
       "README.md",
       {
@@ -314,6 +358,7 @@ function buildOne(checkout, output, go, cache, source, createdAt) {
   return { archiveFiles, components, buildInfo: info, createdAt };
 }
 function spdxDocument(manifest, files, archiveFiles) {
+  const linux = manifest.platform === "linux-amd64";
   // SPDX 2.3 mandates SHA1 for file verification codes. SHA256 remains the
   // security identity everywhere; SHA1 here is only SPDX bookkeeping.
   const fileSHA1 = new Map(
@@ -344,7 +389,7 @@ function spdxDocument(manifest, files, archiveFiles) {
   }));
   packages.unshift({
     SPDXID: "SPDXRef-CLI",
-    name: "provenance-cli-linux-amd64",
+    name: `provenance-cli-${manifest.platform}`,
     versionInfo: manifest.version,
     downloadLocation: "NOASSERTION",
     filesAnalyzed: true,
@@ -361,8 +406,10 @@ function spdxDocument(manifest, files, archiveFiles) {
     spdxVersion: "SPDX-2.3",
     dataLicense: "CC0-1.0",
     SPDXID: "SPDXRef-DOCUMENT",
-    name: `provenance-cli-${manifest.version}`,
-    documentNamespace: `https://github.com/bwmp-dev/provenance/cli/${manifest.version}/${manifest.sourceCommit}`,
+    // Linux keeps its original document identity; every other target has a
+    // distinct SPDX document name and namespace.
+    name: `provenance-cli-${manifest.version}${linux ? "" : `-${manifest.platform}`}`,
+    documentNamespace: `https://github.com/bwmp-dev/provenance/cli/${manifest.version}/${manifest.sourceCommit}${linux ? "" : `/${manifest.platform}`}`,
     creationInfo: {
       created: manifest.createdAt,
       creators: ["Tool: provenance-cli-release"],
@@ -407,7 +454,7 @@ async function packageOne(
   createdAt,
   sourceFiles,
 ) {
-  const staging = join(dir, "stage");
+  const staging = join(dir, `stage-${n.id}`);
   mkdirSync(staging);
   const files = [];
   for (const [path, item] of [...result.archiveFiles].sort(([a], [b]) =>
@@ -426,13 +473,13 @@ async function packageOne(
   const manifest = {
     schemaVersion: 1,
     version,
-    tag: n.tag,
+    tag: `cli-v${version}`,
     sourceCommit: source,
     createdAt,
-    platform: "linux-amd64",
+    platform: n.id,
     goVersion,
     cgoEnabled: false,
-    goAMD64: "v1",
+    goAMD64: n.goarch === "amd64" ? "v1" : null,
     archiveRoot: n.root,
     archive: { filename: n.archive, sizeBytes: 0, sha256: "" },
     files,
@@ -459,11 +506,6 @@ async function packageOne(
     join(dir, n.sbom),
     json(spdxDocument(manifest, files, result.archiveFiles)),
   );
-  const checks = [n.archive, n.manifest, n.sbom]
-    .sort()
-    .map((name) => `${digest(regular(join(dir, name)))}  ${name}\n`)
-    .join("");
-  writeFileSync(join(dir, n.checksums), checks);
 }
 export async function buildCLI({
   version,
@@ -501,42 +543,48 @@ export async function buildCLI({
         "source checkout is dirty",
       );
       const dest = join(temporary, `${name}-output`);
-      const result = buildOne(
-        checkout,
-        dest,
-        go,
-        join(temporary, "cache"),
-        sourceCommit,
-        createdAt,
-      );
-      await packageOne(
-        result,
-        dest,
-        n,
-        sourceCommit,
-        version,
-        createdAt,
-        sourceFiles,
+      for (const target of n.platforms) {
+        const result = buildOne(
+          checkout,
+          join(dest, "bin", target.id),
+          go,
+          join(temporary, "cache"),
+          sourceCommit,
+          createdAt,
+          target,
+        );
+        await packageOne(
+          result,
+          dest,
+          target,
+          sourceCommit,
+          version,
+          createdAt,
+          sourceFiles,
+        );
+      }
+      writeFileSync(
+        join(dest, n.checksums),
+        n.checked
+          .map((file) => `${digest(regular(join(dest, file)))}  ${file}\n`)
+          .join(""),
       );
     }
     const first = join(temporary, "first-output"),
       second = join(temporary, "second-different-absolute-path-output");
     for (const name of [
-      "provenance",
-      n.archive,
-      n.manifest,
-      n.sbom,
-      n.checksums,
+      ...n.platforms.map((t) => join("bin", t.id, t.binary)),
+      ...n.assets,
     ])
       requireThat(
         regular(join(first, name)).equals(regular(join(second, name))),
-        "two-directory reproducibility mismatch",
+        `two-directory reproducibility mismatch: ${name}`,
       );
     mkdirSync(dirname(output), { recursive: true });
     // Do not make this recursive: the final destination must remain exclusive,
     // including when another invocation creates it after the initial check.
     mkdirSync(output);
-    for (const name of [n.archive, n.manifest, n.sbom, n.checksums])
+    for (const name of n.assets)
       cpSync(join(first, name), join(output, name), {
         errorOnExist: true,
         force: false,
@@ -546,7 +594,7 @@ export async function buildCLI({
       sourceCommit,
       tag: n.tag,
       output,
-      artifacts: [n.archive, n.manifest, n.sbom, n.checksums],
+      artifacts: n.assets,
     };
   } finally {
     // Go intentionally makes downloaded module directories read-only. Only our

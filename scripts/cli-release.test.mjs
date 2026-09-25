@@ -45,8 +45,7 @@ const verify = (directory) =>
 function rehash(directory) {
   writeFileSync(
     join(directory, n.checksums),
-    [n.archive, n.manifest, n.sbom]
-      .sort()
+    n.checked
       .map(
         (name) => `${digest(readFileSync(join(directory, name)))}  ${name}\n`,
       )
@@ -73,11 +72,17 @@ test("CLI distribution workflow is separate and least privilege", () => {
   const checks = workflow.jobs.release.steps.filter((s) =>
     s.uses?.startsWith("actions/attest@"),
   );
+  const v = "${{ needs.validate.outputs.version }}";
   assert.deepEqual(
-    checks.map((s) => s.with["subject-path"]),
-    ["dist/cli/*", "dist/cli/*.tar.gz"],
+    checks.map((s) => [s.with["subject-path"], s.with["sbom-path"]]),
+    [
+      ["dist/cli/*", undefined],
+      ...names("0.0.0").platforms.map((p) => [
+        `dist/cli/${p.archive.replace("0.0.0", v)}`,
+        `dist/cli/${p.sbom.replace("0.0.0", v)}`,
+      ]),
+    ],
   );
-  assert.match(checks[1].with["sbom-path"], /provenance-cli-/);
   assert(!JSON.stringify(workflow).includes("dist/contracts"));
   for (const job of Object.values(workflow.jobs))
     for (const step of job.steps)
@@ -147,27 +152,47 @@ test(
     const bundle = join(temporary, "dist", "cli");
     assert.equal(existsSync(dirname(bundle)), false);
     await buildCLI({ version, sourceCommit: source, output: bundle });
-    assert.deepEqual(
-      readdirSync(bundle).sort(),
-      [n.archive, n.manifest, n.sbom, n.checksums].sort(),
-    );
+    assert.deepEqual(readdirSync(bundle).sort(), n.assets);
+    assert.equal(n.assets.length, 13);
     const valid = verify(bundle);
     assert.equal(valid.status, 0, valid.stderr);
-    const spdx = spawnSync(
-      "python",
-      [
-        "-m",
-        "spdx_tools.spdx.clitools.pyspdxtools",
-        "-i",
-        join(bundle, n.sbom),
-      ],
-      { encoding: "utf8", timeout: 30000 },
-    );
-    assert.equal(spdx.status, 0, spdx.stdout + spdx.stderr);
+    for (const target of n.platforms) {
+      const spdx = spawnSync(
+        "python",
+        [
+          "-m",
+          "spdx_tools.spdx.clitools.pyspdxtools",
+          "-i",
+          join(bundle, target.sbom),
+        ],
+        { encoding: "utf8", timeout: 30000 },
+      );
+      assert.equal(spdx.status, 0, target.id + spdx.stdout + spdx.stderr);
+    }
     const result = JSON.parse(valid.stdout);
     assert.equal(result.verified, true);
     assert.equal(result.components, 19);
     assert.equal(result.files, 31);
+    // Darwin (CGO disabled) links neither libsecret nor wincred; Windows links
+    // wincred instead of libsecret.
+    assert.deepEqual(
+      Object.fromEntries(
+        Object.entries(result.platforms).map(([id, p]) => [
+          id,
+          [p.components, p.files],
+        ]),
+      ),
+      {
+        "linux-amd64": [19, 31],
+        "darwin-amd64": [18, 30],
+        "darwin-arm64": [18, 30],
+        "windows-amd64": [19, 31],
+      },
+    );
+    assert.equal(
+      new Set(Object.values(result.platforms).map((p) => p.binarySha256)).size,
+      4,
+    );
     await assert.rejects(
       buildCLI({ version, sourceCommit: source, output: bundle }),
       /already exists/,
@@ -202,6 +227,34 @@ test(
       const bytes = readFileSync(path);
       bytes[bytes.length - 20] ^= 1;
       writeFileSync(path, bytes);
+      rehash(dir);
+    });
+    const target = (id) => n.platforms.find((p) => p.id === id);
+    for (const id of ["darwin-amd64", "darwin-arm64", "windows-amd64"]) {
+      await reject(`binary-tamper-${id}`, (dir) => {
+        const path = join(dir, target(id).archive);
+        const bytes = readFileSync(path);
+        bytes[bytes.length - 20] ^= 1;
+        writeFileSync(path, bytes);
+        rehash(dir);
+      });
+      await reject(`missing-asset-${id}`, (dir) => {
+        rmSync(join(dir, target(id).manifest));
+      });
+      await reject(`wrong-platform-${id}`, (dir) => {
+        const path = join(dir, target(id).manifest);
+        const m = JSON.parse(readFileSync(path));
+        m.platform = "linux-amd64";
+        writeFileSync(path, JSON.stringify(m));
+        rehash(dir);
+      });
+    }
+    // A Linux archive substituted under the Windows name is not a PE image.
+    await reject("substituted-platform-archive", (dir) => {
+      cpSync(
+        join(dir, target("linux-amd64").archive),
+        join(dir, target("windows-amd64").archive),
+      );
       rehash(dir);
     });
     await reject("missing-checksum", (dir) =>
@@ -325,10 +378,10 @@ test(
           );
         const compatibility = [
           "## CLI distribution",
-          "- Platform: Linux amd64 only",
-          "- Native credential storage: Linux Secret Service; no plaintext fallback",
+          "- Platforms: Linux amd64, macOS amd64/arm64, Windows amd64; all cross-compiled with CGO disabled on Linux amd64",
+          "- Native credential storage: Linux Secret Service and Windows Credential Manager; macOS cross-compiled builds have no Keychain backend and fail closed; no plaintext fallback",
           "- Requires an explicitly trusted HTTPS platform origin and verification keys",
-          "- No live platform, browser confirmation, macOS or Windows acceptance claimed",
+          "- Release-time native acceptance is Linux only; macOS/Windows binaries are not notarized or Authenticode-signed; no live platform or browser confirmation claimed",
           "- Separate CLI release; existing contract release assets are unchanged",
         ].join("\n");
         const state = {

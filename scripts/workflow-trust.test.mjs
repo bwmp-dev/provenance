@@ -6,6 +6,9 @@ import { parse } from "yaml";
 
 const workflowDirectory = new URL("../.github/workflows/", import.meta.url);
 
+// The only GitHub-hosted exception: CI's test-only native CLI matrix.
+const hostedJobs = new Map([["ci.yml", "cli-native"]]);
+
 test("repository workflows use only trusted Linux x64 self-hosted jobs", async () => {
   const names = (await readdir(workflowDirectory))
     .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
@@ -29,6 +32,7 @@ test("repository workflows use only trusted Linux x64 self-hosted jobs", async (
     assert.ok(!Object.hasOwn(workflow.on ?? {}, "pull_request"));
     assert.ok(!Object.hasOwn(workflow.on ?? {}, "pull_request_target"));
     for (const [jobName, job] of Object.entries(workflow.jobs)) {
+      if (hostedJobs.get(name) === jobName) continue;
       assert.deepEqual(
         job["runs-on"],
         ["self-hosted", "linux", "x64"],
@@ -95,5 +99,30 @@ test("offline consumer jobs populate and share an explicit per-runner store", as
     const checkIndex = job.steps.findIndex((step) => step.run === "pnpm check");
     assert.ok(fetchIndex >= 0 && fetchIndex < installIndex);
     assert.ok(installIndex < checkIndex);
+  }
+});
+
+test("hosted native CLI matrix is test-only, secretless and SHA-pinned", async () => {
+  const source = await readFile(new URL("ci.yml", workflowDirectory), "utf8");
+  const job = parse(source).jobs["cli-native"];
+  assert.equal(job["runs-on"], "${{ matrix.os }}");
+  assert.deepEqual(job.strategy.matrix, {
+    os: ["macos-latest", "windows-latest"],
+  });
+  assert.deepEqual(job.permissions, { contents: "read" });
+  assert.ok(!Object.hasOwn(job, "environment"));
+  assert.ok(!Object.hasOwn(job, "needs"));
+  assert.ok(!Object.hasOwn(job, "env"));
+  const text = JSON.stringify(job);
+  assert.doesNotMatch(text, /secrets\.|github\.token|GITHUB_TOKEN|id-token/);
+  assert.doesNotMatch(text, /upload-artifact|attest|release|docker/i);
+  for (const step of job.steps) {
+    assert.ok(
+      !Object.hasOwn(step, "env") || !JSON.stringify(step.env).includes("${{"),
+    );
+    if (!step.uses) continue;
+    assert.match(step.uses, /^actions\/[a-z-]+@[0-9a-f]{40}$/, step.uses);
+    if (step.uses.startsWith("actions/checkout@"))
+      assert.equal(step.with["persist-credentials"], false);
   }
 });

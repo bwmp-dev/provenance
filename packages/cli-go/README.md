@@ -26,8 +26,14 @@ Linux native-store acceptance uses an isolated Docker filesystem, session bus,
 and GNOME Secret Service. It tests actual storage and locking, not a mock.
 Provisioning the fixture uses the network; execution is network-disabled.
 Native Keychain and Windows Credential Manager adapters are selected on their
-respective platforms, but **macOS/Windows native acceptance is not claimed**.
-macOS requires a native cgo build. Cross-compilation is not native-store proof.
+respective platforms. CI also runs a test-only, secretless GitHub-hosted matrix
+on macOS and Windows: unit tests, offline `verify` fixtures, a Keychain
+roundtrip and lock check in a disposable keychain (native cgo build), and a
+Windows Credential Manager roundtrip. Release archives for darwin/amd64,
+darwin/arm64 and windows/amd64 are cross-compiled with CGO disabled on Linux:
+Windows keeps Credential Manager, but **macOS release binaries have no Keychain
+backend, so session login fails closed there** (`verify` is unaffected). macOS
+login requires a native cgo build. Cross-compilation is not native-store proof.
 
 ## Login
 

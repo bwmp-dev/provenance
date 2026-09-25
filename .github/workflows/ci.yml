@@ -60,3 +60,76 @@ jobs:
         run: >-
           pnpm exec buf breaking proto/provenance/runner/v1
           --against "https://github.com/${{ github.repository }}.git#branch=${{ github.event.repository.default_branch }},subdir=proto/provenance/runner/v1"
+
+  # GitHub-hosted, test-only native CLI acceptance. This job references no
+  # secrets, has a read-only token that is not persisted, and publishes nothing.
+  cli-native:
+    name: CLI native (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: .go-version
+          cache-dependency-path: packages/cli-go/go.sum
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Build CLI
+        run: go -C packages/cli-go build -trimpath -o "$RUNNER_TEMP/provenance$(go env GOEXE)" ./cmd/provenance
+      - name: Unit tests
+        run: |
+          go -C packages/cli-go vet ./...
+          if [[ "$RUNNER_OS" == macOS ]]; then race=-race; else race=; fi
+          go -C packages/cli-go test $race ./...
+      - name: Offline verify fixtures
+        run: python scripts/test-cli-offline-verify.py "$RUNNER_TEMP/provenance$(go env GOEXE)"
+      - name: Native Keychain in a disposable keychain
+        if: runner.os == 'macOS'
+        run: |
+          keychain="$RUNNER_TEMP/provenance-cli-native.keychain-db"
+          password="$(openssl rand -hex 24)"
+          original_default="$(security default-keychain -d user | tr -d ' "')"
+          original_list=()
+          while IFS= read -r line; do
+            line="$(tr -d ' "' <<<"$line")"
+            [[ -n "$line" ]] && original_list+=("$line")
+          done < <(security list-keychains -d user)
+          cleanup() {
+            security default-keychain -d user -s "$original_default" || true
+            security list-keychains -d user -s "${original_list[@]}" || true
+            security delete-keychain "$keychain" || true
+          }
+          trap cleanup EXIT
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" "${original_list[@]}"
+          security default-keychain -d user -s "$keychain"
+          CLI_NATIVE_STORE_REQUIRED=1 CLI_NATIVE_KEYCHAIN="$keychain" \
+            go -C packages/cli-go test -count=1 -v -run '^TestNativeKeychain$' ./internal/securestore | tee "$RUNNER_TEMP/TestNativeKeychain.log"
+          grep -q -- '--- PASS: TestNativeKeychain ' "$RUNNER_TEMP/TestNativeKeychain.log"
+      - name: CGO-disabled macOS build fails closed without Keychain
+        if: runner.os == 'macOS'
+        run: |
+          CGO_ENABLED=0 go -C packages/cli-go test -count=1 -v -run '^TestKeychainUnavailableWithoutCgo$' ./internal/securestore | tee "$RUNNER_TEMP/TestKeychainUnavailableWithoutCgo.log"
+          grep -q -- '--- PASS: TestKeychainUnavailableWithoutCgo ' "$RUNNER_TEMP/TestKeychainUnavailableWithoutCgo.log"
+      - name: Native Windows Credential Manager
+        if: runner.os == 'Windows'
+        run: |
+          CLI_NATIVE_STORE_REQUIRED=1 go -C packages/cli-go test -count=1 -v -run '^TestNativeCredentialManager$' ./internal/securestore | tee "$RUNNER_TEMP/TestNativeCredentialManager.log"
+          grep -q -- '--- PASS: TestNativeCredentialManager ' "$RUNNER_TEMP/TestNativeCredentialManager.log"
+      - name: Go vulnerability scan for this platform
+        run: go -C packages/cli-go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
