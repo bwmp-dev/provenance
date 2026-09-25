@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -433,6 +434,9 @@ func verifyAcceptedSmallArtifactVector(t *testing.T, fixture string) {
 	var doc struct{ Signature struct{ KeyID string } }
 	_ = json.Unmarshal(v.Document, &doc)
 	binary := filepath.Join(dir, "provenance")
+	if runtime.GOOS == "windows" {
+		binary += ".exe"
+	}
 	build := exec.Command("go", "build", "-o", binary, "../../cmd/provenance")
 	if out, e := build.CombinedOutput(); e != nil {
 		t.Fatalf("CLI build %v %s", e, out)

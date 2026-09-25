@@ -121,7 +121,11 @@ test("hosted native CLI matrix is test-only, secretless and SHA-pinned", async (
       !Object.hasOwn(step, "env") || !JSON.stringify(step.env).includes("${{"),
     );
     if (!step.uses) continue;
-    assert.match(step.uses, /^actions\/[a-z-]+@[0-9a-f]{40}$/, step.uses);
+    assert.match(
+      step.uses,
+      /^(actions|pnpm)\/[a-z-]+@[0-9a-f]{40}$/,
+      step.uses,
+    );
     if (step.uses.startsWith("actions/checkout@"))
       assert.equal(step.with["persist-credentials"], false);
   }
