@@ -131,9 +131,18 @@ jobs:
           security unlock-keychain -p "$password" "$keychain"
           security list-keychains -d user -s "$keychain" "${original_list[@]}"
           security default-keychain -d user -s "$keychain"
-          CLI_NATIVE_STORE_REQUIRED=1 CLI_NATIVE_KEYCHAIN="$keychain" \
-            go -C packages/cli-go test -count=1 -v -run '^TestNativeKeychain$' ./internal/securestore | tee "$RUNNER_TEMP/TestNativeKeychain.log"
-          grep -q -- '--- PASS: TestNativeKeychain ' "$RUNNER_TEMP/TestNativeKeychain.log"
+          export CLI_NATIVE_STORE_REQUIRED=1 CLI_NATIVE_KEYCHAIN="$keychain"
+          native() {
+            go -C packages/cli-go test -count=1 -v -run "^$1\$" ./internal/securestore | tee "$RUNNER_TEMP/$1.log"
+            grep -q -- "--- PASS: $1 " "$RUNNER_TEMP/$1.log"
+          }
+          # Separate processes, in order: write, attribute check, unconfirmed
+          # read, lock. Secrets are never printed (no -w/-g/-d).
+          native TestNativeKeychainStore
+          security find-generic-password -s provenance-cli \
+            -a "https://native-fixture.invalid/session" "$keychain" >/dev/null
+          native TestNativeKeychainUnconfirmedReadFailsClosed
+          native TestNativeKeychainLocked
       - name: CGO-disabled macOS build fails closed without Keychain
         if: runner.os == 'macOS'
         run: |
