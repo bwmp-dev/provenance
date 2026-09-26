@@ -617,6 +617,109 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
+    "/v1/projects/{projectId}/api-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List active project API tokens (metadata only)
+         * @description Returns metadata for the path project's active (unrevoked, unexpired)
+         *     API tokens, newest first. The per-project active-token cap bounds the
+         *     list to at most 50 items, so it is complete and unpaginated. The list
+         *     never includes a token secret or hash. Authorization, credential and
+         *     not-found semantics match `createProjectApiToken`: `projects:manage` is
+         *     required, project-scoped credentials and GitHub Actions grants receive
+         *     HTTP 403 `forbidden`, and missing, foreign or non-member projects
+         *     receive HTTP 404 `not_found`. The response is `Cache-Control:
+         *     no-store`.
+         */
+        get: operations["listProjectApiTokens"];
+        put?: never;
+        /**
+         * Issue a shown-once project API token
+         * @description Issues a project API token for non-GitHub automation. The token is
+         *     confined to the path project, carries a non-empty subset of the closed
+         *     `ProjectApiTokenCapability` set that the caller currently holds, and
+         *     always expires: `expiresInSeconds` is mandatory and bounded from 300
+         *     seconds (5 minutes) through 7776000 seconds (90 days). There is no
+         *     non-expiring project token. Capabilities in the response are sorted
+         *     and deduplicated; a blank or omitted `name` becomes `project token`.
+         *
+         *     The `token` secret in the 201 response is shown once. It is returned
+         *     only in this response, is stored by the platform only as a one-way
+         *     hash, and is never returned by any later read, list, revocation or
+         *     replay. A client that loses the response must revoke the token and
+         *     issue a new one. The response is `Cache-Control: no-store`.
+         *
+         *     Only human sessions and organization-wide API tokens holding
+         *     `projects:manage` may issue, list or revoke project tokens; issuance
+         *     and revocation re-check the caller's current organization role inside
+         *     the mutating transaction. Project-scoped API tokens (including project tokens
+         *     themselves) and GitHub Actions grants receive HTTP 403 `forbidden`, so
+         *     a project token cannot mint, extend or revoke credentials. Requesting
+         *     a capability the caller's current role does not hold receives HTTP 403
+         *     `capability_not_held`. Each project holds at most 50 active
+         *     (unrevoked, unexpired) tokens; issuing beyond that receives HTTP 409
+         *     `token_limit_reached`.
+         *
+         *     Exactly one credential (bearer or session cookie) must be presented;
+         *     none, both, or an invalid credential receives HTTP 401
+         *     `unauthenticated`. A malformed project identifier, a nonexistent
+         *     project, a project outside the caller's tenant, and a project the
+         *     session user is not a current member of all return HTTP 404
+         *     `not_found`. A credential scoped to a different project receives HTTP
+         *     403 `forbidden`. A request body that violates this schema (missing or
+         *     out-of-range `expiresInSeconds`, empty, duplicated or more than three
+         *     capabilities, a `name` longer than 100 characters, or an unknown field)
+         *     receives HTTP 422 with field `errors`. A capability outside the closed
+         *     set, or a `name` containing control characters, receives HTTP 400
+         *     `invalid_request`. Issuance and its `api_token.create` audit event
+         *     commit atomically; the audit event never contains the secret or name.
+         */
+        post: operations["createProjectApiToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/api-tokens/{tokenId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Project API token identifier. */
+                tokenId: components["parameters"]["ProjectApiTokenId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a project API token (idempotent)
+         * @description Revokes a project API token. Revocation is idempotent: the first
+         *     revocation records the revocation and exactly one `api_token.revoke`
+         *     audit event atomically, and repeated or concurrent revocations of an
+         *     already revoked token also return HTTP 204 without another event. No
+         *     request authenticates with the token after revocation commits.
+         *     Authorization and credential semantics match `createProjectApiToken`.
+         *     A malformed token identifier, a token that does not exist, and a token
+         *     belonging to another project or tenant all return HTTP 404
+         *     `not_found`.
+         */
+        delete: operations["revokeProjectApiToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/organizations/{organizationId}/network-policy": {
         parameters: {
             query?: never;
@@ -2835,6 +2938,54 @@ export interface components {
             repositoryId: number;
             repositoryFullName: string;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description Closed set of capabilities a project API token may carry. Approval, visibility, membership, integration, runner, audit and project administration capabilities are never grantable to a project token.
+         * @enum {string}
+         */
+        ProjectApiTokenCapability: "private-results:view" | "release:cancel" | "release:submit";
+        CreateProjectApiTokenRequest: {
+            /** @description Optional display name without control characters; not secret and never audited. Surrounding whitespace is trimmed and a blank name becomes `project token`. */
+            name?: string;
+            /** @description Subset of the closed capability set held by the caller. */
+            capabilities: components["schemas"]["ProjectApiTokenCapability"][];
+            /**
+             * Format: int64
+             * @description Mandatory lifetime in seconds, from 5 minutes to 90 days.
+             */
+            expiresInSeconds: number;
+        };
+        /** @description Secret-free project API token metadata. */
+        ProjectApiToken: {
+            id: components["schemas"]["StableId"];
+            organizationId: components["schemas"]["StableId"];
+            projectId: components["schemas"]["StableId"];
+            createdByUserId: components["schemas"]["StableId"];
+            name: string;
+            /** @description Granted capabilities in ascending order. */
+            capabilities: components["schemas"]["ProjectApiTokenCapability"][];
+            expiresAt: components["schemas"]["Timestamp"];
+            lastUsedAt?: components["schemas"]["Timestamp"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Issued project API token metadata plus its shown-once bearer secret. */
+        CreatedProjectApiToken: {
+            id: components["schemas"]["StableId"];
+            organizationId: components["schemas"]["StableId"];
+            projectId: components["schemas"]["StableId"];
+            createdByUserId: components["schemas"]["StableId"];
+            name: string;
+            /** @description Granted capabilities in ascending order. */
+            capabilities: components["schemas"]["ProjectApiTokenCapability"][];
+            expiresAt: components["schemas"]["Timestamp"];
+            lastUsedAt?: components["schemas"]["Timestamp"];
+            createdAt: components["schemas"]["Timestamp"];
+            /** @description Shown once. Opaque bearer secret returned only in this response; the platform stores only its hash and it is never retrievable again. Present it as `Authorization: Bearer <token>`. */
+            token: string;
+        };
+        ProjectApiTokenList: {
+            /** @description Active project API tokens, newest first. */
+            items: components["schemas"]["ProjectApiToken"][];
         };
         GitHubConnectionPage: {
             items: components["schemas"]["GitHubConnection"][];
@@ -5513,6 +5664,8 @@ export interface components {
         OrganizationId: components["schemas"]["StableId"];
         NetworkPolicyVersionId: components["schemas"]["CanonicalStableId"];
         ProjectId: components["schemas"]["StableId"];
+        /** @description Project API token identifier. */
+        ProjectApiTokenId: components["schemas"]["StableId"];
         ArtifactId: components["schemas"]["StableId"];
         CandidateId: components["schemas"]["StableId"];
         ExecutionId: components["schemas"]["BoundedStableId"];
@@ -5649,6 +5802,8 @@ export interface components {
         GitHubAuthNoStore: "no-store";
         /** @description HttpOnly, Secure browser session cookie. */
         SessionCookie: string;
+        /** @description Project API token issuance and listing responses must never be stored by any cache; issuance carries a shown-once secret. */
+        ProjectApiTokenNoStore: "no-store";
         /** @description Private log responses must not be stored by shared or browser caches. */
         PrivateNoStore: "private, no-store";
         /** @description Content negotiation varies the representation by Accept. */
@@ -6997,6 +7152,92 @@ export interface operations {
                 };
             };
             409: components["responses"]["IdempotencyConflict"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProjectApiTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active project API token metadata. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["ProjectApiTokenNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectApiTokenList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            500: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProjectApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectApiTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Project API token issued. The `token` secret is shown once and is never retrievable again. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["ProjectApiTokenNoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedProjectApiToken"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            500: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    revokeProjectApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Project API token identifier. */
+                tokenId: components["parameters"]["ProjectApiTokenId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            500: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

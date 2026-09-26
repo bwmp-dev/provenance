@@ -628,5 +628,23 @@
     "operationId": "listProjectGitHubConnections",
     "path": "/v1/projects/{projectId}/github-connections",
     "tag": "github"
+  },
+  {
+    "method": "post",
+    "operationId": "createProjectApiToken",
+    "path": "/v1/projects/{projectId}/api-tokens",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "get",
+    "operationId": "listProjectApiTokens",
+    "path": "/v1/projects/{projectId}/api-tokens",
+    "tag": "organizations-projects"
+  },
+  {
+    "method": "delete",
+    "operationId": "revokeProjectApiToken",
+    "path": "/v1/projects/{projectId}/api-tokens/{tokenId}",
+    "tag": "organizations-projects"
   }
 ]
