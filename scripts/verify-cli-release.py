@@ -30,10 +30,43 @@ LICENSE_PINS = {
     "github.com/santhosh-tekuri/jsonschema/v6": {"LICENSE": "c8858a5a76440bbca484e134cf7df46385d090dd18b2c58e650f939258802e5b"},
     "go.yaml.in/yaml/v3": {"LICENSE": "d18f6323b71b0b768bb5e9616e36da390fbd39369a81807cca352de4e4e6aa0b", "NOTICE": "f6c2dd3a67b576eafb89b80200b8b1627230bf3821a0c14cb99a22ac19107d00"},
 }
+LICENSE_PINS["github.com/danieljoos/wincred"] = {"LICENSE": "1702a813fa31858c0d6c7788216fa3dd202472265716998024654c252fc7bb41"}
 for name in ["golang.org/x/sys", "golang.org/x/term", "golang.org/x/text"]:
     LICENSE_PINS[name] = {
         "LICENSE": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad" if name.endswith("/text") else "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
         "PATENTS": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"}
+
+
+# Cross-compiled release targets (CGO disabled). Linux keeps its original
+# unsuffixed manifest/SBOM names; other targets carry a platform suffix.
+PLATFORMS = {
+    "linux-amd64": {"goos": "linux", "goarch": "amd64", "binary": "provenance"},
+    "darwin-amd64": {"goos": "darwin", "goarch": "amd64", "binary": "provenance"},
+    "darwin-arm64": {"goos": "darwin", "goarch": "arm64", "binary": "provenance"},
+    "windows-amd64": {"goos": "windows", "goarch": "amd64", "binary": "provenance.exe"},
+}
+# Modules linked only for the listed targets; every other pinned module is
+# required on every target.
+PLATFORM_MODULES = {
+    "github.com/gsterjov/go-libsecret": {"linux-amd64"},
+    "github.com/danieljoos/wincred": {"windows-amd64"},
+}
+MACHO_CPU = {"amd64": 0x01000007, "arm64": 0x0100000C}
+# Go's CGO-disabled darwin runtime links these system libraries directly
+# (libc shim, resolver, and the platform certificate verifier).
+MACHO_DYLIBS = {
+    "/usr/lib/libSystem.B.dylib",
+    "/usr/lib/libresolv.9.dylib",
+    "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+    "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+}
+
+
+def asset_names(version, platform):
+    prefix = f"provenance-cli-{version}"
+    root = f"{prefix}-{platform}"
+    metadata = prefix if platform == "linux-amd64" else root
+    return root, root + ".tar.gz", metadata + ".manifest.json", metadata + ".spdx.json"
 
 
 def require(condition, message):
@@ -71,24 +104,16 @@ def git(root, *args):
 def verify(directory, version, source, repository):
     require(re.fullmatch(r"[0-9a-f]{40}", source), "invalid source")
     require(len(version) <= 64 and re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?", version), "invalid version")
-    root = f"provenance-cli-{version}-linux-amd64"
-    prefix = f"provenance-cli-{version}"
-    archive_name = root + ".tar.gz"
-    manifest_name, sbom_name, checksum_name = (prefix + suffix for suffix in (".manifest.json", ".spdx.json", ".sha256"))
+    checksum_name = f"provenance-cli-{version}.sha256"
+    checked = sorted(name for platform in PLATFORMS for name in asset_names(version, platform)[1:])
     require(directory.is_dir() and not directory.is_symlink(), "invalid bundle directory")
-    require(sorted(p.name for p in directory.iterdir()) == sorted([archive_name, manifest_name, sbom_name, checksum_name]), "asset inventory differs")
-    assets = {name: read(directory / name) for name in [archive_name, manifest_name, sbom_name, checksum_name]}
-    expected = "".join(f"{sha(assets[name])}  {name}\n" for name in sorted([archive_name, manifest_name, sbom_name]))
+    require(sorted(p.name for p in directory.iterdir()) == sorted(checked + [checksum_name]), "asset inventory differs")
+    assets = {name: read(directory / name) for name in checked + [checksum_name]}
+    expected = "".join(f"{sha(assets[name])}  {name}\n" for name in checked)
     require(assets[checksum_name].decode() == expected, "checksum inventory differs")
-    manifest = parse(assets[manifest_name])
-    require(set(manifest) == {"schemaVersion", "version", "tag", "sourceCommit", "createdAt", "platform", "goVersion", "cgoEnabled", "goAMD64", "archiveRoot", "archive", "files", "sourceFiles", "components", "buildInfo"}, "manifest shape differs")
-    require(manifest["schemaVersion"] == 1 and manifest["version"] == version and manifest["tag"] == "cli-v" + version and manifest["sourceCommit"] == source, "release identity differs")
-    require(manifest["platform"] == "linux-amd64" and manifest["goVersion"] == "go1.25.13" and manifest["cgoEnabled"] is False and manifest["goAMD64"] == "v1", "build target differs")
-    require(manifest["archiveRoot"] == root and manifest["archive"] == {"filename": archive_name, "sizeBytes": len(assets[archive_name]), "sha256": sha(assets[archive_name])}, "archive identity differs")
     epoch = int(git(repository, "show", "-s", "--format=%ct", source))
     import datetime
     created = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    require(manifest["createdAt"] == created, "timestamp not derived from source")
     paths = git(repository, "ls-tree", "-r", "--name-only", source, "--", "packages/cli-go", "packages/verification-go", "LICENSE").decode().strip().splitlines()
     require(10 < len(paths) <= 1000, "source inventory bounds")
     source_files = []
@@ -97,6 +122,70 @@ def verify(directory, version, source, repository):
         data = git(repository, "show", source + ":" + path)
         require(len(data) <= 8 * 1024 * 1024, "source file bounds")
         source_files.append({"path": path, "sizeBytes": len(data), "sha256": sha(data)})
+    source_sums = set(git(repository, "show", source + ":packages/cli-go/go.sum").decode().splitlines())
+    source_license = git(repository, "show", source + ":LICENSE")
+    source_readme = git(repository, "show", source + ":packages/cli-go/README.md")
+    results = {}
+    for platform in PLATFORMS:
+        results[platform] = verify_platform(assets, version, source, platform, epoch, created, source_files, source_sums, source_license, source_readme)
+    linux = results["linux-amd64"]
+    return {"version": version, "sourceCommit": source, "files": linux["files"], "components": linux["components"],
+            "binarySha256": linux["binarySha256"], "platforms": results, "verified": True}
+
+
+def verify_binary(binary, target):
+    if target["goos"] == "linux":
+        require(len(binary) > 64 and binary[:6] == b"\x7fELF\x02\x01" and struct.unpack_from("<H", binary, 18)[0] == 62, "not Linux amd64 ELF")
+        offset = struct.unpack_from("<Q", binary, 32)[0]
+        entry_size, count = struct.unpack_from("<HH", binary, 54)
+        require(entry_size >= 56 and count <= 1000 and offset + entry_size * count <= len(binary), "invalid ELF headers")
+        require(all(struct.unpack_from("<I", binary, offset + i * entry_size)[0] != 3 for i in range(count)), "dynamic interpreter forbidden")
+    elif target["goos"] == "darwin":
+        require(len(binary) > 64 and binary[:4] == b"\xcf\xfa\xed\xfe", "not 64-bit Mach-O")
+        cpu, _, filetype, ncmds, sizeofcmds = struct.unpack_from("<IIIII", binary, 4)
+        require(cpu == MACHO_CPU[target["goarch"]] and filetype == 2, "Mach-O target differs")
+        require(ncmds <= 1000 and 32 + sizeofcmds <= len(binary), "invalid Mach-O headers")
+        at, end, dylibs = 32, 32 + sizeofcmds, set()
+        for _ in range(ncmds):
+            require(at + 8 <= end, "truncated Mach-O load command")
+            cmd, size = struct.unpack_from("<II", binary, at)
+            require(size >= 8 and at + size <= end, "invalid Mach-O load command")
+            # LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_LAZY_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB
+            if cmd in (0xC, 0x80000018, 0x8000001F, 0x20, 0x80000023, 0xE):
+                name_at = struct.unpack_from("<I", binary, at + 8)[0]
+                require(12 <= name_at < size, "invalid Mach-O load command name")
+                name = binary[at + name_at:at + size].split(b"\0", 1)[0].decode()
+                if cmd == 0xE:
+                    # LC_LOAD_DYLINKER must be the system dynamic linker.
+                    require(name == "/usr/lib/dyld", "Mach-O dynamic linker differs")
+                else:
+                    dylibs.add(name)
+            at += size
+        require(dylibs == MACHO_DYLIBS, "Mach-O dynamic libraries differ")
+    elif target["goos"] == "windows":
+        require(len(binary) > 0x40 and binary[:2] == b"MZ", "not a PE image")
+        pe = struct.unpack_from("<I", binary, 0x3C)[0]
+        require(pe + 24 + 2 <= len(binary) and binary[pe:pe + 4] == b"PE\0\0", "invalid PE signature")
+        machine, _, _, _, _, optional_size, characteristics = struct.unpack_from("<HHIIIHH", binary, pe + 4)
+        require(machine == 0x8664 and characteristics & 0x2 and not characteristics & 0x2000, "PE target differs")
+        require(optional_size >= 70 and pe + 24 + optional_size <= len(binary), "invalid PE optional header")
+        magic = struct.unpack_from("<H", binary, pe + 24)[0]
+        subsystem = struct.unpack_from("<H", binary, pe + 24 + 68)[0]
+        require(magic == 0x20B and subsystem == 3, "not a PE32+ console executable")
+    else:
+        raise ValueError("unknown target")
+
+
+def verify_platform(assets, version, source, platform, epoch, created, source_files, source_sums, source_license, source_readme):
+    target = PLATFORMS[platform]
+    binary_name = target["binary"]
+    root, archive_name, manifest_name, sbom_name = asset_names(version, platform)
+    manifest = parse(assets[manifest_name])
+    require(set(manifest) == {"schemaVersion", "version", "tag", "sourceCommit", "createdAt", "platform", "goVersion", "cgoEnabled", "goAMD64", "archiveRoot", "archive", "files", "sourceFiles", "components", "buildInfo"}, "manifest shape differs")
+    require(manifest["schemaVersion"] == 1 and manifest["version"] == version and manifest["tag"] == "cli-v" + version and manifest["sourceCommit"] == source, "release identity differs")
+    require(manifest["platform"] == platform and manifest["goVersion"] == "go1.25.13" and manifest["cgoEnabled"] is False and manifest["goAMD64"] == ("v1" if target["goarch"] == "amd64" else None), "build target differs")
+    require(manifest["archiveRoot"] == root and manifest["archive"] == {"filename": archive_name, "sizeBytes": len(assets[archive_name]), "sha256": sha(assets[archive_name])}, "archive identity differs")
+    require(manifest["createdAt"] == created, "timestamp not derived from source")
     require(manifest["sourceFiles"] == source_files, "source inventory differs")
     files = manifest["files"]
     require(isinstance(files, list) and 5 < len(files) <= 1000, "file inventory bounds")
@@ -107,10 +196,10 @@ def verify(directory, version, source, repository):
         require(isinstance(path, str) and len(path) <= 400 and not path.startswith("/") and "\\" not in path and all(p not in ("", ".", "..") for p in path.split("/")), "unsafe path")
         require(path not in expected_files and re.fullmatch(r"[0-9a-f]{64}", item["sha256"]), "duplicate or malformed file")
         require(type(item["sizeBytes"]) is int and 0 <= item["sizeBytes"] <= 64 * 1024 * 1024, "file size bounds")
-        require(item["mode"] == (0o755 if path == "provenance" else 0o644), "file mode differs")
+        require(item["mode"] == (0o755 if path == binary_name else 0o644), "file mode differs")
         expected_files[path] = item
     require(list(expected_files) == sorted(expected_files), "unsorted inventory")
-    require({"provenance", "README.md", "LICENSE", "build-info.txt"}.issubset(expected_files), "required payload absent")
+    require({binary_name, "README.md", "LICENSE", "build-info.txt"}.issubset(expected_files), "required payload absent")
     contents = {}
     total = 0
     with gzip.GzipFile(fileobj=io.BytesIO(assets[archive_name])) as compressed:
@@ -132,14 +221,12 @@ def verify(directory, version, source, repository):
             archive_end = member.offset_data + ((member.size + 511) // 512) * 512
     require(len(raw_tar) >= archive_end + 1024 and not any(raw_tar[archive_end:]), "archive trailing payload differs")
     require(list(contents) == sorted(expected_files), "archive inventory/order differs")
-    binary = contents["provenance"]
-    require(len(binary) > 64 and binary[:6] == b"\x7fELF\x02\x01" and struct.unpack_from("<H", binary, 18)[0] == 62, "not Linux amd64 ELF")
-    offset = struct.unpack_from("<Q", binary, 32)[0]
-    entry_size, count = struct.unpack_from("<HH", binary, 54)
-    require(entry_size >= 56 and count <= 1000 and offset + entry_size * count <= len(binary), "invalid ELF headers")
-    require(all(struct.unpack_from("<I", binary, offset + i * entry_size)[0] != 3 for i in range(count)), "dynamic interpreter forbidden")
+    binary = contents[binary_name]
+    verify_binary(binary, target)
     info = contents["build-info.txt"].decode()
-    require(info == manifest["buildInfo"] and f"vcs.revision={source}" in info and "vcs.modified=false" in info and "CGO_ENABLED=0" in info and "GOAMD64=v1" in info, "binary metadata declaration differs")
+    arch_level = "GOAMD64=v1" if target["goarch"] == "amd64" else "GOARM64=v8.0"
+    require(info == manifest["buildInfo"] and f"vcs.revision={source}" in info and "vcs.modified=false" in info and "CGO_ENABLED=0" in info and arch_level in info
+            and f"GOOS={target['goos']}\n" in info and f"GOARCH={target['goarch']}\n" in info, "binary metadata declaration differs")
     # Independently parse Go's inline build-info strings, without executing Go or
     # the downloaded binary. Go1.25 uses pointer-size byte followed by flags=2.
     marker = b"\xff Go buildinf:"
@@ -172,11 +259,11 @@ def verify(directory, version, source, repository):
             require(parts[1] not in linked, "duplicate linked module")
             linked[parts[1]] = parts[2:]
     local_names = {"github.com/bwmp-dev/provenance/packages/cli-go", "github.com/bwmp-dev/provenance/packages/verification-go"}
-    require(set(linked) == set(LICENSE_PINS) | local_names, "linked module policy differs")
+    platform_pins = {name for name in LICENSE_PINS if platform in PLATFORM_MODULES.get(name, {platform})}
+    require(set(linked) == platform_pins | local_names, "linked module policy differs")
     require(embedded.count("=>\t") == 1 and "=>\t../verification-go\t(devel)" in embedded,
             "local verifier replacement differs")
-    source_sums = set(git(repository, "show", source + ":packages/cli-go/go.sum").decode().splitlines())
-    require(contents["LICENSE"] == git(repository, "show", source + ":LICENSE") and contents["README.md"] == git(repository, "show", source + ":packages/cli-go/README.md"), "source document differs")
+    require(contents["LICENSE"] == source_license and contents["README.md"] == source_readme, "source document differs")
     components = manifest["components"]
     require(isinstance(components, list) and 4 < len(components) <= 100, "component bounds")
     ids, licensed = set(), set()
@@ -215,17 +302,19 @@ def verify(directory, version, source, repository):
         require({item["path"]: item["sha256"] for item in component["licenses"]} == {prefix + path: value for path, value in pins.items()}, "complete pinned license inventory differs")
     require({c["name"] for c in components if c["kind"] in ("go-module", "repository-source")} == set(linked), "linked module omitted")
     require(len(components) == len(linked) + 2, "duplicate or extra component")
-    require(set(contents) == licensed | {"provenance", "README.md", "LICENSE", "build-info.txt"}, "unclassified archive file")
+    require(set(contents) == licensed | {binary_name, "README.md", "LICENSE", "build-info.txt"}, "unclassified archive file")
     require({"go-toolchain", "regexpp"}.issubset(ids), "toolchain/vendor absent")
     regex = next(c for c in components if c["id"] == "regexpp")
     require(regex["sourceSha256"] == "8f9526195a26cb0d47a48528e61f0083596d397092296a44fc1c1ac470aba336" and regex["version"] == "4.12.2", "vendor source differs")
     sbom = parse(assets[sbom_name])
     require(set(sbom) == {"spdxVersion", "dataLicense", "SPDXID", "name", "documentNamespace", "creationInfo", "packages", "files", "relationships"}, "SBOM shape differs")
-    require(sbom["SPDXID"] == "SPDXRef-DOCUMENT" and sbom["name"] == f"provenance-cli-{version}" and sbom["creationInfo"] == {"created": created, "creators": ["Tool: provenance-cli-release"]}, "SBOM document differs")
+    document_name = f"provenance-cli-{version}" + ("" if platform == "linux-amd64" else "-" + platform)
+    namespace = f"https://github.com/bwmp-dev/provenance/cli/{version}/{source}" + ("" if platform == "linux-amd64" else "/" + platform)
+    require(sbom["SPDXID"] == "SPDXRef-DOCUMENT" and sbom["name"] == document_name and sbom["creationInfo"] == {"created": created, "creators": ["Tool: provenance-cli-release"]}, "SBOM document differs")
     require(sbom["spdxVersion"] == "SPDX-2.3" and sbom["dataLicense"] == "CC0-1.0" and sbom["creationInfo"]["created"] == created, "SBOM identity differs")
-    require(sbom["documentNamespace"] == f"https://github.com/bwmp-dev/provenance/cli/{version}/{source}", "SBOM source differs")
+    require(sbom["documentNamespace"] == namespace, "SBOM source differs")
     require(len(sbom["packages"]) == len(components) + 1 and {p["SPDXID"] for p in sbom["packages"]} == {"SPDXRef-CLI"} | {"SPDXRef-" + c["id"] for c in components}, "SBOM package inventory differs")
-    expected_packages = [{"SPDXID": "SPDXRef-CLI", "name": "provenance-cli-linux-amd64", "versionInfo": version,
+    expected_packages = [{"SPDXID": "SPDXRef-CLI", "name": f"provenance-cli-{platform}", "versionInfo": version,
                           "downloadLocation": "NOASSERTION", "filesAnalyzed": True,
                           "packageVerificationCode": {"packageVerificationCodeValue": hashlib.sha1("".join(sorted(hashlib.sha1(data).hexdigest() for data in contents.values())).encode()).hexdigest()},
                           "licenseConcluded": "NOASSERTION", "licenseDeclared": "Apache-2.0", "copyrightText": "NOASSERTION"}]
@@ -245,7 +334,7 @@ def verify(directory, version, source, repository):
     relationships += [{"spdxElementId": "SPDXRef-CLI", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-" + c["id"]} for c in components]
     relationships += [{"spdxElementId": "SPDXRef-CLI", "relationshipType": "CONTAINS", "relatedSpdxElement": f"SPDXRef-File-{index}"} for index in range(len(files))]
     require(sbom["relationships"] == relationships, "SBOM relationships differ")
-    return {"version": version, "sourceCommit": source, "files": len(files), "components": len(components), "binarySha256": sha(binary), "verified": True}
+    return {"files": len(files), "components": len(components), "binarySha256": sha(binary)}
 
 
 if __name__ == "__main__":

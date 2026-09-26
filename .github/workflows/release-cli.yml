@@ -149,7 +149,7 @@ jobs:
         run: pnpm fetch --frozen-lockfile --ignore-scripts
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - name: Build reproducible Linux CLI bundle
+      - name: Build reproducible cross-compiled CLI bundle (linux, darwin, windows)
         run: >-
           node scripts/cli-release.mjs build
           --version "${{ needs.validate.outputs.version }}"
@@ -304,11 +304,26 @@ jobs:
               exit 1
             fi
           fi
-      - name: Attest CLI SBOM
+      - name: Attest Linux amd64 CLI SBOM
         uses: actions/attest@v4
         with:
-          subject-path: dist/cli/*.tar.gz
+          subject-path: dist/cli/provenance-cli-${{ needs.validate.outputs.version }}-linux-amd64.tar.gz
           sbom-path: dist/cli/provenance-cli-${{ needs.validate.outputs.version }}.spdx.json
+      - name: Attest macOS amd64 CLI SBOM
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/cli/provenance-cli-${{ needs.validate.outputs.version }}-darwin-amd64.tar.gz
+          sbom-path: dist/cli/provenance-cli-${{ needs.validate.outputs.version }}-darwin-amd64.spdx.json
+      - name: Attest macOS arm64 CLI SBOM
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/cli/provenance-cli-${{ needs.validate.outputs.version }}-darwin-arm64.tar.gz
+          sbom-path: dist/cli/provenance-cli-${{ needs.validate.outputs.version }}-darwin-arm64.spdx.json
+      - name: Attest Windows amd64 CLI SBOM
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/cli/provenance-cli-${{ needs.validate.outputs.version }}-windows-amd64.tar.gz
+          sbom-path: dist/cli/provenance-cli-${{ needs.validate.outputs.version }}-windows-amd64.spdx.json
       - name: Create or reuse annotated release tag
         env:
           GH_TOKEN: ${{ github.token }}
@@ -394,10 +409,10 @@ jobs:
         run: |
           compatibility="$(printf '%s\n' \
             '## CLI distribution' \
-            '- Platform: Linux amd64 only' \
-            '- Native credential storage: Linux Secret Service; no plaintext fallback' \
+            '- Platforms: Linux amd64, macOS amd64/arm64, Windows amd64; all cross-compiled with CGO disabled on Linux amd64' \
+            '- Native credential storage: Linux Secret Service and Windows Credential Manager; macOS cross-compiled builds have no Keychain backend and fail closed; no plaintext fallback' \
             '- Requires an explicitly trusted HTTPS platform origin and verification keys' \
-            '- No live platform, browser confirmation, macOS or Windows acceptance claimed' \
+            '- Release-time native acceptance is Linux only; macOS/Windows binaries are not notarized or Authenticode-signed; no live platform or browser confirmation claimed' \
             '- Separate CLI release; existing contract release assets are unchanged')"
           title="Provenance CLI $TAG"
 
@@ -442,7 +457,7 @@ jobs:
           }
 
           expected_paths=(dist/cli/*)
-          if [[ "${#expected_paths[@]}" -ne 4 ]]; then
+          if [[ "${#expected_paths[@]}" -ne 13 ]]; then
             echo "Unexpected local release asset count." >&2
             exit 1
           fi
