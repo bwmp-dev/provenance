@@ -1,3 +1,4 @@
+import "./project-api-tokens.test.mjs";
 import "./github-connection-read.test.mjs";
 import "./public-verification.test.mjs";
 import "./hosted-runner-updates.test.mjs";
@@ -824,6 +825,16 @@ test("every mutation has deterministic idempotency semantics", () => {
       assert.ok(operation.responses["409"]);
       continue; // Node polling uses durable operation identity; hosted-runner-updates.test.mjs pins the normative rules, and platform lifecycle integration tests verify replay.
     }
+    if (
+      operation.operationId === "createProjectApiToken" ||
+      operation.operationId === "revokeProjectApiToken"
+    ) {
+      // WP-07D (platform PR #348) accepts no Idempotency-Key: a shown-once
+      // secret can never be replayed, revocation is naturally idempotent, and
+      // project-api-tokens.test.mjs pins the exact platform status set.
+      assert.equal(operation.parameters, undefined);
+      continue;
+    }
     if (operation.operationId === "exchangeDeviceAuthorization") {
       assert.equal(
         operation.parameters,
@@ -1203,6 +1214,8 @@ test("authentication, pagination, identifiers, timestamps, and states stay stabl
         "listPaperBuilds",
         "listPublicOwnerReleases",
         "listPublicProjectReleases",
+        // Complete, unpaginated list bounded by the 50 active-token cap.
+        "listProjectApiTokens",
       ].includes(candidate.operationId),
   )) {
     const names = listOperation.parameters

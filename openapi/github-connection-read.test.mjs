@@ -9,6 +9,7 @@ import {
   beforeGitHubConnectionRead,
   githubConnectionReadPath,
 } from "./github-connection-read-compat.mjs";
+import { beforeProjectApiTokens } from "./project-api-tokens-compat.mjs";
 
 const document = parse(
   readFileSync(new URL("provenance.v1.yaml", import.meta.url), "utf8"),
@@ -49,7 +50,9 @@ test("IFC-033 is purely additive to the merged WP-10B contract", () => {
       .update(
         JSON.stringify(
           beforeGitHubConnectionRead(
-            beforePublicationGateEventDocument(document),
+            beforeProjectApiTokens(
+              beforePublicationGateEventDocument(document),
+            ),
           ),
         ),
       )
