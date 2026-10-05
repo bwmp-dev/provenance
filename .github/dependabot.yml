@@ -4,6 +4,13 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # TypeScript 7 (the native compiler) is not yet adopted; keep the 5.x
+      # line until the workspace is migrated deliberately. Mirrors the
+      # provenance-console ignore.
+      - dependency-name: typescript
+        versions:
+          - ">= 7.0.0"
     groups:
       pnpm-dependencies:
         patterns:
@@ -16,3 +23,17 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # paper-probe deliberately compiles against the oldest supported Paper
+      # API (1.20.6) so every API it links against exists on every supported
+      # server. Newer APIs are resolved lazily at runtime. Raise this floor
+      # only together with the supported-version range.
+      - dependency-name: io.papermc.paper:paper-api
+        versions:
+          - ">= 1.21"
+      # paper-probe ships Java 8 bytecode (verifyJava8Bytecode) and bundles
+      # snakeyaml-engine at runtime. snakeyaml-engine 3.x is compiled for
+      # Java 11 (class file major 55), so it cannot be bundled.
+      - dependency-name: org.snakeyaml:snakeyaml-engine
+        versions:
+          - ">= 3.0"
