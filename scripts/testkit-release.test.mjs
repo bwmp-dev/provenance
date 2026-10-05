@@ -178,9 +178,10 @@ test("every release job provisions pinned Node before invoking it", async () => 
     assert.ok(setup >= 0, `${name} must provision Node explicitly`);
     assert.equal(
       steps[setup].uses,
-      "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
     );
     assert.equal(steps[setup].with["node-version-file"], versionFile);
+    assert.equal(steps[setup].with["package-manager-cache"], false);
     const checkout = steps.findIndex(
       (step) =>
         step.uses?.startsWith("actions/checkout@") &&
