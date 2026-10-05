@@ -6,6 +6,10 @@ allowBuilds:
   "@bufbuild/buf": true
   esbuild: false
 
-# Security fix for the transitive OpenAPI tooling parser (GHSA-2883-xcg3-v3hh).
+# Security fixes for transitive OpenAPI tooling dependencies: the parser
+# (GHSA-2883-xcg3-v3hh), brace-expansion 2.x recursion/quadratic DoS, and
+# fast-uri 3.x authority injection and host confusion.
 overrides:
   js-yaml@4.3.1: 4.3.2
+  brace-expansion@>=2.0.0 <2.1.6: ^2.1.6
+  fast-uri@>=3.0.0 <3.1.8: ^3.1.8
