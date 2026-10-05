@@ -445,12 +445,12 @@ test("released Node consumers use the exact audited dependency graph offline", a
     "utf8",
   );
   const registryNewerFixture = parseYaml(rootLockContents);
-  registryNewerFixture.packages["fast-uri@3.1.7"] = {
+  registryNewerFixture.packages["fast-uri@3.1.9"] = {
     resolution: structuredClone(
-      registryNewerFixture.packages["fast-uri@3.1.6"].resolution,
+      registryNewerFixture.packages["fast-uri@3.1.8"].resolution,
     ),
   };
-  registryNewerFixture.snapshots["fast-uri@3.1.7"] = {};
+  registryNewerFixture.snapshots["fast-uri@3.1.9"] = {};
   const inputs = {
     lockfileContents: stringifyYaml(registryNewerFixture, { lineWidth: 0 }),
     nodeImporter: "packages/config-schema",
@@ -463,10 +463,10 @@ test("released Node consumers use the exact audited dependency graph offline", a
   const projected = parseYaml(firstLock);
   assert.equal(
     projected.snapshots["ajv@8.20.0"].dependencies["fast-uri"],
-    "3.1.6",
+    "3.1.8",
   );
-  assert(projected.packages["fast-uri@3.1.6"]);
-  assert.equal(projected.packages["fast-uri@3.1.7"], undefined);
+  assert(projected.packages["fast-uri@3.1.8"]);
+  assert.equal(projected.packages["fast-uri@3.1.9"], undefined);
   assert.deepEqual(Object.keys(projected.importers), ["."]);
 
   const consumerDirectory = await mkdtemp(
@@ -537,7 +537,7 @@ test("released Node consumers use the exact audited dependency graph offline", a
         "utf8",
       ),
     );
-    assert.equal(installedFastUri.version, "3.1.6");
+    assert.equal(installedFastUri.version, "3.1.8");
   } finally {
     await rm(consumerDirectory, { force: true, recursive: true });
   }
@@ -556,7 +556,7 @@ test("locked consumer projection rejects missing cache and tampered inputs", asy
   const rootLock = parseYaml(rootLockContents);
 
   const missingSnapshot = structuredClone(rootLock);
-  delete missingSnapshot.snapshots["fast-uri@3.1.6"];
+  delete missingSnapshot.snapshots["fast-uri@3.1.8"];
   assert.throws(
     () =>
       projectNodeConsumerLock({
@@ -564,7 +564,7 @@ test("locked consumer projection rejects missing cache and tampered inputs", asy
         nodeImporter: "packages/config-schema",
         packageContents,
       }),
-    /missing runtime snapshot: fast-uri@3\.1\.6/,
+    /missing runtime snapshot: fast-uri@3\.1\.8/,
   );
 
   const tamperedManifest = JSON.parse(packageContents);
@@ -588,24 +588,24 @@ test("locked consumer projection rejects missing cache and tampered inputs", asy
     /invalid or ambiguous/,
   );
 
-  const exactPackage = rootLock.packages["fast-uri@3.1.6"];
+  const exactPackage = rootLock.packages["fast-uri@3.1.8"];
   const missingStoreLock = stringifyYaml({
     lockfileVersion: "9.0",
     settings: rootLock.settings,
     importers: {
       fixture: {
         dependencies: {
-          "fast-uri": { specifier: "3.1.6", version: "3.1.6" },
+          "fast-uri": { specifier: "3.1.8", version: "3.1.8" },
         },
       },
     },
-    packages: { "fast-uri@3.1.6": exactPackage },
-    snapshots: { "fast-uri@3.1.6": {} },
+    packages: { "fast-uri@3.1.8": exactPackage },
+    snapshots: { "fast-uri@3.1.8": {} },
   });
   const missingStorePackage = json({
     name: "locked-missing-store-fixture",
     version: "1.0.0",
-    dependencies: { "fast-uri": "3.1.6" },
+    dependencies: { "fast-uri": "3.1.8" },
   });
   const projectedMissingStoreLock = projectNodeConsumerLock({
     lockfileContents: missingStoreLock,
