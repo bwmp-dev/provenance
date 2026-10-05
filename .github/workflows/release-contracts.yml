@@ -223,7 +223,7 @@ jobs:
             echo "Reviewed release commit is no longer the current main tip before tag creation." >&2
             exit 1
           fi
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.1
         with:
           artifact-ids: ${{ needs.build.outputs.artifact_id }}
           merge-multiple: true
