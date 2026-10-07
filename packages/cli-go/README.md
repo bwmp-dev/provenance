@@ -116,6 +116,11 @@ base64url. The expected key ID must also be supplied. Historical trusted keys
 remain usable; there is no active-key substitution or trust-on-first-use. Remote
 attestation/key retrieval is not implemented. Verification reads at most the
 signed artifact size plus one byte, as enforced by the shared verifier.
+Both `provenance.dev/attestation/v1` and `provenance.dev/attestation/v2`
+envelopes are accepted (`cli-v0.1.0-alpha.1` predates v2 and rejects it). A
+failed verification exits 1 and names a fixed reason (unsupported envelope
+version, key ID mismatch, schema, signature, artifact size or SHA-256) without
+echoing document contents, keys or paths.
 
 All network commands require HTTPS and an explicit timeout (greater than zero,
 at most 24 hours). These are client resource bounds, not server lifetime defaults.
