@@ -1,20 +1,24 @@
 # CLI distribution
 
-The inspected Linux amd64 release is
-[`cli-v0.1.0-alpha.1`](https://github.com/bwmp-dev/provenance/releases/tag/cli-v0.1.0-alpha.1),
-published by [run 34112911716, attempt 1](https://github.com/bwmp-dev/provenance/actions/runs/34112911716/attempts/1).
+The current inspected release is
+[`cli-v0.1.0-alpha.2`](https://github.com/bwmp-dev/provenance/releases/tag/cli-v0.1.0-alpha.2),
+published by [run 37613161117, attempt 1](https://github.com/bwmp-dev/provenance/actions/runs/37613161117/attempts/1).
 Its source and workflow/policy commit are both
-`aff412c803552b595ba37fa708845c9c488f56a7`.
+`d6fe5160025789270a841f1eabaa468d3d8d9a85`. It is the first CLI release whose
+`verify` accepts `provenance.dev/attestation/v2` envelopes, which production
+issues; `cli-v0.1.0-alpha.1` (`aff412c`) verifies only v1 and must not be used
+for current proofs.
 
-The archive `provenance-cli-0.1.0-alpha.1-linux-amd64.tar.gz` has SHA-256
-`f6aff3e25f9109f87cac34c52a2abf51eb0f10f9e98755b4e8b467cb22260a48`;
-the extracted binary has SHA-256
-`20a44fe51857f5d1bdc74afb046b5037fbd1a760d77530ef886ea86d16fc4063`.
-Inspection verified all four provenance subjects and the archive SPDX attestation,
-then the independent non-executing bundle verifier, before running the actual
-downloaded binary in the isolated native fixture described below. These pins
-do not replace that verification order for a fresh download. The separate CLI
-release does not change contract tags or their archive inventories.
+The archive `provenance-cli-0.1.0-alpha.2-linux-amd64.tar.gz` has SHA-256
+`7bc5fc2f785566c52fec9f81c759a3c0a424c46cad897e91f9a3cd226b83aa47`;
+the extracted Linux binary has SHA-256
+`67e857c34c09fbf5a89e1f55ca69a855250976b0accf3ca5756abd2df79888ee`.
+Inspection verified the provenance attestations of all thirteen assets and the
+SPDX attestation of each of the four archives, then the independent
+non-executing bundle verifier, before running the actual downloaded Linux
+binary. These pins do not replace that verification order for a fresh
+download. The separate CLI release does not change contract tags or their
+archive inventories.
 
 ## Assets
 
@@ -46,11 +50,11 @@ checksum database. Compilation then uses the populated task-private module
 cache with the proxy disabled; this is not an offline cold-install claim.
 
 ```sh
-node scripts/cli-release.mjs build --version 0.1.0-alpha.1 \
+node scripts/cli-release.mjs build --version 0.1.0-alpha.2 \
   --source-commit <exact-reviewed-40-character-SHA> --output /absolute/new/bundle
-python3 scripts/verify-cli-release.py --version 0.1.0-alpha.1 \
+python3 scripts/verify-cli-release.py --version 0.1.0-alpha.2 \
   --source-sha <exact-reviewed-40-character-SHA> --directory /absolute/new/bundle
-bash scripts/test-cli-release-native.sh /absolute/new/bundle 0.1.0-alpha.1 \
+bash scripts/test-cli-release-native.sh /absolute/new/bundle 0.1.0-alpha.2 \
   <exact-reviewed-40-character-SHA>
 ```
 
