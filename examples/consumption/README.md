@@ -74,10 +74,11 @@ file paths. It opens the artifact lazily after authenticating the signature.
 
 The CLI is a separately distributed Linux amd64 archive, not part of the SDK.
 Use inspected release
-[`cli-v0.1.0-alpha.1`](https://github.com/bwmp-dev/provenance/releases/tag/cli-v0.1.0-alpha.1),
-source and workflow/policy `aff412c803552b595ba37fa708845c9c488f56a7`.
-The archive SHA-256 is
-`f6aff3e25f9109f87cac34c52a2abf51eb0f10f9e98755b4e8b467cb22260a48`.
+[`cli-v0.1.0-alpha.2`](https://github.com/bwmp-dev/provenance/releases/tag/cli-v0.1.0-alpha.2),
+source and workflow/policy `d6fe5160025789270a841f1eabaa468d3d8d9a85`; it
+verifies both v1 and v2 attestations (`cli-v0.1.0-alpha.1` rejects v2).
+The Linux amd64 archive SHA-256 is
+`7bc5fc2f785566c52fec9f81c759a3c0a424c46cad897e91f9a3cd226b83aa47`.
 Follow [the distribution verification procedure](../../docs/cli-distribution.md)
 before extracting or executing it; a matching checksum alone is not authenticity.
 Then run this entirely offline command with your independently trusted raw
