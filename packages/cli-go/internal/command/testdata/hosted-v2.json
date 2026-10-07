@@ -1,0 +1,167 @@
+{
+  "artifactHex": "504b03041400000008000000215cb9114fac50000000620000000a000000706c7567696e2e796d6ccb4bcc4db552f0c82f2e494d71cbac28292d4ae52a4b2d2acecccfb35230d033d433e6ca4dcc04b25352cbf40a8af2cb52f312f39253f5522b12730b7252f55075261664eac275ab1bea1919a8730100504b03041400000008000000215c7adf5a201800000016000000140000004d4554412d494e462f4d414e49464553542e4d46f34dcccb4c4b2d2ed10d4b2d2acecccfb35230d433e00200504b010214031400000008000000215cb9114fac50000000620000000a0000000000000000000000800100000000706c7567696e2e796d6c504b010214031400000008000000215c7adf5a2018000000160000001400000000000000000000008001780000004d4554412d494e462f4d414e49464553542e4d46504b050600000000020002007a000000c20000000000",
+  "description": "Hosted-runner-shaped v2 envelope (multi-environment, gVisor sandbox, v2 configuration) signed by a test-only key derived as SHA-256 of testOnlySeedLabel. Not a production record.",
+  "document": {
+    "mediaType": "application/vnd.provenance.attestation.v2+json",
+    "signature": {
+      "algorithm": "Ed25519",
+      "canonicalization": "RFC8785",
+      "keyId": "provenance-test-hosted-issuer",
+      "value": "ltOc9ztE1rD2j5ATx8qmFMGhsu0xptBIVdBYdl2Bx5Su2PJWHVMatp_1gpTi7xzVrLvwM0EBc6FOATCGzCIYBg"
+    },
+    "statement": {
+      "apiVersion": "provenance.dev/attestation/v2",
+      "assertions": [
+        {
+          "environmentId": "env-required-paper-1.20.6",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "ac6cb18eacc55c09d278585ececd531b259db8cf7ab550af2aaa09fbe02ee971"
+          },
+          "id": "clean-shutdown",
+          "outcome": "passed",
+          "type": "clean-shutdown"
+        },
+        {
+          "environmentId": "env-required-paper-1.20.6",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "e75977dc535dc41fd470c45ab4148f3e8fe12dfc4f5c1cb5857d2f47b621da1f"
+          },
+          "id": "console-contains:public-proof-marker:1",
+          "outcome": "passed",
+          "type": "console-contains"
+        },
+        {
+          "environmentId": "env-required-paper-1.20.6",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "26c24635021dc3aedf6f51d4b5b55fad8c0748ad20ced92e58b267800ca82260"
+          },
+          "id": "plugin-enabled",
+          "outcome": "passed",
+          "type": "plugin-enabled"
+        },
+        {
+          "environmentId": "env-required-paper-1.20.6",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "4a3319adfdc5f0bf31f78bcf259cd2f48b5adaec13920424cbefc38c11a44b5e"
+          },
+          "id": "startup-ready",
+          "outcome": "passed",
+          "type": "startup-ready"
+        },
+        {
+          "environmentId": "env-informational-paper-1.21.4",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "e07100a8d6845bb017d26399b30cf4d29d7c2429d04c44e228c3267ec14e50cb"
+          },
+          "id": "clean-shutdown",
+          "outcome": "passed",
+          "type": "clean-shutdown"
+        },
+        {
+          "environmentId": "env-informational-paper-1.21.4",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "e94836ebbf7a3ced0108b331d424c5389a17155b3fe563e677b5b35da7b6c1ad"
+          },
+          "id": "console-contains:public-proof-marker:1",
+          "outcome": "passed",
+          "type": "console-contains"
+        },
+        {
+          "environmentId": "env-informational-paper-1.21.4",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "1f8377a2b98d78f3f979d615d3acb12fb1212681b17a17e90d768ff96d46b24f"
+          },
+          "id": "plugin-enabled",
+          "outcome": "passed",
+          "type": "plugin-enabled"
+        },
+        {
+          "environmentId": "env-informational-paper-1.21.4",
+          "evidenceDigest": {
+            "algorithm": "sha256",
+            "value": "e75994db9daf715e64e6248b96b640b47625de04c25da8815ed580023c3f5859"
+          },
+          "id": "startup-ready",
+          "outcome": "passed",
+          "type": "startup-ready"
+        }
+      ],
+      "configuration": {
+        "apiVersion": "provenance.dev/v2",
+        "digest": {
+          "algorithm": "sha256",
+          "value": "b7d64a9221007dfd5390f7df6cd5b8f3ea4f82faa1237141e35ebf161f5511a1"
+        }
+      },
+      "dependencies": [],
+      "environments": [
+        {
+          "id": "env-required-paper-1.20.6",
+          "javaVersion": 21,
+          "minecraftVersion": "1.20.6",
+          "outcome": "passed",
+          "paperBuild": 151,
+          "policy": "required",
+          "provider": "paper",
+          "runnerImageDigest": {
+            "algorithm": "sha256",
+            "value": "7dd018c91f0295ac960dd58d74feadd32125ebf17d35af3340f67bb0c2740f93"
+          }
+        },
+        {
+          "id": "env-informational-paper-1.21.4",
+          "javaVersion": 21,
+          "minecraftVersion": "1.21.4",
+          "outcome": "passed",
+          "paperBuild": 232,
+          "policy": "informational",
+          "provider": "paper",
+          "runnerImageDigest": {
+            "algorithm": "sha256",
+            "value": "7dd018c91f0295ac960dd58d74feadd32125ebf17d35af3340f67bb0c2740f93"
+          }
+        }
+      ],
+      "runner": {
+        "hosting": "hosted",
+        "id": "runner-hosted-fixture",
+        "sandbox": {
+          "imageDigest": {
+            "algorithm": "sha256",
+            "value": "7dd018c91f0295ac960dd58d74feadd32125ebf17d35af3340f67bb0c2740f93"
+          },
+          "kind": "gvisor",
+          "networkMode": "none",
+          "version": "release-20260101.0"
+        },
+        "trust": "provenance-hosted",
+        "version": "0.1.0-alpha.1"
+      },
+      "source": {
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "provider": "github",
+        "ref": "refs/tags/v0.1.3",
+        "repository": "provenance-example/hosted-fixture"
+      },
+      "subject": {
+        "digest": {
+          "algorithm": "sha256",
+          "value": "ad18bbf4134f4b71911357c2a304c36beb39bb2ce25d223e693a6ddbd89e44cc"
+        },
+        "name": "hosted-fixture.jar",
+        "sizeBytes": 338,
+        "version": "0.1.3"
+      },
+      "verifiedAt": "2026-01-01T00:00:00.000000Z"
+    }
+  },
+  "publicKeyHex": "fec5e4477af691171bc0d92a86ff82dc277eb0dd7a3dc89fb771a44d3338697b",
+  "testOnlySeedLabel": "provenance cli hosted v2 test-only fixture seed"
+}

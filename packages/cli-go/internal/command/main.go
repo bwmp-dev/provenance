@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -166,9 +167,12 @@ func (a App) verify(o options) error {
 	if e != nil {
 		return e
 	}
+	if _, ok := supportedEnvelopes[text(doc, "mediaType")]; !ok {
+		return verifyFailure("unsupported attestation envelope version (supported: " + supportedEnvelopeList + ")")
+	}
 	sig, ok := doc["signature"].(map[string]any)
 	if !ok || text(sig, "keyId") != o.keyID {
-		return ErrFailed
+		return verifyFailure("attestation keyId does not match --key-id")
 	}
 	jar, e := os.Open(o.jar)
 	if e != nil {
@@ -181,9 +185,46 @@ func (a App) verify(o options) error {
 	}
 	result, e := verification.VerifyArtifact(raw, ed25519.PublicKey(pub), jar)
 	if e != nil {
-		return ErrFailed
+		return verificationFailure(e)
 	}
 	return json.NewEncoder(a.Out).Encode(result)
+}
+
+// supportedEnvelopes lists the attestation envelope media types accepted by
+// the shared offline verifier (packages/verification-go).
+var supportedEnvelopes = map[string]struct{}{
+	"application/vnd.provenance.attestation.v1+json": {},
+	"application/vnd.provenance.attestation.v2+json": {},
+}
+
+const supportedEnvelopeList = "provenance.dev/attestation/v1, provenance.dev/attestation/v2"
+
+// verifyError reports why offline verification failed. Messages are fixed
+// strings: they never echo document contents, key material or file paths.
+// It matches ErrFailed under errors.Is.
+type verifyError struct{ reason string }
+
+func (e verifyError) Error() string { return "verification failed: " + e.reason }
+func (e verifyError) Unwrap() error { return ErrFailed }
+
+func verifyFailure(reason string) error { return verifyError{reason} }
+
+func verificationFailure(e error) error {
+	switch {
+	case errors.Is(e, verification.ErrSchema):
+		return verifyFailure("attestation does not match the " + supportedEnvelopeList + " schema")
+	case errors.Is(e, verification.ErrSignature):
+		return verifyFailure("attestation signature is not valid for the trusted public key")
+	case errors.Is(e, verification.ErrSize):
+		return verifyFailure("artifact size does not match the attestation")
+	case errors.Is(e, verification.ErrDigest):
+		return verifyFailure("artifact SHA-256 does not match the attestation")
+	case errors.Is(e, verification.ErrKey):
+		return verifyFailure("invalid Ed25519 public key")
+	case errors.Is(e, verification.ErrRead):
+		return verifyFailure("artifact could not be read")
+	}
+	return ErrFailed
 }
 func readFile(path string, max int64) ([]byte, error) {
 	f, e := os.Open(path)
