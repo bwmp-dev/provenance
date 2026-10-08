@@ -160,7 +160,7 @@ jobs:
           --directory dist/contracts
           --consumers
       - id: upload
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: provenance-contracts-${{ needs.validate.outputs.version }}-${{ needs.validate.outputs.source_sha }}
           path: dist/contracts/*

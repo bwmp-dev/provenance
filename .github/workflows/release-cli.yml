@@ -167,7 +167,7 @@ jobs:
           "${{ needs.validate.outputs.version }}"
           "${{ needs.validate.outputs.source_sha }}"
       - id: upload
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: provenance-cli-${{ needs.validate.outputs.version }}-${{ needs.validate.outputs.source_sha }}
           path: dist/cli/*
