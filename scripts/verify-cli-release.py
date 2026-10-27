@@ -183,7 +183,7 @@ def verify_platform(assets, version, source, platform, epoch, created, source_fi
     manifest = parse(assets[manifest_name])
     require(set(manifest) == {"schemaVersion", "version", "tag", "sourceCommit", "createdAt", "platform", "goVersion", "cgoEnabled", "goAMD64", "archiveRoot", "archive", "files", "sourceFiles", "components", "buildInfo"}, "manifest shape differs")
     require(manifest["schemaVersion"] == 1 and manifest["version"] == version and manifest["tag"] == "cli-v" + version and manifest["sourceCommit"] == source, "release identity differs")
-    require(manifest["platform"] == platform and manifest["goVersion"] == "go1.25.13" and manifest["cgoEnabled"] is False and manifest["goAMD64"] == ("v1" if target["goarch"] == "amd64" else None), "build target differs")
+    require(manifest["platform"] == platform and manifest["goVersion"] == "go1.26.10" and manifest["cgoEnabled"] is False and manifest["goAMD64"] == ("v1" if target["goarch"] == "amd64" else None), "build target differs")
     require(manifest["archiveRoot"] == root and manifest["archive"] == {"filename": archive_name, "sizeBytes": len(assets[archive_name]), "sha256": sha(assets[archive_name])}, "archive identity differs")
     require(manifest["createdAt"] == created, "timestamp not derived from source")
     require(manifest["sourceFiles"] == source_files, "source inventory differs")
@@ -242,7 +242,7 @@ def verify_platform(assets, version, source, platform, epoch, created, source_fi
             shift += 7
         raise ValueError("invalid varint")
     length, at = varint(index + 32)
-    require(binary[at:at + length] == b"go1.25.13", "embedded Go version differs")
+    require(binary[at:at + length] == b"go1.26.10", "embedded Go version differs")
     at += length
     length, at = varint(at)
     require(length <= 1024 * 1024 and at + length <= len(binary), "embedded module info bound")
@@ -287,7 +287,7 @@ def verify_platform(assets, version, source, platform, epoch, created, source_fi
             require(component["sourceCommit"] is None, "external module mislabeled")
             pins = LICENSE_PINS[component["name"]]
         elif component["id"] == "go-toolchain":
-            require(component["kind"] == "toolchain" and component["name"] == "Go" and component["version"] == "go1.25.13", "toolchain component differs")
+            require(component["kind"] == "toolchain" and component["name"] == "Go" and component["version"] == "go1.26.10", "toolchain component differs")
             require(component["sourceCommit"] is None and component["goSum"] is None, "toolchain provenance differs")
             pins = LICENSE_PINS["golang.org/x/text"]
         elif component["id"] == "regexpp":
