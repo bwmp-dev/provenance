@@ -790,10 +790,10 @@ test("contract release is reproducible and its consumers compile", async (t) => 
         `Go verifier SBOM relationship missing: ${name}`,
       );
     }
-    assert.equal(sbom.packages.length, 26);
+    assert.equal(sbom.packages.length, 27);
     assert.equal(
       sbom.packages.filter(({ filesAnalyzed }) => !filesAnalyzed).length,
-      20,
+      21,
     );
     assert(
       sbom.relationships.some(
@@ -802,7 +802,7 @@ test("contract release is reproducible and its consumers compile", async (t) => 
     );
     assert(sbom.packages.every(({ checksums }) => checksums?.length > 0));
     t.diagnostic(
-      `SPDX 2.3 SBOM covers ${sbom.packages.length} packages, including 20 runtime dependencies, and ${sbom.files.length} archived files`,
+      `SPDX 2.3 SBOM covers ${sbom.packages.length} packages, including 21 runtime dependencies, and ${sbom.files.length} archived files`,
     );
     assert.deepEqual(manifest.compatibility, {
       action: "not-released",
