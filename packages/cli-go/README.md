@@ -110,6 +110,13 @@ provenance verify --jar plugin.jar --attestation attestation.json \
 
 Status reads the actual candidate and bounded execution/event pages (100 pages,
 100 items per page). It does not infer publication or attestation success.
+If execution routes are served separately, add
+`--gateway-origin https://your-explicit-gateway.example` to `status`. Only
+execution requests use that origin; candidate and event requests stay on
+`--origin`. The selected API credential is sent to the explicitly supplied
+gateway, so use only the trusted gateway for that deployment. No gateway is
+guessed and redirects are not followed. Omitting the flag keeps all requests
+on the API origin.
 Verification uses the existing streaming verifier, an explicit local attestation
 and a separately trusted 32-byte Ed25519 public key encoded as canonical unpadded
 base64url. The expected key ID must also be supplied. Historical trusted keys

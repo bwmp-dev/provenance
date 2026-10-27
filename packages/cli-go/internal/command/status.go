@@ -6,7 +6,7 @@ import (
 	"net/url"
 )
 
-func (a App) status(ctx context.Context, api *api, id string) error {
+func (a App) status(ctx context.Context, api *api, gatewayOrigin, id string) error {
 	root := "/v1/release-candidates/" + url.PathEscape(id)
 	candidate, e := api.call(ctx, "GET", root, nil, false)
 	if e != nil || candidate.status != 200 || text(candidate.body, "id") != id {
@@ -17,6 +17,10 @@ func (a App) status(ctx context.Context, api *api, id string) error {
 		return ErrFailed
 	}
 	for _, kind := range []string{"executions", "events"} {
+		reader := *api
+		if kind == "executions" {
+			reader.origin = gatewayOrigin
+		}
 		items := []any{}
 		cursor := ""
 		seen := map[string]bool{}
@@ -28,7 +32,7 @@ func (a App) status(ctx context.Context, api *api, id string) error {
 			if cursor != "" {
 				path += "&cursor=" + url.QueryEscape(cursor)
 			}
-			page, e := api.call(ctx, "GET", path, nil, false)
+			page, e := reader.call(ctx, "GET", path, nil, false)
 			if e != nil || page.status != 200 {
 				return ErrFailed
 			}

@@ -26,6 +26,7 @@ type App struct {
 	Transport http.RoundTripper
 }
 type options struct {
+	gatewayOrigin                                                                                                           string
 	origin, auth, project, candidate, artifact, jar, configuration, snapshot, version, commit, ref, attestation, key, keyID string
 	tokenStdin                                                                                                              bool
 	timeout                                                                                                                 time.Duration
@@ -60,6 +61,7 @@ func (a App) run(ctx context.Context, args []string) error {
 	f.SetOutput(io.Discard)
 	var o options
 	f.StringVar(&o.origin, "origin", "", "")
+	f.StringVar(&o.gatewayOrigin, "gateway-origin", "", "")
 	f.DurationVar(&o.timeout, "timeout", 0, "")
 	f.StringVar(&o.auth, "auth", "session", "")
 	f.BoolVar(&o.tokenStdin, "project-token-stdin", false, "")
@@ -70,6 +72,9 @@ func (a App) run(ctx context.Context, args []string) error {
 		f.StringVar(v.p, v.n, "", "")
 	}
 	if f.Parse(args) != nil || f.NArg() != 0 {
+		return ErrInput
+	}
+	if o.gatewayOrigin != "" && verb != "status" {
 		return ErrInput
 	}
 	if verb == "verify" {
@@ -87,6 +92,13 @@ func (a App) run(ctx context.Context, args []string) error {
 	if e != nil {
 		return e
 	}
+	gatewayOrigin := base
+	if o.gatewayOrigin != "" {
+		gatewayOrigin, e = origin(o.gatewayOrigin)
+		if e != nil {
+			return e
+		}
+	}
 	api := &api{origin: base, client: client(a.Transport)}
 	if verb == "login" {
 		if o.tokenStdin || o.auth != "session" || a.Store == nil {
@@ -103,7 +115,7 @@ func (a App) run(ctx context.Context, args []string) error {
 	if e = a.authenticate(ctx, api, o); e != nil {
 		return e
 	}
-	return a.status(ctx, api, o.candidate)
+	return a.status(ctx, api, gatewayOrigin, o.candidate)
 }
 func (a App) authenticate(ctx context.Context, api *api, o options) error {
 	if o.auth != "session" && o.auth != "project-token" {
