@@ -43,7 +43,7 @@ level.
 ## Build and inspect
 
 Use a complete repository checkout, Node 24, Python 3, Git, the locked pnpm
-dependencies and **Go 1.25.13 on Linux amd64**; every target is cross-compiled
+dependencies and **Go 1.26.10 on Linux amd64**; every target is cross-compiled
 there with CGO disabled. No Node runtime is needed by the
 resulting binary. Go dependency provisioning uses the public module proxy and
 checksum database. Compilation then uses the populated task-private module

@@ -25,7 +25,7 @@ export const repository = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-export const goVersion = "go1.25.13";
+export const goVersion = "go1.26.10";
 export const digest = (b) => createHash("sha256").update(b).digest("hex");
 const json = (v) => Buffer.from(JSON.stringify(v, null, 2) + "\n");
 const requireThat = (v, m) => {
