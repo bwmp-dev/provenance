@@ -1412,7 +1412,7 @@ async function verifyConsumers(bundleRoots, version) {
           type: "module",
           dependencies: {
             "@bwmp-dev/typescript-sdk": `file:${resolve(root, "package")}`,
-            typescript: "5.9.3",
+            typescript: "6.0.3",
           },
         }),
       );
