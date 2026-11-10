@@ -137,7 +137,7 @@ SOFTWARE.
 
 ---
 
-yaml@2.9.0 (ISC)
+yaml@2.9.1 (ISC)
 Copyright Eemeli Aro <eemeli@gmail.com>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
