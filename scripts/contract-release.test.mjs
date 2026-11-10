@@ -1434,11 +1434,11 @@ test("release bootstraps Node before pnpm and enables its cache only afterward",
   const [bootstrap, cache] = nodeSteps;
   assert.ok(checkout >= 0 && checkout < bootstrap.index);
   assert.ok(bootstrap.index < pnpm && pnpm < cache.index);
-  assert.equal(bootstrap.step.uses, "actions/setup-node@v7");
+  assert.equal(bootstrap.step.uses, "actions/setup-node@v7.1.0");
   assert.equal(bootstrap.step.with["node-version-file"], ".node-version");
   assert.equal(bootstrap.step.with["package-manager-cache"], false);
   assert.equal(bootstrap.step.with.cache, undefined);
-  assert.equal(cache.step.uses, "actions/setup-node@v7");
+  assert.equal(cache.step.uses, "actions/setup-node@v7.1.0");
   assert.equal(cache.step.with["node-version-file"], ".node-version");
   assert.equal(cache.step.with.cache, "pnpm");
   assert.equal(steps[pnpm].with.version, "11.20.0");

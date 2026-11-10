@@ -178,7 +178,7 @@ test("every release job provisions pinned Node before invoking it", async () => 
     assert.ok(setup >= 0, `${name} must provision Node explicitly`);
     assert.equal(
       steps[setup].uses,
-      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+      "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
     );
     assert.equal(steps[setup].with["node-version-file"], versionFile);
     assert.equal(steps[setup].with["package-manager-cache"], false);
